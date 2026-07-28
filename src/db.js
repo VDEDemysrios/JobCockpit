@@ -65,6 +65,18 @@ CREATE TABLE IF NOT EXISTS meta (
   cle    TEXT PRIMARY KEY,
   valeur TEXT
 );
+
+-- Jours où Benjamin a fait quelque chose. Sert au calcul de la série.
+CREATE TABLE IF NOT EXISTS activite (
+  jour    TEXT PRIMARY KEY,   -- AAAA-MM-JJ
+  actions INTEGER DEFAULT 0
+);
+
+-- Succès débloqués, avec leur date pour l'affichage « obtenu le ».
+CREATE TABLE IF NOT EXISTS succes (
+  code      TEXT PRIMARY KEY,
+  obtenu_le TEXT
+);
 `;
 
 /**
@@ -186,6 +198,23 @@ export function upsertOffre(db, offre) {
   });
 
   return { nouvelle: !existante };
+}
+
+/**
+ * Enregistre qu'une action a eu lieu aujourd'hui.
+ * Alimente le calcul de la série de jours ouvrés consécutifs.
+ */
+export function noterActivite(db, jour = new Date().toISOString().slice(0, 10)) {
+  db.prepare(`
+    INSERT INTO activite (jour, actions) VALUES (?, 1)
+    ON CONFLICT(jour) DO UPDATE SET actions = actions + 1
+  `).run(jour);
+}
+
+/** Jours d'activité, du plus récent au plus ancien (120 derniers). */
+export function lireJoursActifs(db) {
+  return db.prepare('SELECT jour FROM activite ORDER BY jour DESC LIMIT 120')
+    .all().map(r => r.jour);
 }
 
 /**

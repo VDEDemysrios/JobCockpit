@@ -4,7 +4,10 @@
 // avec un message en français directement affichable par le dashboard.
 import express from 'express';
 import { readFileSync, existsSync } from 'node:fs';
-import { lireMeta, ecrireMeta, upsertOffre, transaction } from './db.js';
+import { lireMeta, ecrireMeta, upsertOffre, transaction, noterActivite, lireJoursActifs } from './db.js';
+import {
+  SUCCES, niveauPour, calculerXp, calculerSerie, debutDeSemaine, succesAtteints,
+} from './progression.js';
 import { offreId } from './hash.js';
 import { scorer } from './scoring.js';
 import { genererLettre, extraireCoordonnees } from './letter.js';
@@ -103,7 +106,11 @@ export function creerRoutes({ db, collecter, sources, profil }) {
         .run(v, new Date().toISOString(), req.params.id);
     }
 
-    res.json({ ok: true });
+    // Épingler ou annoter n'est pas « avancer » : seul un changement de
+    // statut compte pour la série, sinon elle se maintiendrait toute seule.
+    if (maj.some(([cle]) => cle === 'status')) noterActivite(db);
+
+    res.json({ ok: true, progression: construireProgression() });
   });
 
   // --- Offres ajoutées à la main -------------------------------------------
@@ -166,6 +173,116 @@ export function creerRoutes({ db, collecter, sources, profil }) {
     } finally {
       collecteEnCours = false;
     }
+  });
+
+  // --- Progression : expérience, niveau, série, succès ---------------------
+
+  const OBJECTIF_DEFAUT = 5;
+
+  /**
+   * Agrège l'état réel de la base. L'expérience est TOUJOURS recalculée
+   * d'ici, jamais accumulée : refaire une action ne double pas les points,
+   * et corriger une erreur de saisie corrige aussi le score.
+   */
+  function agregerEtat() {
+    const aujourdhui = new Date().toISOString().slice(0, 10);
+    const lundi = debutDeSemaine(aujourdhui);
+
+    const n = (sql, params = []) => db.prepare(sql).get(...params)?.n ?? 0;
+
+    const envoyees = n(`SELECT COUNT(*) n FROM tracking WHERE status <> 'À postuler'`);
+    const relances = n(`SELECT COUNT(*) n FROM tracking WHERE status IN ('Relancé','Entretien','Refus')`);
+    const entretiens = n(`SELECT COUNT(*) n FROM tracking WHERE status = 'Entretien'`);
+    const lettres = n(`SELECT COUNT(*) n FROM letters`);
+    const ajoutsManuels = n(`SELECT COUNT(*) n FROM offers WHERE is_manual = 1 OR source = 'collage'`);
+    const analysees = n(`SELECT COUNT(*) n FROM offers WHERE analysis_json IS NOT NULL`);
+    const faitCetteSemaine = n(`SELECT COUNT(*) n FROM tracking WHERE sent_date >= ?`, [lundi]);
+
+    const villesDistinctes = n(`
+      SELECT COUNT(DISTINCT o.ville) n FROM offers o
+      JOIN tracking t ON t.offer_id = o.id
+      WHERE t.status <> 'À postuler'`);
+
+    const agrivoltaique = n(`
+      SELECT COUNT(*) n FROM offers o
+      JOIN tracking t ON t.offer_id = o.id
+      WHERE t.status <> 'À postuler'
+        AND (lower(o.titre) LIKE '%agrivolta%' OR lower(o.description) LIKE '%agrivolta%')`) > 0;
+
+    // Urgences : relances échues et entretiens en cours (mêmes règles que
+    // la vue « Focus du jour » côté navigateur).
+    const urgencesEnAttente = n(`
+      SELECT COUNT(*) n FROM tracking
+      WHERE (relance_date <> '' AND relance_date <= ? AND status NOT IN ('Refus','Entretien'))
+         OR status = 'Entretien'`, [aujourdhui]);
+
+    const serie = calculerSerie(lireJoursActifs(db), aujourdhui);
+    const objectifHebdo = Number(lireMeta(db, 'objectif_hebdo') ?? OBJECTIF_DEFAUT);
+
+    return {
+      envoyees, relances, entretiens, lettres, ajoutsManuels, analysees,
+      faitCetteSemaine, villesDistinctes, agrivoltaique, urgencesEnAttente,
+      serie, objectifHebdo,
+    };
+  }
+
+  /**
+   * Enregistre les succès nouvellement atteints et renvoie leur liste.
+   * Un succès obtenu ne se reperd jamais, même si l'état redescend :
+   * reprendre un badge parce qu'on a corrigé un statut serait vexant et
+   * absurde.
+   */
+  function debloquerSucces(etat) {
+    const atteints = succesAtteints(etat);
+    const dejaObtenus = new Set(db.prepare('SELECT code FROM succes').all().map(r => r.code));
+    const nouveaux = atteints.filter(c => !dejaObtenus.has(c));
+
+    if (nouveaux.length) {
+      const maintenant = new Date().toISOString();
+      const ins = db.prepare('INSERT INTO succes (code, obtenu_le) VALUES (?, ?) ON CONFLICT(code) DO NOTHING');
+      for (const code of nouveaux) ins.run(code, maintenant);
+    }
+    return nouveaux;
+  }
+
+  function construireProgression() {
+    const etat = agregerEtat();
+    const nouveaux = debloquerSucces(etat);
+
+    const xp = calculerXp(etat);
+    const niveau = niveauPour(xp);
+
+    const obtenus = new Map(
+      db.prepare('SELECT code, obtenu_le FROM succes').all().map(r => [r.code, r.obtenu_le])
+    );
+
+    return {
+      xp,
+      niveau,
+      serie: etat.serie,
+      objectifHebdo: etat.objectifHebdo,
+      faitCetteSemaine: etat.faitCetteSemaine,
+      stats: etat,
+      nouveauxSucces: nouveaux,
+      succes: SUCCES.map(s => ({
+        code: s.code, nom: s.nom, emoji: s.emoji, astuce: s.astuce,
+        obtenu: obtenus.has(s.code),
+        obtenuLe: obtenus.get(s.code) ?? null,
+      })),
+    };
+  }
+
+  routes.get('/progression', (req, res) => {
+    res.json({ ok: true, ...construireProgression() });
+  });
+
+  routes.put('/progression/objectif', (req, res) => {
+    const valeur = Number(req.body?.objectif);
+    if (!Number.isInteger(valeur) || valeur < 1 || valeur > 50) {
+      return res.status(400).json({ ok: false, error: 'L\'objectif doit être un nombre entre 1 et 50.' });
+    }
+    ecrireMeta(db, 'objectif_hebdo', valeur);
+    res.json({ ok: true, objectif: valeur });
   });
 
   // --- Import d'une offre par collage --------------------------------------
@@ -243,7 +360,8 @@ export function creerRoutes({ db, collecter, sources, profil }) {
         generated_at = excluded.generated_at, edited = 0
     `).run(req.params.id, contenu, new Date().toISOString());
 
-    res.json({ ok: true, contenu, editee: false });
+    noterActivite(db);
+    res.json({ ok: true, contenu, editee: false, progression: construireProgression() });
   });
 
   routes.patch('/letter/:id', (req, res) => {

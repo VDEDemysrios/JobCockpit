@@ -3,14 +3,35 @@ import { API } from './api.js';
 import { GM, STATUSES, MOIS, JOURS, todayISO, ageOffre } from './format.js';
 import { rendreDashboard, rendreCarte, rendreKanban, rendreAgenda, rendreIndicateurMaj, relanceDue, rendreFocus, actionsDuJour, celebrer } from './render.js';
 
-/** Nombre de jours après l'envoi au bout duquel proposer une relance. */
-const DELAI_RELANCE_JOURS = 7;
+import { rendreBandeauNiveau, rendreProgression } from './progression.js';
 
 const dansNJours = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+
+// ------------------------------------------------------------------ options
+
+const OPTIONS_DEFAUT = {
+  densite: 'normale', animations: true, confettis: true,
+  relanceJours: 7, ouvrirFocus: true, masquerEcartees: false,
+};
+
+function lireOptions() {
+  try { return { ...OPTIONS_DEFAUT, ...JSON.parse(localStorage.getItem('bp_options') ?? '{}') }; }
+  catch { return { ...OPTIONS_DEFAUT }; }
+}
+
+let options = lireOptions();
+
+function appliquerOptions() {
+  document.documentElement.dataset.densite = options.densite;
+  document.documentElement.dataset.anim = options.animations ? 'on' : 'off';
+  localStorage.setItem('bp_options', JSON.stringify(options));
+}
+appliquerOptions();
 
 const etat = {
   offres: [],
   meta: null,
+  progression: null,
   vue: 'dashboard',
   filtre: 'all',
   recherche: '',
@@ -38,6 +59,9 @@ async function essayer(action, messageSucces) {
   try {
     const r = await action();
     if (messageSucces) toast(messageSucces);
+    // Plusieurs routes renvoient la progression à jour : on en profite pour
+    // rafraîchir le niveau et fêter un éventuel succès, sans requête en plus.
+    if (r?.progression) appliquerProgression(r.progression);
     return r;
   } catch (erreur) {
     toast(erreur.message, true);
@@ -78,9 +102,55 @@ tic();
 // -------------------------------------------------------------------- données
 
 async function chargerDonnees() {
-  const [offres, meta] = await Promise.all([API.offres(), API.meta()]);
+  const [offres, meta, prog] = await Promise.all([API.offres(), API.meta(), API.progression()]);
   etat.offres = offres.offres;
   etat.meta = meta;
+  appliquerProgression(prog);
+}
+
+/**
+ * Prend en compte une progression renvoyée par le serveur.
+ * Le serveur est seul juge des points : le navigateur ne fait qu'afficher.
+ */
+function appliquerProgression(p) {
+  if (!p) return;
+
+  const ancienNiveau = etat.progression?.niveau.rang ?? null;
+  etat.progression = p;
+  rendreBandeauNiveau(p);
+
+  // Badge « Progression » : nombre de succès jamais consultés depuis leur obtention.
+  const nonVus = p.succes.filter(s => s.obtenu).length - Number(localStorage.getItem('bp_succes_vus') ?? 0);
+  const bp = document.getElementById('nb-prog');
+  bp.style.display = nonVus > 0 ? '' : 'none';
+  bp.textContent = nonVus;
+
+  // Montée de niveau : on la fête, mais jamais au tout premier chargement.
+  if (ancienNiveau !== null && p.niveau.rang > ancienNiveau) {
+    feter(p.niveau.embleme, `Niveau ${p.niveau.rang} atteint !`,
+      `Te voilà « ${p.niveau.titre} ». ${p.niveau.titreSuivant ? `Prochain palier : ${p.niveau.titreSuivant}.` : 'Dernier palier, rien au-dessus.'}`);
+    return;
+  }
+
+  // Sinon, on annonce le premier succès nouvellement débloqué.
+  if (p.nouveauxSucces?.length) {
+    const s = p.succes.find(x => x.code === p.nouveauxSucces[0]);
+    if (s) feter(s.emoji, `Succès débloqué — ${s.nom}`, s.astuce);
+  }
+}
+
+// ------------------------------------------------------------- célébration
+
+const fete = document.getElementById('fete');
+document.getElementById('feteOk').addEventListener('click', () => fete.classList.remove('show'));
+fete.addEventListener('click', e => { if (e.target === fete) fete.classList.remove('show'); });
+
+function feter(emoji, titre, texte) {
+  document.getElementById('feteEm').textContent = emoji;
+  document.getElementById('feteTitre').textContent = titre;
+  document.getElementById('feteTexte').textContent = texte;
+  fete.classList.add('show');
+  if (options.confettis) celebrer();
 }
 
 function trouver(id) {
@@ -94,13 +164,22 @@ document.getElementById('nav').addEventListener('click', e => {
   if (b) changerVue(b.dataset.view);
 });
 
+document.getElementById('lvlBox').addEventListener('click', () => changerVue('progression'));
+
 function changerVue(vue) {
   etat.vue = vue;
   document.querySelectorAll('.nav button').forEach(x => x.classList.toggle('active', x.dataset.view === vue));
-  ['focus', 'dashboard', 'offers', 'kanban', 'agenda'].forEach(id => {
+  ['focus', 'dashboard', 'offers', 'kanban', 'agenda', 'progression', 'options'].forEach(id => {
     document.getElementById('view-' + id).style.display = id === vue ? 'block' : 'none';
   });
   document.getElementById('sidebar').classList.remove('open');
+
+  // Consulter la vue Progression éteint le badge de succès non vus.
+  if (vue === 'progression' && etat.progression) {
+    localStorage.setItem('bp_succes_vus', etat.progression.succes.filter(s => s.obtenu).length);
+    document.getElementById('nb-prog').style.display = 'none';
+  }
+
   rendreTout();
 }
 
@@ -146,7 +225,9 @@ function ouvrirOffre(offre) {
 
 function rendreTout() {
   majBadgesNav();
-  if (etat.vue === 'focus') rendreFocus(etat.offres, ouvrirOffre);
+  if (etat.vue === 'progression') { if (etat.progression) rendreProgression(etat.progression); }
+  else if (etat.vue === 'options') rendreOptions();
+  else if (etat.vue === 'focus') rendreFocus(etat.offres, ouvrirOffre);
   else if (etat.vue === 'dashboard') rendreDashboard(etat.offres, etat.meta);
   else if (etat.vue === 'offers') rendreOffres();
   else if (etat.vue === 'kanban') rendreKanban(etat.offres, deposerKanban);
@@ -162,6 +243,8 @@ function rendreOffres() {
   ['1', '2', '3', '0'].forEach(g => { document.getElementById('c-' + g).textContent = compte[g]; });
 
   let liste = etat.offres.filter(o => etat.filtre === 'all' || String(o.groupe) === etat.filtre);
+  // Option « masquer les offres à écarter » — sans effet si on filtre justement dessus.
+  if (options.masquerEcartees && etat.filtre !== '3') liste = liste.filter(o => o.groupe !== 3);
   if (etat.statut !== 'all') liste = liste.filter(o => o.suivi.status === etat.statut);
   if (etat.recherche) {
     const q = etat.recherche.toLowerCase();
@@ -228,13 +311,13 @@ function brancherCarte(carte, offre) {
     // on en propose une automatiquement une semaine plus tard.
     let relanceAjoutee = false;
     if (versEnvoye && !offre.suivi.relance) {
-      champs.relance = dansNJours(DELAI_RELANCE_JOURS);
+      champs.relance = dansNJours(options.relanceJours);
       relanceAjoutee = true;
     }
 
     const r = await essayer(() => API.majSuivi(offre.id, champs),
       versEnvoye
-        ? (relanceAjoutee ? `Envoyée ✅ — relance planifiée dans ${DELAI_RELANCE_JOURS} jours` : 'Marqué comme envoyé ✅')
+        ? (relanceAjoutee ? `Envoyée ✅ — relance planifiée dans ${options.relanceJours} jours` : 'Marqué comme envoyé ✅')
         : 'Remis à « À postuler »');
 
     if (r) { Object.assign(offre.suivi, champs); rendreTout(); }
@@ -251,15 +334,15 @@ function brancherCarte(carte, offre) {
       if (champ === 'status' && valeur === 'Envoyé') {
         if (!offre.suivi.sent) champs.sent = todayISO();
         if (!offre.suivi.relance) {
-          champs.relance = dansNJours(DELAI_RELANCE_JOURS);
-          message = `Envoyée ✅ — relance planifiée dans ${DELAI_RELANCE_JOURS} jours`;
+          champs.relance = dansNJours(options.relanceJours);
+          message = `Envoyée ✅ — relance planifiée dans ${options.relanceJours} jours`;
         }
       }
 
       const r = await essayer(() => API.majSuivi(offre.id, champs), message);
       if (r) {
         Object.assign(offre.suivi, champs);
-        if (champ === 'status' && valeur === 'Entretien') celebrer();
+        if (champ === 'status' && valeur === 'Entretien' && options.confettis) celebrer();
         // Le statut change la couleur, la progression et le Kanban : on redessine.
         if (champ === 'status' || champ === 'relance') rendreTout();
         else majBadgesNav();
@@ -366,15 +449,15 @@ async function deposerKanban(id, statut) {
   if (statut === 'Envoyé') {
     if (!offre.suivi.sent) champs.sent = todayISO();
     if (!offre.suivi.relance) {
-      champs.relance = dansNJours(DELAI_RELANCE_JOURS);
-      message = `Envoyée ✅ — relance planifiée dans ${DELAI_RELANCE_JOURS} jours`;
+      champs.relance = dansNJours(options.relanceJours);
+      message = `Envoyée ✅ — relance planifiée dans ${options.relanceJours} jours`;
     }
   }
 
   const r = await essayer(() => API.majSuivi(id, champs), message);
   if (r) {
     Object.assign(offre.suivi, champs);
-    if (statut === 'Entretien') celebrer();
+    if (statut === 'Entretien' && options.confettis) celebrer();
     rendreTout();
   }
 }
@@ -488,6 +571,71 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   toast('Export CSV téléchargé');
 });
 
+// ------------------------------------------------------------ vue Options
+
+function rendreOptions() {
+  document.getElementById('optDensite').value = options.densite;
+  document.getElementById('optAnim').checked = options.animations;
+  document.getElementById('optConfettis').checked = options.confettis;
+  document.getElementById('optRelance').value = options.relanceJours;
+  document.getElementById('optFocus').checked = options.ouvrirFocus;
+  document.getElementById('optMasquer').checked = options.masquerEcartees;
+  document.getElementById('optTheme').value = document.documentElement.dataset.theme;
+}
+
+function brancherOption(id, cle, lire, message) {
+  document.getElementById(id).addEventListener('change', e => {
+    options[cle] = lire(e.target);
+    appliquerOptions();
+    rendreTout();
+    if (message) toast(message(options[cle]));
+  });
+}
+
+brancherOption('optDensite', 'densite', el => el.value, v => `Densité : ${v}`);
+brancherOption('optAnim', 'animations', el => el.checked, v => v ? 'Animations activées' : 'Animations désactivées');
+brancherOption('optConfettis', 'confettis', el => el.checked, v => v ? 'Confettis activés' : 'Confettis désactivés');
+brancherOption('optFocus', 'ouvrirFocus', el => el.checked, null);
+brancherOption('optMasquer', 'masquerEcartees', el => el.checked,
+  v => v ? 'Les offres à écarter sont masquées' : 'Toutes les offres sont affichées');
+
+document.getElementById('optRelance').addEventListener('change', e => {
+  const v = Number(e.target.value);
+  if (!Number.isInteger(v) || v < 1 || v > 60) { toast('Choisis un nombre entre 1 et 60.', true); e.target.value = options.relanceJours; return; }
+  options.relanceJours = v;
+  appliquerOptions();
+  toast(`Relance proposée ${v} jours après l'envoi`);
+});
+
+document.getElementById('optTheme').addEventListener('change', e => {
+  document.querySelector(`#themeSwitch button[data-t="${e.target.value}"]`).click();
+});
+
+document.getElementById('optExport').addEventListener('click', () => {
+  const donnees = {
+    exporteLe: new Date().toISOString(),
+    progression: etat.progression,
+    offres: etat.offres,
+  };
+  const blob = new Blob([JSON.stringify(donnees, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `job-cockpit-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  toast('Sauvegarde téléchargée');
+});
+
+// Objectif hebdomadaire
+document.getElementById('goalSave').addEventListener('click', async () => {
+  const v = Number(document.getElementById('goalInput').value);
+  const r = await essayer(() => API.majObjectif(v), `Objectif : ${v} candidatures par semaine`);
+  if (r) {
+    const p = await API.progression();
+    appliquerProgression(p);
+    rendreTout();
+  }
+});
+
 // ------------------------------------------------------- raccourcis clavier
 
 const aide = document.getElementById('aideClavier');
@@ -496,7 +644,10 @@ document.getElementById('fermerAide').addEventListener('click', fermerAide);
 aide.addEventListener('click', e => { if (e.target === aide) fermerAide(); });
 
 // Séquences « G puis lettre », comme dans Méridien.
-const VUES_RACCOURCI = { f: 'focus', d: 'dashboard', o: 'offers', k: 'kanban', a: 'agenda' };
+const VUES_RACCOURCI = {
+  f: 'focus', d: 'dashboard', o: 'offers', k: 'kanban',
+  a: 'agenda', p: 'progression', r: 'options',
+};
 let attendLettre = false;
 let minuterieG = null;
 
@@ -612,7 +763,7 @@ async function migrerSiNecessaire() {
 
   // On ouvre sur le Focus du jour s'il y a de l'urgent à traiter.
   const urgent = actionsDuJour(etat.offres).filter(a => a.rang <= 1).length;
-  if (urgent > 0) etat.vue = 'focus';
+  if (options.ouvrirFocus && urgent > 0) etat.vue = 'focus';
   changerVue(etat.vue);
 
   const jours = etat.meta?.derniereCollecte

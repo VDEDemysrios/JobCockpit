@@ -142,6 +142,45 @@ Laisser `email` et `telephone` vides fait chercher ces valeurs dans le CV.
 
 ## 4. Utiliser le tableau de bord
 
+### Ta progression
+
+Chercher un emploi, c'est beaucoup d'efforts pour des retours rares et lents.
+Le tableau de bord tient donc le compte de **ce que tu fais**, pour rendre
+l'effort visible même quand les réponses ne viennent pas.
+
+**Le principe : les points récompensent l'effort, jamais le résultat.**
+Postuler, relancer, écrire une lettre — ça dépend de toi. Décrocher un
+entretien, non. Un entretien rapporte un gros bonus, mais **aucun niveau n'en
+dépend** : tu peux atteindre le dernier palier sans en avoir décroché un seul.
+
+| Action | Points |
+|---|---|
+| Envoyer une candidature | +25 |
+| Effectuer une relance | +15 |
+| Rédiger une lettre de motivation | +10 |
+| Ajouter une offre à la main | +5 |
+| Une offre analysée par la collecte | +1 |
+| Décrocher un entretien *(bonus)* | +100 |
+
+**7 niveaux**, aux titres qui suivent une trajectoire dans les EnR :
+🌱 Prospecteur → 🌿 Porteur de projet → ☀️ Développeur junior → ⚡ Chef de
+projet → 🔆 Chef de projet confirmé → 🏔️ Responsable de portefeuille →
+👑 Directeur du développement.
+
+**15 succès** à débloquer, dont certains taillés pour ton profil (« Terrain de
+jeu » : postuler à une offre agrivoltaïque).
+
+**Une série** compte tes jours ouvrés consécutifs d'activité. Les week-ends
+sont ignorés — ne pas postuler un dimanche ne casse rien.
+
+**Un objectif hebdomadaire**, réglable, avec un anneau de progression. La
+semaine démarre le lundi.
+
+> Deux garanties. Les points sont **recalculés** à partir de tes données
+> réelles, jamais accumulés dans un compteur : refaire une action ne double
+> rien, et corriger une erreur de saisie corrige aussi le score. Et un succès
+> obtenu **reste acquis pour toujours**, même si tu modifies un statut ensuite.
+
 ### Les 5 vues
 
 - **🎯 Focus du jour** — *commence par là.* La liste de ce que tu dois faire
@@ -154,6 +193,10 @@ Laisser `email` et `telephone` vides fait chercher ces valeurs dans le CV.
 - **Offres** — la liste complète. Clique sur une carte pour la déplier.
 - **Kanban** — glisse une carte d'une colonne à l'autre pour changer son statut.
 - **Agenda** — les relances à faire, les retards en rouge.
+- **🏆 Progression** — ton niveau, ta série, ton objectif de la semaine et ta
+  vitrine de succès.
+- **⚙️ Options** — densité d'affichage, animations, confettis, thème, délai de
+  relance, et export de toutes tes données en JSON.
 
 ### Les raccourcis clavier
 
@@ -166,6 +209,8 @@ Appuie sur **`?`** à tout moment pour les afficher.
 | `G` puis `O` | Offres |
 | `G` puis `K` | Kanban |
 | `G` puis `A` | Agenda |
+| `G` puis `P` | Progression |
+| `G` puis `R` | Options |
 | `/` | Rechercher |
 | `R` | Lancer une collecte |
 | `T` | Changer de thème |
