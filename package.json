@@ -1,0 +1,17 @@
+{
+  "name": "job-cockpit",
+  "version": "1.0.0",
+  "description": "Tableau de bord de recherche d'emploi avec collecte automatisée",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "collect": "node scripts/collect.js",
+    "extract-cv": "node scripts/extract-cv.js",
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "dependencies": {
+    "@google/genai": "^1.0.0",
+    "dotenv": "^16.4.0",
+    "mammoth": "^1.8.0"
+  }
+}

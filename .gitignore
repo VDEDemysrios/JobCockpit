@@ -1,0 +1,17 @@
+# Secrets — ne JAMAIS commiter
+.env
+
+# Base de données locale
+data.db
+data.db-shm
+data.db-wal
+
+# Données personnelles (CV, lettres)
+profile/cv.txt
+profile/cv-source.docx
+profile/cv-source.pdf
+
+# Dépendances et journaux
+node_modules/
+collect.log
+npm-debug.log*
