@@ -127,8 +127,12 @@ export async function collecter({ db, profil, sources, cv, analyser = true }) {
   if (purgees > 0) console.log(`  🧹 ${purgees} offre(s) périmée(s) purgée(s)`);
 
   // 9. Journal.
+  //    « non-configure » se distingue de « ok » : sans clé d'API, une collecte
+  //    ne remonte rien mais n'échoue pas non plus. Le dashboard doit dire
+  //    « aucune source configurée » et non « à jour ».
   let statut;
   if (sourcesOk.length === 0 && sourcesEnEchec.length > 0) statut = 'echec';
+  else if (sourcesOk.length === 0 && sourcesIgnorees.length > 0) statut = 'non-configure';
   else if (sourcesEnEchec.length > 0) statut = 'partiel';
   else statut = 'ok';
 
@@ -174,8 +178,13 @@ async function principal() {
     console.log(`  Analysées       : ${resume.analysees}`);
     console.log(`  Sources OK      : ${resume.sourcesOk.join(', ') || 'aucune'}`);
     if (resume.sourcesEnEchec.length) console.log(`  Sources en échec : ${resume.sourcesEnEchec.join(', ')}`);
-    if (resume.sourcesIgnorees.length) console.log(`  Non configurées  : ${resume.sourcesIgnorees.join(', ')}`);
+    if (resume.sourcesIgnorees.length) console.log(`  Non configurées : ${resume.sourcesIgnorees.join(', ')}`);
     console.log(`  Durée           : ${resume.dureeSecondes} s\n`);
+
+    if (resume.statut === 'non-configure') {
+      console.warn('⚠ Aucune source configurée : rien n\'a pu être collecté.');
+      console.warn('  Renseigne au moins une clé d\'API dans .env (voir .env.example).\n');
+    }
 
     if (resume.statut === 'echec') process.exitCode = 1;
   } finally {

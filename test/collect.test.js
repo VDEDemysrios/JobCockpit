@@ -103,6 +103,17 @@ test('collecter signale « echec » si toutes les sources tombent, sans perdre l
   db.close();
 });
 
+test('collecter signale « non-configure » quand aucune source n\'a de clé', async () => {
+  const db = ouvrirBase(':memory:');
+  const sansCle = { nom: 'sans-cle', estConfiguree: () => false, chercher: async () => [] };
+  const r = await collecter({ db, profil: PROFIL, sources: [sansCle], cv: '', analyser: false });
+
+  assert.equal(r.statut, 'non-configure',
+    'sans clé, la collecte ne remonte rien mais n\'échoue pas — le dashboard ne doit pas afficher « à jour »');
+  assert.deepEqual(r.sourcesIgnorees, ['sans-cle']);
+  db.close();
+});
+
 test('collecter renseigne la date et le statut de dernière collecte', async () => {
   const db = ouvrirBase(':memory:');
   await collecter({ db, profil: PROFIL, sources: [sourceFactice([OFFRE_NANCY])], cv: '', analyser: false });
