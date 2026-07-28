@@ -1,0 +1,73 @@
+[
+  { "id": 1, "titre": "Chef de Projet Junior Aménagement et Énergie", "entreprise": "BARAN RECRUTEMENT", "ville": "Strasbourg (67)", "contrat": "CDI", "groupe": 1, "lien": "https://to.indeed.com/aapnsdv7y4wm",
+    "analyse": {
+      "exige": ["Formation supérieure (Ingénieur/Master)", "Première expérience en gestion de projet", "Connaissances réglementations et financements"],
+      "souhaite": ["Expérience « idéalement » aménagement/énergie/rénovation", "Bon relationnel, sens pédagogique"],
+      "decoratif": ["« Aventure humaine », « épanouissement »"],
+      "prouvable": ["Master 2 Droit et Gestion des Énergies (match exact)", "Gestion de projet énergie depuis 2023 — quasi l'intitulé du poste"],
+      "nonprouvable": ["Pas d'expérience en dossiers de subventions", "Pas de schéma directeur immobilier"],
+      "compensable": ["Oui : Budget Sheets transposables au suivi de subventions ; réglementaire EnR transposable au décret tertiaire"],
+      "verdict": "Oui, c'est pour toi. Meilleure offre du lot.",
+      "fourchette": "32 000 – 38 000 € brut annuel",
+      "fnote": "Marché junior énergie/aménagement, ~2 ans XP, hors IDF.",
+      "formul": ["« Je me positionne entre 32 000 et 38 000 € brut, selon le poste et les avantages. »", "« Vu le marché et mon expérience, je vise 32 à 38 k€ brut. »", "« Quelle est la fourchette prévue ? Mon attente : 32-38 k€. »"],
+      "budget": ["« Qu'est-ce qui peut combler l'écart (variable, RTT) ? »", "« Ouvert à ajuster le fixe si le package compense. »", "« Revalorisation à 6-12 mois selon objectifs ? »"],
+      "kw": [["Dossiers de subventions", "non", "CV montre des Budget Sheets, pas de subventions."], ["Décret tertiaire", "non", "Dispositif bâtimentaire, hors EnR."], ["Maître d'ouvrage délégué", "partiel", "Tu coordonnes des BE, rôle voisin."], ["Reporting", "oui", "Implicite dans ton suivi. À ajouter au CV."]]
+    } },
+
+  { "id": 2, "titre": "Juriste H/F", "entreprise": "CC du Canton d'Erstein", "ville": "Benfeld (67)", "contrat": "Temps plein", "groupe": 1, "lien": "https://to.indeed.com/aawktfmtr6xn",
+    "analyse": {
+      "exige": ["Bac+4/Bac+5 en droit", "Droit public, administratif, collectivités"],
+      "souhaite": ["Capacités rédactionnelles", "Compréhension des collectivités", "Permis B (optionnel)"],
+      "decoratif": ["Quasiment aucun — fiche factuelle"],
+      "prouvable": ["Bac+5 en droit ✓", "Stage droit public/contentieux/urbanisme — match direct"],
+      "nonprouvable": ["Jamais dans une collectivité (cabinet privé)", "Jamais fait de contrôle de légalité"],
+      "compensable": ["Partiel : ton contentieux visait déjà des collectivités"],
+      "verdict": "Oui, candidature légitime. Angle mort réel mais pas rédhibitoire.",
+      "fourchette": "27 000 – 31 000 € brut (indiciaire + RIFSEEP)",
+      "fnote": "Catégorie A attaché territorial + RIFSEEP. Probablement contractuel.",
+      "formul": ["« Quel échelon et quel RIFSEEP envisagez-vous ? »", "« Une reprise d'ancienneté pour mon expérience privée ? »", "« Mon attente : 27-31 k€ RIFSEEP inclus. »"],
+      "budget": ["« Marge sur le RIFSEEP ou l'échelon ? »", "« Reprise d'ancienneté étudiable ? »", "« Quels avantages annexes ? »"],
+      "kw": [["Contrôle de légalité", "non", "Jamais exercé ce contrôle formel."], ["Précontentieux", "partiel", "Contentieux oui, prévention non."], ["Notes d'aide à la décision", "oui", "Tes mémoires = équivalent direct."], ["Collectivités territoriales", "oui", "Ta concertation te donne une familiarité."]]
+    } },
+
+  { "id": 3, "titre": "Conseiller·ère juridique", "entreprise": "Département de Meurthe-et-Moselle", "ville": "Écrouves (54)", "contrat": "Temps plein", "groupe": 0, "lien": "https://to.indeed.com/aa6vpflyzx4c",
+    "analyse": { "verdict": "Fiche complète non récupérée à l'époque. Analyse en attente de relecture.", "exige": [], "souhaite": [], "decoratif": [], "prouvable": [], "nonprouvable": [], "compensable": [], "formul": [], "budget": [], "kw": [], "fourchette": null, "fnote": null } },
+
+  { "id": 4, "titre": "Chef de projet ENR H/F", "entreprise": "Veles Energies", "ville": "Bordeaux (33)", "contrat": "CDI", "groupe": 2, "lien": "https://to.indeed.com/aaqty47pfs4l",
+    "analyse": {
+      "exige": ["Bac+5 (ingénieur, urbanisme, droit environnement)", "Expérience CONFIRMÉE en développement ENR", "Procédures d'autorisation", "Anglais COURANT", "Permis B"],
+      "souhaite": ["« Idéalement » solaire/agrivoltaïque — 90% de ton portefeuille : PROUVABLE fort"],
+      "decoratif": ["Très peu — offre concrète"],
+      "prouvable": ["Bac+5 droit énergie ✓", "Portefeuille EnR ✓", "90% agrivoltaïque — match exact ✓✓", "Concertation ✓", "Permis B ✓"],
+      "nonprouvable": ["« Confirmée » : ~2 ans vs 3-5", "Anglais « courant » — CV dit « professionnel »", "Dépôt d'autorisations non détaillé"],
+      "compensable": ["Anglais : défendable en entretien", "L'agrivoltaïsme rare compense la durée"],
+      "verdict": "Révisé à la hausse : agrivoltaïque massif (90%) = vrai différenciateur. Point faible : anglais.",
+      "fourchette": "36 000 – 44 000 € brut annuel",
+      "fnote": "ENR junior ~35-42 k€, confirmé ~45-55 k€. Agrivoltaïque rare — vise le haut junior.",
+      "formul": ["« Je me positionne 36 000-44 000 € brut, vu ma spécialisation agrivoltaïque. »", "« Je vise 36-44 k€ brut, ouvert selon le variable. »", "« Votre fourchette ? La mienne : 36-44 k€. »"],
+      "budget": ["« Un variable lié aux objectifs de développement ? »", "« Mon agrivoltaïque justifie cette fourchette. »", "« Revalorisation à 6-12 mois possible ? »"],
+      "kw": [["Agrivoltaïsme", "oui", "90% de ton portefeuille. Ton meilleur argument."], ["Prospection de sites", "partiel", "Identifies-tu les sites toi-même ?"], ["Permis de construire", "partiel", "Déposes-tu ou BE externe ?"], ["Acceptabilité locale", "oui", "Ta concertation = équivalent direct."]]
+    } },
+
+  { "id": 5, "titre": "Juriste M&A et Financement H/F", "entreprise": "TENERGIE", "ville": "Fuveau (13)", "contrat": "Non précisé", "groupe": 3, "lien": "https://to.indeed.com/aajrlk4scmyt",
+    "analyse": { "exige": ["5 années CONFIRMÉES en Juridique M&A"], "souhaite": ["Cases RH génériques"], "decoratif": ["Accroche motivationnelle"], "prouvable": ["Rédaction de contrats ✓", "Veille EnR ✓", "Diplôme droit+énergie ✓"], "nonprouvable": ["5 ans M&A — zéro. Métier de niche"], "compensable": ["Non. Angle mineur : support construction/urbanisme"], "verdict": "Non. L'exigence 5 ans M&A est éliminatoire.", "formul": [], "budget": [], "kw": [], "fourchette": null, "fnote": null } },
+
+  { "id": 6, "titre": "Responsable Énergie H/F", "entreprise": "Société des 3 Vallées", "ville": "Courchevel (73)", "contrat": "CDI", "groupe": 3, "lien": "https://to.indeed.com/aacsnx8mrz6w",
+    "analyse": { "exige": ["Génie électrique", "Gestion énergétique sites complexes", "Réseaux, supervision"], "souhaite": ["ISO 50 001"], "decoratif": ["« Projet de vie »"], "prouvable": ["Conformité ✓", "Coordination ✓", "Dev ENR (annexe) ✓"], "nonprouvable": ["Aucune XP génie électrique — cœur du poste"], "compensable": ["Non"], "verdict": "Non, à écarter. Cœur de métier différent.", "formul": [], "budget": [], "kw": [], "fourchette": null, "fnote": null } },
+
+  { "id": 7, "titre": "Juriste Contract Manager H/F", "entreprise": "Thales", "ville": "Élancourt (78)", "contrat": "Temps plein", "groupe": 3, "lien": "https://to.indeed.com/aamssb8xfwm8",
+    "analyse": { "exige": ["Droit affaires/défense", "8 ANS minimum", "Anglais courant", "Habilitation défense"], "souhaite": ["Vision business"], "decoratif": ["Marque employeur"], "prouvable": ["Bac+5 droit ✓", "Contrats ✓ échelle modeste"], "nonprouvable": ["8 ans XP", "Secteur défense", "Habilitation", "Anglais courant"], "compensable": ["Non"], "verdict": "Non. Hors de portée. À revisiter dans 5+ ans.", "formul": [], "budget": [], "kw": [], "fourchette": null, "fnote": null } },
+
+  { "id": 8, "titre": "Contract Manager H/F", "entreprise": "PAPREC", "ville": "Paris (75)", "contrat": "CDI", "groupe": 3, "lien": "https://to.indeed.com/aa4wrcmrmywq",
+    "analyse": { "exige": ["Ingénieur", "10 ANS dont 5 Contract Mgmt", "Contrats EPC", "Anglais courant"], "souhaite": [], "decoratif": ["« Mot du DRH »"], "prouvable": ["Suivi contrats ✓ réduit"], "nonprouvable": ["Ingénieur", "10 ans", "5 ans CM", "EPC", "Anglais"], "compensable": ["Non"], "verdict": "Non, à écarter.", "formul": [], "budget": [], "kw": [], "fourchette": null, "fnote": null } },
+
+  { "id": 9, "titre": "Contract Manager H/F", "entreprise": "PAPREC", "ville": "La Seyne-sur-Mer (83)", "contrat": "CDI", "groupe": 3, "lien": "https://to.indeed.com/aa4bhcd4z778",
+    "analyse": { "exige": ["Identique Paris"], "souhaite": [], "decoratif": [], "prouvable": [], "nonprouvable": [], "compensable": [], "verdict": "Non — doublon de l'offre PAPREC Paris.", "formul": [], "budget": [], "kw": [], "fourchette": null, "fnote": null } },
+
+  { "id": 10, "titre": "Chef de Projet Industriel H/F", "entreprise": "Groupe PARLYM", "ville": "Rueil-Malmaison (92)", "contrat": "CDI", "groupe": 3, "lien": "https://to.indeed.com/aarts874cklp",
+    "analyse": { "exige": ["Ingénieur", "Mécanique DESP/ASME", "Chaudronnerie", "Anglais C1"], "souhaite": ["ERP, MS Project"], "decoratif": ["« Best Place to Work »"], "prouvable": ["Gestion projet générique ✓"], "nonprouvable": ["Technique cœur", "Pas ingénieur", "Anglais C1"], "compensable": ["Non"], "verdict": "Non, trop périphérique.", "formul": [], "budget": [], "kw": [], "fourchette": null, "fnote": null } },
+
+  { "id": 11, "titre": "RCSI / Head of Compliance", "entreprise": "Fed Group", "ville": "Paris (75)", "contrat": "CDI", "groupe": 3, "lien": "https://to.indeed.com/aaghfrgnn77t",
+    "analyse": { "exige": ["Certification AMF", "10+ ans conformité", "Direction"], "souhaite": [], "decoratif": [], "prouvable": ["Veille réglementaire ✓ autre domaine"], "nonprouvable": ["AMF", "10+ ans", "Séniorité direction"], "compensable": ["Non"], "verdict": "Non, hors de portée.", "formul": [], "budget": [], "kw": [], "fourchette": null, "fnote": null } }
+]

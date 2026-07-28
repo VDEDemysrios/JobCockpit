@@ -3,8 +3,11 @@
   "version": "1.0.0",
   "description": "Tableau de bord de recherche d'emploi avec collecte automatisée",
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
+    "start": "node src/server.js",
     "collect": "node scripts/collect.js",
     "extract-cv": "node scripts/extract-cv.js",
     "normaliser": "node scripts/normaliser.js",
@@ -13,7 +16,9 @@
   },
   "dependencies": {
     "@google/genai": "^1.0.0",
+    "docx": "^9.7.1",
     "dotenv": "^16.4.0",
+    "express": "^5.2.1",
     "mammoth": "^1.8.0"
   }
 }
