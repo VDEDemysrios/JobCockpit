@@ -1,0 +1,86 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { collecterDepuisSources, fusionner } from '../src/sources/index.js';
+
+function sourceFactice(nom, offres, { configuree = true, echoue = false } = {}) {
+  return {
+    nom,
+    estConfiguree: () => configuree,
+    chercher: async () => {
+      if (echoue) throw new Error(`panne simulée de ${nom}`);
+      return offres;
+    },
+  };
+}
+
+const OFFRE_A = {
+  externalId: 'a1', titre: 'Juriste EnR', entreprise: 'ACME', ville: 'Nancy (54)',
+  description: 'Longue description.', dateOffre: '2026-07-27',
+};
+
+test('une source en panne n\'empêche pas les autres', async () => {
+  const r = await collecterDepuisSources(
+    [sourceFactice('bonne', [OFFRE_A]), sourceFactice('cassee', [], { echoue: true })],
+    { intitules: ['juriste'], villes: [{ nom: 'Nancy', codeInsee: '54395' }], rayonKm: 30, depuisDate: '2026-07-21' }
+  );
+
+  assert.equal(r.offres.length, 1);
+  assert.deepEqual(r.sourcesEnEchec, ['cassee']);
+  assert.deepEqual(r.sourcesOk, ['bonne']);
+});
+
+test('une source non configurée est silencieusement sautée', async () => {
+  const r = await collecterDepuisSources(
+    [sourceFactice('absente', [OFFRE_A], { configuree: false })],
+    { intitules: ['juriste'], villes: [], rayonKm: 30, depuisDate: '2026-07-21' }
+  );
+
+  assert.equal(r.offres.length, 0);
+  assert.deepEqual(r.sourcesEnEchec, [], 'non configurée n\'est PAS une panne');
+  assert.deepEqual(r.sourcesIgnorees, ['absente']);
+});
+
+test('fusionner dédoublonne la même offre vue sur deux sources', () => {
+  const brutes = [
+    { ...OFFRE_A, source: 'france-travail', description: 'Description longue et complète de l\'offre.' },
+    { ...OFFRE_A, titre: 'Juriste EnR (H/F)', source: 'adzuna', description: 'Courte.' },
+  ];
+  const fusionnees = fusionner(brutes);
+
+  assert.equal(fusionnees.length, 1);
+  assert.deepEqual(fusionnees[0].sourcesAll.sort(), ['adzuna', 'france-travail']);
+});
+
+test('fusionner conserve la description la plus longue', () => {
+  const brutes = [
+    { ...OFFRE_A, source: 'adzuna', description: 'Courte.' },
+    { ...OFFRE_A, source: 'france-travail', description: 'Description nettement plus longue et détaillée.' },
+  ];
+  assert.equal(fusionner(brutes)[0].description, 'Description nettement plus longue et détaillée.');
+});
+
+test('fusionner ne confond pas deux offres distinctes', () => {
+  const brutes = [
+    { ...OFFRE_A, source: 'adzuna' },
+    { ...OFFRE_A, ville: 'Lyon (69)', source: 'adzuna' },
+  ];
+  assert.equal(fusionner(brutes).length, 2);
+});
+
+test('collecterDepuisSources interroge chaque ville PUIS la France entière', async () => {
+  const appels = [];
+  const espion = {
+    nom: 'espion',
+    estConfiguree: () => true,
+    chercher: async ({ intitule, ville }) => { appels.push({ intitule, ville: ville?.nom ?? null }); return []; },
+  };
+
+  await collecterDepuisSources([espion], {
+    intitules: ['juriste'],
+    villes: [{ nom: 'Nancy', codeInsee: '54395' }, { nom: 'Lyon', codeInsee: '69123' }],
+    rayonKm: 30, depuisDate: '2026-07-21',
+  });
+
+  assert.deepEqual(appels.map(a => a.ville), ['Nancy', 'Lyon', null],
+    'la passe nationale (ville=null) doit suivre les villes prioritaires');
+});
