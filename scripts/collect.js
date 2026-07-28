@@ -1,0 +1,192 @@
+// Collecteur d'offres — script autonome.
+//
+// Appelé de façon IDENTIQUE par la tâche planifiée et par le bouton
+// « Rafraîchir maintenant » du dashboard (plan 2) : un seul chemin de code,
+// donc aucune divergence de comportement entre les deux déclencheurs.
+//
+// Usage : npm run collect
+import 'dotenv/config';
+import { readFileSync, existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { ouvrirBase, upsertOffre, ecrireMeta, transaction, purgerOffresPerimees } from '../src/db.js';
+import { collecterDepuisSources } from '../src/sources/index.js';
+import { scorer } from '../src/scoring.js';
+import { analyserOffre } from '../src/analyze.js';
+import { normaliser } from '../src/hash.js';
+
+import franceTravail from '../src/sources/franceTravail.js';
+import adzuna from '../src/sources/adzuna.js';
+import jooble from '../src/sources/jooble.js';
+import indeed from '../src/sources/indeed.js';
+
+export const SOURCES = [franceTravail, adzuna, jooble, indeed];
+
+/** Date ISO d'il y a N jours — borne de fraîcheur. */
+function ilYaNJours(n) {
+  return new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+}
+
+/** true si la ville de l'offre correspond à l'une des villes prioritaires. */
+function estDansZonePrioritaire(villeOffre, villesPrioritaires) {
+  const ville = normaliser(villeOffre);
+  if (!ville) return false;
+  return villesPrioritaires.some(v => ville.includes(normaliser(v.nom)));
+}
+
+/** Déduit le département à partir d'un code postal ou d'une ville « X (67) ». */
+function deduireDepartement(offre) {
+  const source = offre.codePostal || offre.ville || '';
+  const trouve = String(source).match(/\b(\d{2})\d{0,3}\b/);
+  return trouve ? trouve[1] : null;
+}
+
+/**
+ * Exécute une collecte complète.
+ * @param {object} options
+ * @param {object} options.db        base ouverte via ouvrirBase()
+ * @param {object} options.profil    contenu de profile/profile.json
+ * @param {object[]} options.sources adaptateurs de sources
+ * @param {string} options.cv        texte du CV
+ * @param {boolean} options.analyser lancer l'analyse LLM (false dans les tests)
+ * @returns {Promise<object>} résumé de la collecte
+ */
+export async function collecter({ db, profil, sources, cv, analyser = true }) {
+  const debut = Date.now();
+  const depuisDate = ilYaNJours(profil.fraicheurJours);
+
+  console.log(`\n🔎 Collecte — offres publiées depuis le ${depuisDate}`);
+
+  // 1-3. Requêtes, isolation des pannes, dédoublonnage.
+  const { offres, sourcesOk, sourcesEnEchec, sourcesIgnorees } =
+    await collecterDepuisSources(sources, {
+      intitules: profil.intitules,
+      villes: profil.villesPrioritaires,
+      rayonKm: profil.rayonKm,
+      depuisDate,
+    });
+
+  console.log(`  ${offres.length} offre(s) distincte(s) après dédoublonnage`);
+
+  const retenues = [];
+
+  for (const offre of offres) {
+    // 4. Filtre de fraîcheur (certaines sources ne savent pas filtrer côté API).
+    if (offre.dateOffre && offre.dateOffre < depuisDate) continue;
+
+    // 5. Scoring déterministe.
+    const { groupe, score, detail } = scorer(offre, profil);
+    const horsZone = !estDansZonePrioritaire(offre.ville, profil.villesPrioritaires);
+
+    // 6. Filtre hors zone : hors des villes prioritaires, on ne garde que
+    //    les groupes 1 (Prioritaire) et 2 (Possible).
+    if (horsZone && groupe !== 1 && groupe !== 2) continue;
+
+    retenues.push({
+      ...offre,
+      groupe,
+      score,
+      scoreDetail: detail,
+      horsZone: horsZone ? 1 : 0,
+      departement: deduireDepartement(offre),
+    });
+  }
+
+  console.log(`  ${retenues.length} offre(s) retenue(s) après filtres`);
+
+  // 7. Analyse LLM — uniquement les groupes 1, 2 et 0, et jamais deux fois
+  //    la même offre (économie de quota, stabilité du verdict).
+  let analysees = 0;
+  if (analyser) {
+    const dejaAnalysees = new Set(
+      db.prepare('SELECT id FROM offers WHERE analysis_json IS NOT NULL').all().map(r => r.id)
+    );
+
+    for (const offre of retenues) {
+      if (offre.groupe === 3) continue;
+      if (dejaAnalysees.has(offre.id)) continue;
+
+      const analyse = await analyserOffre(offre, cv);
+      if (analyse) {
+        offre.analysisJson = analyse;
+        analysees++;
+        console.log(`  ✓ analysée : ${offre.titre}`);
+      }
+    }
+  }
+
+  // 8. Écriture en base — en transaction, et UNIQUEMENT dans `offers`.
+  let nouvelles = 0;
+  transaction(db, () => {
+    for (const offre of retenues) {
+      if (upsertOffre(db, offre).nouvelle) nouvelles++;
+    }
+  });
+
+  // Nettoyage : offres disparues depuis 30 jours sur lesquelles rien n'a été fait.
+  const purgees = purgerOffresPerimees(db, 30);
+  if (purgees > 0) console.log(`  🧹 ${purgees} offre(s) périmée(s) purgée(s)`);
+
+  // 9. Journal.
+  let statut;
+  if (sourcesOk.length === 0 && sourcesEnEchec.length > 0) statut = 'echec';
+  else if (sourcesEnEchec.length > 0) statut = 'partiel';
+  else statut = 'ok';
+
+  const resume = {
+    statut,
+    vues: offres.length,
+    retenues: retenues.length,
+    nouvelles,
+    analysees,
+    purgees,
+    sourcesOk,
+    sourcesEnEchec,
+    sourcesIgnorees,
+    dureeSecondes: Math.round((Date.now() - debut) / 1000),
+  };
+
+  ecrireMeta(db, 'last_collect_at', new Date().toISOString());
+  ecrireMeta(db, 'last_collect_status', statut);
+  ecrireMeta(db, 'last_collect_summary', JSON.stringify(resume));
+
+  return resume;
+}
+
+/** Point d'entrée en ligne de commande. */
+async function principal() {
+  const profil = JSON.parse(readFileSync('profile/profile.json', 'utf8'));
+  const cv = existsSync('profile/cv.txt') ? readFileSync('profile/cv.txt', 'utf8') : '';
+
+  if (!cv) {
+    console.warn('⚠ profile/cv.txt absent — les offres seront collectées et scorées, mais PAS analysées.');
+    console.warn('  Pour l\'ajouter : npm run extract-cv -- "chemin/vers/CV.docx"');
+  }
+
+  const db = ouvrirBase('data.db');
+  try {
+    const resume = await collecter({ db, profil, sources: SOURCES, cv, analyser: true });
+
+    console.log('\n📊 Résumé');
+    console.log(`  Statut          : ${resume.statut}`);
+    console.log(`  Offres vues     : ${resume.vues}`);
+    console.log(`  Retenues        : ${resume.retenues}`);
+    console.log(`  Nouvelles       : ${resume.nouvelles}`);
+    console.log(`  Analysées       : ${resume.analysees}`);
+    console.log(`  Sources OK      : ${resume.sourcesOk.join(', ') || 'aucune'}`);
+    if (resume.sourcesEnEchec.length) console.log(`  Sources en échec : ${resume.sourcesEnEchec.join(', ')}`);
+    if (resume.sourcesIgnorees.length) console.log(`  Non configurées  : ${resume.sourcesIgnorees.join(', ')}`);
+    console.log(`  Durée           : ${resume.dureeSecondes} s\n`);
+
+    if (resume.statut === 'echec') process.exitCode = 1;
+  } finally {
+    db.close();
+  }
+}
+
+// Ne s'exécute que si le fichier est lancé directement (pas à l'import par les tests).
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  principal().catch(erreur => {
+    console.error('❌ Collecte interrompue :', erreur.message);
+    process.exitCode = 1;
+  });
+}
