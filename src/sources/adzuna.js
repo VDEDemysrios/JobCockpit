@@ -30,6 +30,10 @@ export function normaliserOffre(brute) {
     titre: brute.title ?? '',
     entreprise: brute.company?.display_name ?? '',
     ville,
+    // Hiérarchie géographique complète : « France, Île-de-France,
+    // Seine-et-Marne, Dammartin-en-Goële ». Indispensable pour reconnaître
+    // qu'une commune de banlieue inconnue est bien dans la zone visée.
+    zone: zones.join(', '),
     codePostal: '',
     contrat: CONTRATS[brute.contract_type] ?? '',
     dateOffre: brute.created ? brute.created.slice(0, 10) : null,

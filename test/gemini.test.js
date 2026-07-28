@@ -1,6 +1,22 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { extraireJson, Limiteur } from '../src/gemini.js';
+import { extraireJson, Limiteur, classerErreur } from '../src/gemini.js';
+
+// Régression : lors de la première collecte réelle, un 429 sur un modèle
+// interrompait TOUTE la chaîne de repli — les modèles suivants, pourtant
+// fonctionnels, n'étaient jamais essayés et aucune offre n'était analysée.
+test('classerErreur distingue les cas où changer de modèle est la bonne réponse', () => {
+  assert.equal(classerErreur('{"error":{"code":404,"message":"This model is no longer available to new users"}}'), 'modele-indisponible');
+  assert.equal(classerErreur('{"error":{"code":503,"message":"This model is currently experiencing high demand"}}'), 'modele-indisponible');
+  assert.equal(classerErreur('{"error":{"code":429,"message":"You exceeded your current quota"}}'), 'quota');
+  assert.equal(classerErreur('RESOURCE_EXHAUSTED'), 'quota');
+});
+
+test('classerErreur traite les incidents inconnus comme passagers', () => {
+  assert.equal(classerErreur('socket hang up'), 'autre');
+  assert.equal(classerErreur('{"error":{"code":500}}'), 'autre');
+  assert.equal(classerErreur(undefined), 'autre');
+});
 
 test('extraireJson lit un JSON nu', () => {
   assert.deepEqual(extraireJson('{"verdict":"Oui"}'), { verdict: 'Oui' });

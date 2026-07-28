@@ -5,8 +5,38 @@
 // pour garder de la marge.
 import { GoogleGenAI } from '@google/genai';
 
-// Chaîne de repli : si un modèle est saturé ou retiré, on tente le suivant.
-const MODELES = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest'];
+// Chaîne de repli : si un modèle est saturé, retiré, ou à court de quota,
+// on passe au suivant. Vérifiée le 28/07/2026 contre l'API : les modèles
+// évoluent vite, et un nom devenu invalide fait échouer TOUTE l'analyse.
+//
+// Pour revérifier ce qui est disponible avec la clé du .env :
+//   npm run modeles
+const MODELES = [
+  'gemini-3.6-flash',        // le plus capable des « flash » disponibles
+  'gemini-flash-latest',     // alias suivant automatiquement les nouveautés
+  'gemini-3.5-flash-lite',   // plus léger, quota généralement plus large
+  'gemini-flash-lite-latest',
+];
+
+/**
+ * Classe une erreur d'API pour décider de la suite.
+ * Fonction pure, testable sans réseau.
+ *
+ * - 'modele-indisponible' (404/503) : ce modèle est retiré ou saturé
+ * - 'quota'               (429)     : quota épuisé pour CE modèle
+ * - 'autre'                         : incident passager, une reprise vaut le coup
+ *
+ * Dans les deux premiers cas, réessayer le même modèle est inutile :
+ * il faut passer au suivant. C'est ce que la première version ratait —
+ * un 429 sur un modèle interrompait toute la chaîne.
+ */
+export function classerErreur(message) {
+  const texte = String(message ?? '');
+  if (/\b404\b|no longer available|not found/i.test(texte)) return 'modele-indisponible';
+  if (/\b503\b|high demand|overloaded|UNAVAILABLE/i.test(texte)) return 'modele-indisponible';
+  if (/\b429\b|quota|RESOURCE_EXHAUSTED|rate limit/i.test(texte)) return 'quota';
+  return 'autre';
+}
 
 /** Espace les appels pour ne pas dépasser le quota par minute. */
 export class Limiteur {
@@ -82,16 +112,19 @@ export async function demander(prompt) {
         return reponse.text;
       } catch (erreur) {
         const message = String(erreur?.message ?? erreur);
-        console.warn(`  ⚠ Gemini [${modele}] tentative ${tentative} : ${message.slice(0, 160)}`);
+        const type = classerErreur(message);
+        console.warn(`  ⚠ Gemini [${modele}] ${type} : ${message.replace(/\s+/g, ' ').slice(0, 110)}`);
 
-        // Quota journalier épuisé : inutile d'insister sur les autres modèles.
-        if (/quota|RESOURCE_EXHAUSTED/i.test(message) && tentative === 2) {
-          return null;
-        }
-        // Pause avant la reprise.
+        // Modèle retiré, saturé, ou quota épuisé : réessayer le MÊME modèle
+        // ne servirait à rien. On passe directement au suivant de la chaîne.
+        if (type !== 'autre') break;
+
+        // Incident passager : une seule reprise, après une courte pause.
         if (tentative === 1) await new Promise(r => setTimeout(r, 2000));
       }
     }
   }
+
+  console.warn('  ⚠ Aucun modèle Gemini disponible — offres conservées sans analyse.');
   return null;
 }

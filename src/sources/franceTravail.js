@@ -51,6 +51,9 @@ export function normaliserOffre(brute) {
     titre: brute.intitule ?? '',
     entreprise: brute.entreprise?.nom ?? '',
     ville,
+    // Libellé complet « 54 - NANCY » : porte le code département, utile au
+    // repérage de zone quand la commune seule ne suffit pas.
+    zone: libelleLieu,
     codePostal: brute.lieuTravail?.codePostal ?? '',
     contrat: brute.typeContrat ?? '',
     dateOffre: brute.dateCreation ? brute.dateCreation.slice(0, 10) : null,

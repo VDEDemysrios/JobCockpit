@@ -8,6 +8,7 @@
     "collect": "node scripts/collect.js",
     "extract-cv": "node scripts/extract-cv.js",
     "normaliser": "node scripts/normaliser.js",
+    "modeles": "node scripts/modeles.js",
     "test": "node --test \"test/**/*.test.js\""
   },
   "dependencies": {

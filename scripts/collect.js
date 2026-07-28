@@ -26,17 +26,54 @@ function ilYaNJours(n) {
   return new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
 }
 
-/** true si la ville de l'offre correspond à l'une des villes prioritaires. */
-function estDansZonePrioritaire(villeOffre, villesPrioritaires) {
-  const ville = normaliser(villeOffre);
-  if (!ville) return false;
-  return villesPrioritaires.some(v => ville.includes(normaliser(v.nom)));
+/**
+ * true si l'offre se situe dans (ou près d')une ville prioritaire.
+ *
+ * Les sources ne renvoient pas toutes une commune : Adzuna a renvoyé
+ * « Hauts-de-Seine » (un département) et « Dammartin-en-Goële » (une commune
+ * de banlieue). Un simple test sur le nom de la ville les classait « hors
+ * zone » alors qu'elles sont en Île-de-France. On accepte donc aussi les
+ * zones et départements limitrophes déclarés dans profile.json.
+ *
+ * @param {object} offre  doit porter `ville` et éventuellement `codePostal`
+ */
+export function estDansZonePrioritaire(offre, villesPrioritaires) {
+  // Le libellé géographique est découpé en SEGMENTS (« France », « Île-de-France »,
+  // « Seine-et-Marne », « Dammartin-en-Goële »), comparés entiers.
+  //
+  // Comparer par sous-chaîne serait piégeux : « Bouches-du-Rhône » (13)
+  // contient « Rhône » (69) et Fuveau se retrouvait classé près de Lyon.
+  const segments = [offre.ville ?? '', ...String(offre.zone ?? '').split(',')]
+    .map(normaliser)
+    .filter(Boolean);
+
+  const departement = deduireDepartement(offre);
+
+  return villesPrioritaires.some(v => {
+    // Le nom de la ville prioritaire est distinctif : une inclusion suffit
+    // (« Eurométropole de Strasbourg » doit correspondre à Strasbourg).
+    const nomVille = normaliser(v.nom);
+    if (segments.some(s => s.includes(nomVille))) return true;
+
+    // Les zones limitrophes, elles, exigent une correspondance EXACTE.
+    const proches = (v.zonesProches ?? []).map(normaliser);
+    if (segments.some(s => proches.includes(s))) return true;
+
+    const deps = v.departementsProches ?? [v.departement];
+    return Boolean(departement) && deps.includes(departement);
+  });
 }
 
-/** Déduit le département à partir d'un code postal ou d'une ville « X (67) ». */
+/**
+ * Déduit le département depuis un code postal, une ville « X (67) »,
+ * ou un libellé de zone « 54 - NANCY » / « Strasbourg, 67 ».
+ */
 function deduireDepartement(offre) {
-  const source = offre.codePostal || offre.ville || '';
-  const trouve = String(source).match(/\b(\d{2})\d{0,3}\b/);
+  // On balaie les trois champs : le code postal est absent chez Adzuna, et
+  // « 54 - NANCY » (France Travail) ou « Strasbourg, 67 » (Jooble) ne portent
+  // le code que dans le libellé de zone.
+  const source = `${offre.codePostal ?? ''} ${offre.ville ?? ''} ${offre.zone ?? ''}`;
+  const trouve = source.match(/\b(\d{2})\d{0,3}\b/);
   return trouve ? trouve[1] : null;
 }
 
@@ -75,7 +112,7 @@ export async function collecter({ db, profil, sources, cv, analyser = true }) {
 
     // 5. Scoring déterministe.
     const { groupe, score, detail } = scorer(offre, profil);
-    const horsZone = !estDansZonePrioritaire(offre.ville, profil.villesPrioritaires);
+    const horsZone = !estDansZonePrioritaire(offre, profil.villesPrioritaires);
 
     // 6. Filtre hors zone : hors des villes prioritaires, on ne garde que
     //    les groupes 1 (Prioritaire) et 2 (Possible).

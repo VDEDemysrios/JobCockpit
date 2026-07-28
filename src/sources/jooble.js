@@ -13,6 +13,8 @@ export function normaliserOffre(brute) {
     titre: brute.title ?? '',
     entreprise: brute.company ?? '',
     ville,
+    // Libellé complet « Strasbourg, 67 » : porte le code département.
+    zone: brute.location ?? '',
     codePostal: '',
     contrat: brute.type ?? '',
     dateOffre: brute.updated ? brute.updated.slice(0, 10) : null,
