@@ -1,0 +1,34 @@
+[
+  { "attendu": 1, "titre": "Chef de Projet Junior Aménagement et Énergie", "entreprise": "BARAN RECRUTEMENT", "ville": "Strasbourg (67)",
+    "description": "Formation supérieure Ingénieur ou Master. Première expérience en gestion de projet. Connaissances des réglementations et des financements. Expérience idéalement en aménagement, énergie ou rénovation. Bon relationnel, sens pédagogique. Vous piloterez des projets d'aménagement et d'énergie pour des collectivités, avec suivi budgétaire et coordination des bureaux d'études." },
+
+  { "attendu": 1, "titre": "Juriste H/F", "entreprise": "CC du Canton d'Erstein", "ville": "Benfeld (67)",
+    "description": "Bac+4 ou Bac+5 en droit. Droit public, droit administratif, droit des collectivités territoriales. Capacités rédactionnelles. Bonne compréhension du fonctionnement des collectivités. Permis B apprécié. Vous assurerez le conseil juridique, le contrôle de légalité des actes et la rédaction de notes d'aide à la décision, ainsi que la veille juridique de la collectivité." },
+
+  { "attendu": 0, "titre": "Conseiller·ère juridique", "entreprise": "Département de Meurthe-et-Moselle", "ville": "Écrouves (54)",
+    "description": "Fiche non récupérée." },
+
+  { "attendu": 2, "titre": "Chef de projet ENR H/F", "entreprise": "Veles Energies", "ville": "Bordeaux (33)",
+    "description": "Bac+5 ingénieur, urbanisme ou droit de l'environnement. Expérience confirmée en développement ENR. Maîtrise des procédures d'autorisation. Anglais courant exigé. Permis B. Idéalement une expérience en solaire ou agrivoltaïque. Vous développerez un portefeuille de projets photovoltaïques, de la prospection au dépôt des autorisations, en menant la concertation locale." },
+
+  { "attendu": 3, "titre": "Juriste M&A et Financement H/F", "entreprise": "TENERGIE", "ville": "Fuveau (13)",
+    "description": "5 années confirmées d'expérience en juridique M&A exigées. Rédaction de contrats. Financement de projets. Vous interviendrez sur les opérations de fusion-acquisition et le financement des actifs du groupe." },
+
+  { "attendu": 3, "titre": "Responsable Énergie H/F", "entreprise": "Société des 3 Vallées", "ville": "Courchevel (73)",
+    "description": "Formation en génie électrique. Gestion énergétique de sites complexes. Connaissance des réseaux et de la supervision. Certification ISO 50001 appréciée. Un vrai projet de vie en montagne." },
+
+  { "attendu": 3, "titre": "Juriste Contract Manager H/F", "entreprise": "Thales", "ville": "Élancourt (78)",
+    "description": "Droit des affaires ou droit de la défense. 8 ans minimum d'expérience. Anglais courant impératif. Habilitation défense requise. Vision business. Vous piloterez les contrats complexes de la division." },
+
+  { "attendu": 3, "titre": "Contract Manager H/F", "entreprise": "PAPREC", "ville": "Paris (75)",
+    "description": "Diplôme d'ingénieur. 10 ans d'expérience dont 5 ans en contract management. Maîtrise des contrats EPC. Anglais courant. Vous gérerez les contrats de construction des unités de valorisation." },
+
+  { "attendu": 3, "titre": "Contract Manager H/F", "entreprise": "PAPREC", "ville": "La Seyne-sur-Mer (83)",
+    "description": "Diplôme d'ingénieur. 10 ans d'expérience dont 5 ans en contract management. Maîtrise des contrats EPC. Anglais courant. Vous gérerez les contrats de construction des unités de valorisation." },
+
+  { "attendu": 3, "titre": "Chef de Projet Industriel H/F", "entreprise": "Groupe PARLYM", "ville": "Rueil-Malmaison (92)",
+    "description": "Diplôme d'ingénieur. Mécanique, DESP, ASME. Chaudronnerie industrielle. Anglais C1. Maîtrise d'un ERP et de MS Project. Best Place to Work." },
+
+  { "attendu": 3, "titre": "RCSI / Head of Compliance", "entreprise": "Fed Group", "ville": "Paris (75)",
+    "description": "Certification AMF obligatoire. 10 ans et plus en conformité réglementaire. Expérience de direction d'équipe. Vous porterez la fonction de responsable de la conformité et du contrôle interne." }
+]
