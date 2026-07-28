@@ -187,6 +187,130 @@
   .toast{position:fixed;bottom:24px;right:24px;background:var(--accent);color:#fff;padding:12px 18px;border-radius:12px;box-shadow:var(--shadow-lg);font-size:13.5px;font-weight:500;animation:toastIn .3s;z-index:100;display:flex;align-items:center;gap:8px;max-width:420px;}
   .toast.err{background:var(--hot);}
   .mobile-nav{display:none;}
+
+  /* ═══════════════════ HABILLAGE & ANIMATIONS ═══════════════════ */
+
+  @keyframes floatIn{from{opacity:0;transform:translateY(16px) scale(.98);}to{opacity:1;transform:translateY(0) scale(1);}}
+  @keyframes shimmer{0%{background-position:-800px 0;}100%{background-position:800px 0;}}
+  @keyframes glow{0%,100%{opacity:.5;}50%{opacity:.9;}}
+  @keyframes confetti{0%{transform:translateY(0) rotate(0);opacity:1;}100%{transform:translateY(105vh) rotate(760deg);opacity:0;}}
+  @keyframes bounceIn{0%{transform:scale(.3);opacity:0;}55%{transform:scale(1.08);}100%{transform:scale(1);opacity:1;}}
+  @keyframes drawRing{from{stroke-dashoffset:var(--circ);}}
+
+  /* Halo coloré discret en fond de page */
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(60vw 60vh at 12% -10%,var(--accent-bg),transparent 60%),
+               radial-gradient(50vw 50vh at 105% 8%,var(--pinkb),transparent 62%);
+    opacity:.75;animation:glow 14s ease-in-out infinite;}
+  .app{position:relative;z-index:1;}
+
+  .view{animation:floatIn .4s cubic-bezier(.22,1,.36,1);}
+
+  /* Barre latérale : reflet et relief */
+  .sidebar::after{content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(160deg,rgba(255,255,255,.16),transparent 42%);}
+  .sb-brand{position:relative;z-index:1;}
+  .nav button{position:relative;overflow:hidden;}
+  .nav button::before{content:"";position:absolute;left:0;top:50%;transform:translateY(-50%);
+    width:3px;height:0;background:#fff;border-radius:0 3px 3px 0;transition:height .25s;}
+  .nav button.active::before{height:60%;}
+  .nav button:hover{transform:translateX(2px);}
+
+  /* Tuiles de statistiques : pastille dégradée + compteur animé */
+  .stat{border-radius:18px;transition:transform .2s cubic-bezier(.22,1,.36,1),box-shadow .2s;}
+  .stat:hover{transform:translateY(-5px);box-shadow:var(--shadow-lg);}
+  .stat .n{background:var(--grad);-webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent;font-variant-numeric:tabular-nums;}
+  .stat.plain .n{-webkit-text-fill-color:currentColor;background:none;}
+  .stat .ic{width:34px;height:34px;display:flex;align-items:center;justify-content:center;
+    border-radius:11px;background:var(--accent-bg);font-size:17px;opacity:1;top:14px;right:14px;}
+  .stat.s-g1 .ic{background:var(--g1b)}.stat.s-g2 .ic{background:var(--g2b)}
+  .stat.s-hot .ic{background:var(--hotb)}.stat.s-info .ic{background:var(--infob)}
+
+  /* Cartes d'offre : liseré dégradé au survol */
+  .card{border-radius:16px;position:relative;}
+  .card::after{content:"";position:absolute;left:0;right:0;top:0;height:2px;
+    background:var(--grad);opacity:0;transition:opacity .25s;}
+  .card:hover::after{opacity:.85;}
+  .card:hover{transform:translateY(-3px);}
+  .card.open{box-shadow:var(--shadow-lg);}
+
+  .panel-box{border-radius:18px;}
+  .panel-box h3::before{content:"";width:3px;height:15px;background:var(--grad);border-radius:2px;}
+
+  .badge,.status-pill,.fresh{transition:transform .15s;}
+  .badge:hover,.fresh:hover{transform:scale(1.06);}
+  .chip{font-weight:500;}
+  .btn-primary{background:var(--grad);background-size:180% 180%;transition:background-position .4s,transform .1s;}
+  .btn-primary:hover{background-position:100% 0;}
+
+  /* Anneau de progression du pipeline */
+  .ring-wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
+  .ring{position:relative;width:112px;height:112px;flex-shrink:0;}
+  .ring svg{transform:rotate(-90deg);}
+  .ring .bg{stroke:var(--line);}
+  .ring .fg{stroke:url(#gradRing);stroke-linecap:round;transition:stroke-dashoffset 1s cubic-bezier(.22,1,.36,1);}
+  .ring .lbl-c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .ring .lbl-c b{font-size:24px;line-height:1;}
+  .ring .lbl-c span{font-size:10.5px;color:var(--muted);}
+
+  /* Courbe d'activité */
+  .spark{display:flex;align-items:flex-end;gap:3px;height:64px;}
+  .spark i{flex:1;background:var(--accent2);border-radius:3px 3px 0 0;min-height:2px;
+    opacity:.75;transition:opacity .15s,transform .15s;transform-origin:bottom;
+    animation:grow .5s ease backwards;}
+  .spark i:hover{opacity:1;transform:scaleY(1.06);}
+  .spark i.hot{background:var(--grad);opacity:1;}
+
+  /* Vue Focus */
+  .focus-card{display:flex;align-items:center;gap:15px;background:var(--panel);
+    border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;
+    padding:15px 18px;margin-bottom:11px;box-shadow:var(--shadow);
+    animation:floatIn .4s backwards;transition:transform .18s,box-shadow .18s;cursor:pointer;}
+  .focus-card:hover{transform:translateX(4px);box-shadow:var(--shadow-lg);}
+  .focus-card.urgent{border-left-color:var(--hot);background:var(--hotb);}
+  .focus-card.chaud{border-left-color:var(--g2);}
+  .focus-card.ok{border-left-color:var(--g1);}
+  .focus-ic{width:42px;height:42px;flex-shrink:0;border-radius:13px;display:flex;
+    align-items:center;justify-content:center;font-size:20px;background:var(--accent-bg);}
+  .focus-card.urgent .focus-ic{background:var(--hotb);}
+  .focus-card.chaud .focus-ic{background:var(--g2b);}
+  .focus-card.ok .focus-ic{background:var(--g1b);}
+  .focus-body{flex:1;min-width:0;}
+  .focus-body .ft{font-weight:600;font-size:14.5px;}
+  .focus-body .fs{color:var(--muted);font-size:12.5px;margin-top:2px;}
+  .focus-quoi{font-size:11.5px;font-weight:600;padding:4px 11px;border-radius:11px;
+    background:var(--accent-bg);color:var(--accent-ink);white-space:nowrap;}
+  .focus-vide{text-align:center;padding:46px 20px;animation:bounceIn .5s;}
+  .focus-vide .em{font-size:52px;display:block;margin-bottom:12px;}
+
+  /* Célébration d'un entretien décroché */
+  .confetti{position:fixed;top:-14px;width:9px;height:14px;z-index:200;pointer-events:none;
+    animation:confetti 2.6s ease-in forwards;}
+
+  /* Aide clavier */
+  .kbd{display:inline-block;padding:1px 6px;border:1px solid var(--line);border-bottom-width:2px;
+    border-radius:5px;font-size:11px;font-family:ui-monospace,monospace;background:var(--panel);}
+  .overlay{position:fixed;inset:0;background:rgba(10,12,20,.55);backdrop-filter:blur(3px);
+    z-index:150;display:none;align-items:center;justify-content:center;padding:20px;}
+  .overlay.show{display:flex;animation:fadeUp .22s;}
+  .overlay-box{background:var(--panel);border-radius:18px;padding:24px 28px;max-width:440px;
+    width:100%;box-shadow:var(--shadow-lg);animation:bounceIn .32s;}
+  .overlay-box h3{margin:0 0 16px;font-size:16px;}
+  .kbd-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;
+    border-bottom:1px solid var(--line);font-size:13px;}
+  .kbd-row:last-child{border-bottom:none;}
+
+  /* Squelette de chargement */
+  .skel{height:74px;border-radius:16px;margin-bottom:11px;
+    background:linear-gradient(90deg,var(--line) 25%,var(--panel) 50%,var(--line) 75%);
+    background-size:800px 100%;animation:shimmer 1.4s infinite linear;}
+
+  @media(prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;
+      transition-duration:.01ms !important;}
+  }
+
   @media(max-width:860px){
     .sidebar{position:fixed;left:-260px;transition:left .3s;}
     .sidebar.open{left:0;}
@@ -203,6 +327,7 @@
     <div class="sb-sub">Benjamin Perrin</div>
     <div class="clock"><div class="time" id="clockTime">--:--:--</div><div class="date" id="clockDate"></div></div>
     <nav class="nav" id="nav">
+      <button data-view="focus"><span class="nvic">🎯</span> Focus du jour <span class="nvbadge" id="nb-focus" style="display:none"></span></button>
       <button data-view="dashboard" class="active"><span class="nvic">📊</span> Dashboard</button>
       <button data-view="offers"><span class="nvic">📋</span> Offres <span class="nvbadge" id="nb-offers" style="display:none"></span></button>
       <button data-view="kanban"><span class="nvic">🗂️</span> Kanban</button>
@@ -213,11 +338,18 @@
       <button data-t="enr">EnR</button>
       <button data-t="dark">Nuit</button>
     </div>
-    <div class="sb-foot">Collecte automatique.<br>Données locales, jamais partagées.</div>
+    <div class="sb-foot">Collecte automatique.<br>Données locales, jamais partagées.<br>
+      <span style="opacity:.85">Appuie sur <span class="kbd" style="border-color:rgba(255,255,255,.35);background:rgba(255,255,255,.14);color:#fff">?</span> pour les raccourcis.</span></div>
   </aside>
 
   <div class="main">
     <div class="mobile-nav"><button onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button><strong>🚀 Job Cockpit</strong></div>
+
+    <!-- FOCUS DU JOUR -->
+    <div class="view" id="view-focus" style="display:none">
+      <div class="view-head"><div><h2>🎯 Focus du jour</h2><div class="vh-sub" id="focusSub"></div></div></div>
+      <div id="focusList"></div>
+    </div>
 
     <!-- DASHBOARD -->
     <div class="view" id="view-dashboard">
@@ -227,7 +359,37 @@
         <button id="refreshBtn">🔄 Rafraîchir maintenant</button>
       </div>
       <div class="stats" id="stats"></div>
-      <div class="panel-box"><h3>📈 Pipeline détaillé</h3><div id="funnel"></div></div>
+
+      <div class="panel-box">
+        <h3>📈 Pipeline détaillé</h3>
+        <div class="ring-wrap">
+          <div class="ring">
+            <svg width="112" height="112" viewBox="0 0 112 112">
+              <defs><linearGradient id="gradRing" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="var(--accent)"/><stop offset="100%" stop-color="var(--pink)"/>
+              </linearGradient></defs>
+              <circle class="bg" cx="56" cy="56" r="47" fill="none" stroke-width="10"/>
+              <circle class="fg" id="ringFg" cx="56" cy="56" r="47" fill="none" stroke-width="10"/>
+            </svg>
+            <div class="lbl-c"><b id="ringPct">0%</b><span>envoyées</span></div>
+          </div>
+          <div style="flex:1;min-width:220px" id="funnel"></div>
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <h3>⚡ Résultats de tes candidatures</h3>
+        <div class="stats" id="perf" style="margin-bottom:0"></div>
+      </div>
+
+      <div class="panel-box">
+        <h3>📉 Activité des 30 derniers jours</h3>
+        <div class="spark" id="spark"></div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:6px">
+          <span>il y a 30 jours</span><span>aujourd'hui</span>
+        </div>
+      </div>
+
       <div class="panel-box"><h3>📍 Répartition par ville</h3><div class="citybars" id="citybars"></div></div>
     </div>
 
@@ -294,6 +456,24 @@
   </div>
 </div>
 <div id="toastZone"></div>
+
+<div class="overlay" id="aideClavier">
+  <div class="overlay-box">
+    <h3>⌨️ Raccourcis clavier</h3>
+    <div class="kbd-row"><span>Focus du jour</span><span><span class="kbd">G</span> puis <span class="kbd">F</span></span></div>
+    <div class="kbd-row"><span>Dashboard</span><span><span class="kbd">G</span> puis <span class="kbd">D</span></span></div>
+    <div class="kbd-row"><span>Offres</span><span><span class="kbd">G</span> puis <span class="kbd">O</span></span></div>
+    <div class="kbd-row"><span>Kanban</span><span><span class="kbd">G</span> puis <span class="kbd">K</span></span></div>
+    <div class="kbd-row"><span>Agenda</span><span><span class="kbd">G</span> puis <span class="kbd">A</span></span></div>
+    <div class="kbd-row"><span>Rechercher</span><span><span class="kbd">/</span></span></div>
+    <div class="kbd-row"><span>Rafraîchir la collecte</span><span><span class="kbd">R</span></span></div>
+    <div class="kbd-row"><span>Changer de thème</span><span><span class="kbd">T</span></span></div>
+    <div class="kbd-row"><span>Fermer / annuler</span><span><span class="kbd">Échap</span></span></div>
+    <div style="margin-top:16px;text-align:right">
+      <button class="btn btn-primary" id="fermerAide">Compris</button>
+    </div>
+  </div>
+</div>
 
 <script type="module" src="app.js"></script>
 </body>

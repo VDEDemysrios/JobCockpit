@@ -142,13 +142,57 @@ Laisser `email` et `telephone` vides fait chercher ces valeurs dans le CV.
 
 ## 4. Utiliser le tableau de bord
 
-### Les 4 vues
+### Les 5 vues
 
-- **Dashboard** — vue d'ensemble, indicateur de dernière mise à jour, bouton
-  « Rafraîchir maintenant ».
+- **🎯 Focus du jour** — *commence par là.* La liste de ce que tu dois faire
+  maintenant, classée par urgence : relances en retard d'abord, entretiens à
+  préparer, puis les offres prioritaires auxquelles tu n'as pas encore postulé.
+  Clique sur une ligne pour ouvrir l'offre correspondante.
+  L'application s'ouvre directement sur cette vue quand quelque chose presse.
+- **Dashboard** — vue d'ensemble, statistiques, indicateur de dernière mise à
+  jour, bouton « Rafraîchir maintenant ».
 - **Offres** — la liste complète. Clique sur une carte pour la déplier.
 - **Kanban** — glisse une carte d'une colonne à l'autre pour changer son statut.
 - **Agenda** — les relances à faire, les retards en rouge.
+
+### Les raccourcis clavier
+
+Appuie sur **`?`** à tout moment pour les afficher.
+
+| Raccourci | Action |
+|---|---|
+| `G` puis `F` | Focus du jour |
+| `G` puis `D` | Dashboard |
+| `G` puis `O` | Offres |
+| `G` puis `K` | Kanban |
+| `G` puis `A` | Agenda |
+| `/` | Rechercher |
+| `R` | Lancer une collecte |
+| `T` | Changer de thème |
+| `Échap` | Fermer / annuler |
+
+### La relance planifiée toute seule
+
+Quand tu marques une candidature comme envoyée — bouton, liste déroulante ou
+glisser-déposer dans le Kanban — une **relance est automatiquement planifiée
+7 jours plus tard**, si tu n'en avais pas déjà fixé une. Elle apparaît alors
+dans l'Agenda et dans le Focus du jour.
+
+Tu peux évidemment changer ou effacer cette date.
+
+### Tes statistiques de résultat
+
+Le Dashboard affiche ce que tes candidatures donnent réellement :
+
+- **Taux de réponse** — calculé sur les candidatures **envoyées**, pas sur
+  l'ensemble des offres (sinon il serait artificiellement bas).
+- **Taux d'entretien** — la proportion d'envois qui débouchent sur un entretien.
+- **En attente depuis** — le délai moyen, en jours, de tes candidatures encore
+  sans réponse.
+- **Courbe d'activité** — tes envois sur les 30 derniers jours. Survole une
+  barre pour voir le détail.
+
+L'anneau indique la part des offres pour lesquelles tu as effectivement postulé.
 
 ### Les 4 groupes
 

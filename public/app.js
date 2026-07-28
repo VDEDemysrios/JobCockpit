@@ -1,7 +1,12 @@
 // Point d'entrée du dashboard : état, navigation, événements.
 import { API } from './api.js';
 import { GM, STATUSES, MOIS, JOURS, todayISO, ageOffre } from './format.js';
-import { rendreDashboard, rendreCarte, rendreKanban, rendreAgenda, rendreIndicateurMaj, relanceDue } from './render.js';
+import { rendreDashboard, rendreCarte, rendreKanban, rendreAgenda, rendreIndicateurMaj, relanceDue, rendreFocus, actionsDuJour, celebrer } from './render.js';
+
+/** Nombre de jours après l'envoi au bout duquel proposer une relance. */
+const DELAI_RELANCE_JOURS = 7;
+
+const dansNJours = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
 
 const etat = {
   offres: [],
@@ -92,7 +97,7 @@ document.getElementById('nav').addEventListener('click', e => {
 function changerVue(vue) {
   etat.vue = vue;
   document.querySelectorAll('.nav button').forEach(x => x.classList.toggle('active', x.dataset.view === vue));
-  ['dashboard', 'offers', 'kanban', 'agenda'].forEach(id => {
+  ['focus', 'dashboard', 'offers', 'kanban', 'agenda'].forEach(id => {
     document.getElementById('view-' + id).style.display = id === vue ? 'block' : 'none';
   });
   document.getElementById('sidebar').classList.remove('open');
@@ -103,6 +108,7 @@ function majBadgesNav() {
   const aPostuler = etat.offres.filter(o =>
     (o.groupe === 1 || o.groupe === 2) && o.suivi.status === 'À postuler').length;
   const relances = etat.offres.filter(relanceDue).length;
+  const focus = actionsDuJour(etat.offres).filter(a => a.rang <= 1).length;
 
   const bo = document.getElementById('nb-offers');
   bo.style.display = aPostuler ? '' : 'none';
@@ -111,13 +117,37 @@ function majBadgesNav() {
   const ba = document.getElementById('nb-agenda');
   ba.style.display = relances ? '' : 'none';
   ba.textContent = relances;
+
+  // Le badge Focus ne compte que l'urgent (relances dues, entretiens) :
+  // sinon il afficherait en permanence le nombre total d'offres à traiter.
+  const bf = document.getElementById('nb-focus');
+  bf.style.display = focus ? '' : 'none';
+  bf.textContent = focus;
+}
+
+/** Ouvre une offre depuis la vue Focus : bascule sur Offres et la déplie. */
+function ouvrirOffre(offre) {
+  etat.ouvertes.add(offre.id);
+  etat.filtre = 'all';
+  etat.statut = 'all';
+  etat.recherche = '';
+  document.getElementById('search').value = '';
+  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.g === 'all'));
+  changerVue('offers');
+
+  requestAnimationFrame(() => {
+    const carte = [...document.querySelectorAll('.card')]
+      .find(c => c.querySelector('.ptitle')?.textContent === offre.titre);
+    carte?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
 }
 
 // ---------------------------------------------------------------- rendu global
 
 function rendreTout() {
   majBadgesNav();
-  if (etat.vue === 'dashboard') rendreDashboard(etat.offres, etat.meta);
+  if (etat.vue === 'focus') rendreFocus(etat.offres, ouvrirOffre);
+  else if (etat.vue === 'dashboard') rendreDashboard(etat.offres, etat.meta);
   else if (etat.vue === 'offers') rendreOffres();
   else if (etat.vue === 'kanban') rendreKanban(etat.offres, deposerKanban);
   else if (etat.vue === 'agenda') rendreAgenda(etat.offres);
@@ -193,8 +223,20 @@ function brancherCarte(carte, offre) {
     const champs = versEnvoye
       ? { status: 'Envoyé', sent: offre.suivi.sent || todayISO() }
       : { status: 'À postuler' };
+
+    // Une candidature envoyée sans relance planifiée finit oubliée :
+    // on en propose une automatiquement une semaine plus tard.
+    let relanceAjoutee = false;
+    if (versEnvoye && !offre.suivi.relance) {
+      champs.relance = dansNJours(DELAI_RELANCE_JOURS);
+      relanceAjoutee = true;
+    }
+
     const r = await essayer(() => API.majSuivi(offre.id, champs),
-      versEnvoye ? 'Marqué comme envoyé ✅' : 'Remis à « À postuler »');
+      versEnvoye
+        ? (relanceAjoutee ? `Envoyée ✅ — relance planifiée dans ${DELAI_RELANCE_JOURS} jours` : 'Marqué comme envoyé ✅')
+        : 'Remis à « À postuler »');
+
     if (r) { Object.assign(offre.suivi, champs); rendreTout(); }
   });
 
@@ -202,10 +244,22 @@ function brancherCarte(carte, offre) {
     el.addEventListener('change', async () => {
       const champ = el.dataset.champ;
       const valeur = el.value;
-      const r = await essayer(() => API.majSuivi(offre.id, { [champ]: valeur }),
-        champ === 'status' ? 'Statut : ' + valeur : null);
+      const champs = { [champ]: valeur };
+      let message = champ === 'status' ? 'Statut : ' + valeur : null;
+
+      // Passage à « Envoyé » depuis la liste déroulante : même logique.
+      if (champ === 'status' && valeur === 'Envoyé') {
+        if (!offre.suivi.sent) champs.sent = todayISO();
+        if (!offre.suivi.relance) {
+          champs.relance = dansNJours(DELAI_RELANCE_JOURS);
+          message = `Envoyée ✅ — relance planifiée dans ${DELAI_RELANCE_JOURS} jours`;
+        }
+      }
+
+      const r = await essayer(() => API.majSuivi(offre.id, champs), message);
       if (r) {
-        offre.suivi[champ] = valeur;
+        Object.assign(offre.suivi, champs);
+        if (champ === 'status' && valeur === 'Entretien') celebrer();
         // Le statut change la couleur, la progression et le Kanban : on redessine.
         if (champ === 'status' || champ === 'relance') rendreTout();
         else majBadgesNav();
@@ -305,8 +359,24 @@ async function ouvrirLettre(carte, offre, bouton) {
 async function deposerKanban(id, statut) {
   const offre = trouver(id);
   if (!offre || offre.suivi.status === statut) return;
-  const r = await essayer(() => API.majSuivi(id, { status: statut }), `Déplacé vers « ${statut} »`);
-  if (r) { offre.suivi.status = statut; rendreTout(); }
+
+  const champs = { status: statut };
+  let message = `Déplacé vers « ${statut} »`;
+
+  if (statut === 'Envoyé') {
+    if (!offre.suivi.sent) champs.sent = todayISO();
+    if (!offre.suivi.relance) {
+      champs.relance = dansNJours(DELAI_RELANCE_JOURS);
+      message = `Envoyée ✅ — relance planifiée dans ${DELAI_RELANCE_JOURS} jours`;
+    }
+  }
+
+  const r = await essayer(() => API.majSuivi(id, champs), message);
+  if (r) {
+    Object.assign(offre.suivi, champs);
+    if (statut === 'Entretien') celebrer();
+    rendreTout();
+  }
 }
 
 // ---------------------------------------------------------------- rafraîchir
@@ -418,6 +488,81 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   toast('Export CSV téléchargé');
 });
 
+// ------------------------------------------------------- raccourcis clavier
+
+const aide = document.getElementById('aideClavier');
+const fermerAide = () => aide.classList.remove('show');
+document.getElementById('fermerAide').addEventListener('click', fermerAide);
+aide.addEventListener('click', e => { if (e.target === aide) fermerAide(); });
+
+// Séquences « G puis lettre », comme dans Méridien.
+const VUES_RACCOURCI = { f: 'focus', d: 'dashboard', o: 'offers', k: 'kanban', a: 'agenda' };
+let attendLettre = false;
+let minuterieG = null;
+
+document.addEventListener('keydown', e => {
+  // On ne détourne jamais les touches pendant une saisie.
+  // `e.target` n'est pas toujours un Element (ce peut être `document`) :
+  // appeler .matches() dessus lèverait une exception et tuerait silencieusement
+  // TOUS les raccourcis.
+  const cible = e.target;
+  const saisie = cible instanceof Element && cible.matches('input, textarea, select');
+  if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+  if (e.key === 'Escape') {
+    if (aide.classList.contains('show')) { fermerAide(); return; }
+    if (saisie) { cible.blur(); return; }
+    document.getElementById('form').classList.remove('show');
+    return;
+  }
+
+  if (saisie) return;
+
+  // Deuxième touche d'une séquence « G + lettre ».
+  if (attendLettre) {
+    attendLettre = false;
+    clearTimeout(minuterieG);
+    const vue = VUES_RACCOURCI[e.key.toLowerCase()];
+    if (vue) { e.preventDefault(); changerVue(vue); }
+    return;
+  }
+
+  switch (e.key.toLowerCase()) {
+    case 'g':
+      attendLettre = true;
+      // La séquence expire, sinon un « g » isolé piégerait la frappe suivante.
+      minuterieG = setTimeout(() => { attendLettre = false; }, 1200);
+      break;
+
+    case '/':
+      e.preventDefault();
+      changerVue('offers');
+      // changerVue a déjà rendu la vue visible : pas besoin d'attendre une frame.
+      document.getElementById('search').focus();
+      document.getElementById('search').select();
+      break;
+
+    case 'r':
+      e.preventDefault();
+      changerVue('dashboard');
+      document.getElementById('refreshBtn').click();
+      break;
+
+    case 't': {
+      e.preventDefault();
+      const themes = ['vivid', 'enr', 'dark'];
+      const suivant = themes[(themes.indexOf(document.documentElement.dataset.theme) + 1) % themes.length];
+      document.querySelector(`#themeSwitch button[data-t="${suivant}"]`).click();
+      break;
+    }
+
+    case '?':
+      e.preventDefault();
+      aide.classList.add('show');
+      break;
+  }
+});
+
 // --------------------------------------------- migration depuis localStorage
 
 /**
@@ -464,7 +609,11 @@ async function migrerSiNecessaire() {
   }
 
   await migrerSiNecessaire();
-  rendreTout();
+
+  // On ouvre sur le Focus du jour s'il y a de l'urgent à traiter.
+  const urgent = actionsDuJour(etat.offres).filter(a => a.rang <= 1).length;
+  if (urgent > 0) etat.vue = 'focus';
+  changerVue(etat.vue);
 
   const jours = etat.meta?.derniereCollecte
     ? Math.floor((Date.now() - new Date(etat.meta.derniereCollecte).getTime()) / 86400000)

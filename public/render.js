@@ -14,6 +14,49 @@ export function relanceDue(offre) {
     && s.status !== 'Refus' && s.status !== 'Entretien';
 }
 
+// ------------------------------------------------------------- ANIMATIONS
+
+/**
+ * Fait défiler un compteur de 0 jusqu'à sa valeur.
+ *
+ * La valeur finale est écrite AVANT de lancer l'animation. C'est essentiel :
+ * requestAnimationFrame ne se déclenche pas dans un onglet en arrière-plan ni
+ * quand la fenêtre n'est pas composée. Si l'animation ne démarrait jamais,
+ * une version qui ne posait la valeur qu'à la fin laissait des « 0 » affichés.
+ * L'animation est un embellissement, jamais la source du chiffre.
+ */
+function animerCompteur(el, valeur, duree = 700) {
+  el.textContent = valeur;
+
+  if (valeur === 0 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const debut = performance.now();
+  const pas = (t) => {
+    const p = Math.min((t - debut) / duree, 1);
+    // Décélération : rapide au début, s'arrête en douceur.
+    el.textContent = Math.round(valeur * (1 - Math.pow(1 - p, 3)));
+    if (p < 1) requestAnimationFrame(pas);
+    else el.textContent = valeur; // garantit la valeur exacte à l'arrivée
+  };
+  requestAnimationFrame(pas);
+}
+
+/** Petite pluie de confettis — quand une candidature décroche un entretien. */
+export function celebrer() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const couleurs = ['var(--accent)', 'var(--accent2)', 'var(--g1)', 'var(--g2)', 'var(--pink)', 'var(--info)'];
+  for (let i = 0; i < 44; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti';
+    c.style.left = Math.random() * 100 + 'vw';
+    c.style.background = couleurs[i % couleurs.length];
+    c.style.animationDelay = Math.random() * 0.5 + 's';
+    c.style.animationDuration = (2 + Math.random() * 1.4) + 's';
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 4200);
+  }
+}
+
 // ---------------------------------------------------------------- DASHBOARD
 
 export function rendreDashboard(offres, meta) {
@@ -31,19 +74,42 @@ export function rendreDashboard(offres, meta) {
   document.getElementById('dashSub').textContent =
     `${offres.length} offres · ${actionnables} actionnables · ${envoyees} envoyées`;
 
-  document.getElementById('stats').innerHTML = `
-    <div class="stat"><span class="ic">📋</span><div class="n">${offres.length}</div><div class="l">Offres suivies</div></div>
-    <div class="stat s-g1"><span class="ic">🎯</span><div class="n" style="color:var(--g1)">${actionnables}</div><div class="l">Actionnables</div></div>
-    <div class="stat s-info"><span class="ic">📨</span><div class="n" style="color:var(--info)">${envoyees}</div><div class="l">Envoyées</div></div>
-    <div class="stat s-g2"><span class="ic">🤝</span><div class="n" style="color:var(--g2)">${parStatut['Entretien']}</div><div class="l">Entretiens</div></div>
-    <div class="stat s-hot"><span class="ic">⏰</span><div class="n" style="color:var(--hot)">${relances}</div><div class="l">Relances à faire</div></div>
-    <div class="stat"><span class="ic">🔥</span><div class="n">${fraiches}</div><div class="l">Offres fraîches (≤7j)</div></div>`;
+  const tuile = (cls, ic, valeur, libelle, couleur) =>
+    `<div class="stat ${cls}"><span class="ic">${ic}</span>
+     <div class="n${couleur ? ' plain' : ''}"${couleur ? ` style="color:${couleur}"` : ''} data-compteur="${valeur}">0</div>
+     <div class="l">${libelle}</div></div>`;
+
+  document.getElementById('stats').innerHTML =
+    tuile('', '📋', offres.length, 'Offres suivies') +
+    tuile('s-g1', '🎯', actionnables, 'Actionnables', 'var(--g1)') +
+    tuile('s-info', '📨', envoyees, 'Envoyées', 'var(--info)') +
+    tuile('s-g2', '🤝', parStatut['Entretien'], 'Entretiens', 'var(--g2)') +
+    tuile('s-hot', '⏰', relances, 'Relances à faire', 'var(--hot)') +
+    tuile('', '🔥', fraiches, 'Offres fraîches (≤7j)');
 
   document.getElementById('funnel').innerHTML = STATUSES.map(s => {
     const n = parStatut[s];
     const pct = offres.length ? Math.round(n / offres.length * 100) : 0;
     return `<div class="funnel-row"><span class="fname">${s}</span><span class="ftrack"><span class="ffill" style="width:${pct}%;background:${STATUS_COL[s]}"></span></span><span class="fn">${n}</span></div>`;
   }).join('');
+
+  // Anneau : part des offres pour lesquelles tu as effectivement postulé.
+  const pctEnvoye = offres.length ? Math.round(envoyees / offres.length * 100) : 0;
+  const anneau = document.getElementById('ringFg');
+  const circonference = 2 * Math.PI * 47;
+  anneau.style.strokeDasharray = circonference;
+  anneau.style.strokeDashoffset = circonference;
+  // Lecture forcée du layout : la transition CSS part bien de zéro, sans
+  // dépendre de requestAnimationFrame (bridé hors du premier plan).
+  void anneau.getBoundingClientRect();
+  anneau.style.strokeDashoffset = circonference * (1 - pctEnvoye / 100);
+  document.getElementById('ringPct').textContent = pctEnvoye + '%';
+
+  rendrePerformance(offres, parStatut, envoyees);
+  rendreActivite(offres);
+
+  document.querySelectorAll('#stats [data-compteur], #perf [data-compteur]')
+    .forEach(el => animerCompteur(el, Number(el.dataset.compteur)));
 
   const villes = {};
   offres.forEach(o => {
@@ -57,6 +123,57 @@ export function rendreDashboard(offres, meta) {
     .join('');
 
   rendreIndicateurMaj(meta);
+}
+
+/**
+ * Statistiques de résultat : ce que tes candidatures donnent réellement.
+ * Le taux de réponse se calcule sur les candidatures envoyées, pas sur
+ * l'ensemble des offres — sinon il serait artificiellement bas.
+ */
+function rendrePerformance(offres, parStatut, envoyees) {
+  const entretiens = parStatut['Entretien'];
+  const refus = parStatut['Refus'];
+  const reponses = entretiens + refus;
+
+  const tauxReponse = envoyees ? Math.round(reponses / envoyees * 100) : 0;
+  const tauxEntretien = envoyees ? Math.round(entretiens / envoyees * 100) : 0;
+
+  // Délai moyen entre l'envoi et aujourd'hui, pour les candidatures sans réponse.
+  const enAttente = offres.filter(o =>
+    o.suivi.sent && (o.suivi.status === 'Envoyé' || o.suivi.status === 'Relancé'));
+  const delaiMoyen = enAttente.length
+    ? Math.round(enAttente.reduce((t, o) => t + joursDepuis(o.suivi.sent), 0) / enAttente.length)
+    : 0;
+
+  const tuile = (ic, valeur, suffixe, libelle, couleur, cls = '') =>
+    `<div class="stat ${cls}"><span class="ic">${ic}</span>
+     <div class="n plain" style="color:${couleur}"><span data-compteur="${valeur}">0</span>${suffixe}</div>
+     <div class="l">${libelle}</div></div>`;
+
+  document.getElementById('perf').innerHTML =
+    tuile('💬', tauxReponse, '%', `Taux de réponse (sur ${envoyees} envoi${envoyees > 1 ? 's' : ''})`, 'var(--info)', 's-info') +
+    tuile('🎯', tauxEntretien, '%', 'Taux d\'entretien', 'var(--g1)', 's-g1') +
+    tuile('⏳', delaiMoyen, ' j', `En attente depuis (moy.)`, 'var(--g2)', 's-g2') +
+    tuile('🤐', envoyees - reponses, '', 'Sans réponse à ce jour', 'var(--muted)');
+}
+
+/** Courbe d'activité : nombre de candidatures envoyées par jour sur 30 jours. */
+function rendreActivite(offres) {
+  const jours = 30;
+  const compte = new Array(jours).fill(0);
+
+  offres.forEach(o => {
+    if (!o.suivi.sent) return;
+    const ecart = joursDepuis(o.suivi.sent);
+    if (ecart >= 0 && ecart < jours) compte[jours - 1 - ecart]++;
+  });
+
+  const max = Math.max(...compte, 1);
+  document.getElementById('spark').innerHTML = compte.map((n, i) => {
+    const date = new Date(Date.now() - (jours - 1 - i) * 86400000);
+    const titre = `${date.getDate()} ${MOIS[date.getMonth()].slice(0, 4)} : ${n} candidature${n > 1 ? 's' : ''}`;
+    return `<i class="${n === max && n > 0 ? 'hot' : ''}" style="height:${Math.max(n / max * 100, 3)}%;animation-delay:${i * 12}ms" title="${titre}"></i>`;
+  }).join('');
 }
 
 /** Indicateur « dernière mise à jour », alimenté par le backend. */
@@ -91,6 +208,107 @@ export function rendreIndicateurMaj(meta) {
   } else {
     texte.innerHTML = `✅ <strong>À jour</strong> — dernière collecte ${quand}${detail}.`;
   }
+}
+
+// ------------------------------------------------------------ FOCUS DU JOUR
+
+/**
+ * Construit la liste des actions à mener, de la plus urgente à la moins
+ * pressante. Le tri reflète le coût d'une inaction : rater une relance ou
+ * un entretien coûte plus cher que ne pas postuler à une offre qui restera
+ * ouverte quelques jours.
+ */
+export function actionsDuJour(offres) {
+  const aujourdhui = todayISO();
+  const actions = [];
+
+  // 1. Relances en retard — le plus coûteux à laisser filer.
+  offres.filter(relanceDue).forEach(o => {
+    const retard = joursDepuis(o.suivi.relance);
+    actions.push({
+      rang: 0, classe: 'urgent', icone: '⏰', offre: o,
+      titre: o.titre,
+      sous: `${o.entreprise} · relance prévue ${retard === 0 ? "aujourd'hui" : `il y a ${retard} j`}`,
+      quoi: 'Relancer',
+    });
+  });
+
+  // 2. Entretiens à préparer.
+  offres.filter(o => o.suivi.status === 'Entretien').forEach(o => {
+    actions.push({
+      rang: 1, classe: 'chaud', icone: '🤝', offre: o,
+      titre: o.titre,
+      sous: `${o.entreprise} · entretien en cours — prépare tes arguments`,
+      quoi: 'Préparer',
+    });
+  });
+
+  // 3. Offres prioritaires jamais envoyées, les plus fraîches d'abord.
+  offres
+    .filter(o => o.groupe === 1 && o.suivi.status === 'À postuler')
+    .sort((a, b) => (ageOffre(a.dateOffre) ?? 999) - (ageOffre(b.dateOffre) ?? 999))
+    .forEach(o => {
+      const age = ageOffre(o.dateOffre);
+      actions.push({
+        rang: 2, classe: 'ok', icone: '🟢', offre: o,
+        titre: o.titre,
+        sous: `${o.entreprise} · ${o.ville}${age !== null ? ` · publiée il y a ${age} j` : ''}`,
+        quoi: o.aLettre ? 'Postuler' : 'Rédiger la lettre',
+      });
+    });
+
+  // 4. Offres possibles jamais envoyées.
+  offres
+    .filter(o => o.groupe === 2 && o.suivi.status === 'À postuler')
+    .forEach(o => actions.push({
+      rang: 3, classe: '', icone: '🟡', offre: o,
+      titre: o.titre, sous: `${o.entreprise} · ${o.ville}`, quoi: 'Étudier',
+    }));
+
+  // 5. Offres à vérifier : décider si elles méritent une candidature.
+  offres
+    .filter(o => o.groupe === 0 && o.suivi.status === 'À postuler')
+    .forEach(o => actions.push({
+      rang: 4, classe: '', icone: '⚪', offre: o,
+      titre: o.titre, sous: `${o.entreprise} · analyse incomplète`, quoi: 'Vérifier',
+    }));
+
+  return actions.sort((a, b) => a.rang - b.rang);
+}
+
+export function rendreFocus(offres, surClic) {
+  const actions = actionsDuJour(offres);
+  const zone = document.getElementById('focusList');
+  const urgentes = actions.filter(a => a.rang === 0).length;
+
+  document.getElementById('focusSub').textContent = actions.length
+    ? `${actions.length} action${actions.length > 1 ? 's' : ''} en attente${urgentes ? ` · ${urgentes} urgente${urgentes > 1 ? 's' : ''}` : ''}`
+    : '';
+
+  if (actions.length === 0) {
+    zone.innerHTML = `<div class="focus-vide">
+      <span class="em">🎉</span>
+      <div style="font-size:16px;font-weight:600;margin-bottom:6px">Rien d'urgent aujourd'hui.</div>
+      <div style="color:var(--muted);font-size:13.5px">Tout est traité. Lance une collecte pour voir les nouvelles offres,<br>ou souffle un peu — c'est mérité.</div>
+    </div>`;
+    return;
+  }
+
+  zone.innerHTML = '';
+  actions.forEach((a, i) => {
+    const el = document.createElement('div');
+    el.className = 'focus-card ' + a.classe;
+    el.style.animationDelay = (i * 0.04) + 's';
+    el.innerHTML = `
+      <div class="focus-ic">${a.icone}</div>
+      <div class="focus-body">
+        <div class="ft">${echapper(a.titre)}</div>
+        <div class="fs">${echapper(a.sous)}</div>
+      </div>
+      <span class="focus-quoi">${a.quoi}</span>`;
+    el.addEventListener('click', () => surClic(a.offre));
+    zone.appendChild(el);
+  });
 }
 
 // ------------------------------------------------------------------- OFFRES
