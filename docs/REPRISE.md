@@ -474,41 +474,47 @@ Pour ne pas refaire le tour une troisième fois.
   reste un emplacement inerte. **Ne pas contourner** : Jooble et Careerjet
   couvrent une large part des mêmes annonces, légalement.
 
-### 12.4 Le dépôt est prêt à être publié
+### 12.4 Le dépôt est publié
 
-Trois sessions de travail ont enfin été commitées, sur la branche
-**`refonte-sources-et-epuration`** (commit `99e4e3e`, 41 fichiers,
-+5 574 / −1 808). `master` reste sur `a457123` en attendant la fusion.
+**<https://github.com/VDEDemysrios/JobCockpit>** — public, branche `main`,
+18 commits, 71 fichiers. Poussé le 29 juillet 2026.
 
-Audit de confidentialité fait avant tout dépôt public :
+Trois sessions de travail y ont enfin atterri. `master` a été renommé `main`,
+pour coller au défaut de GitHub.
+
+Audit de confidentialité, fait avant la publication :
 
 | Vérification | Résultat |
 |---|---|
 | `.env` déjà commité ? | **jamais** |
 | Clés d'API dans l'historique ? | **aucune** |
-| `profile/profile.json` suivi ? | **retiré** du suivi, remplacé par `profile.example.json` anonymisé |
-| Sauvegardes de CV | ignorées (`profile/*.sauvegarde-*`) |
+| `profile/profile.json` | **purgé de tout l'historique**, remplacé par `profile.example.json` anonymisé |
+| App ID Adzuna réel (README) | **purgé de tout l'historique** |
+| CV, `data.db`, `collect.log` | ignorés, jamais suivis |
 
-Deux réserves, à connaître avant de rendre le dépôt public :
+L'historique a été **réécrit** (`git filter-branch`) pour purger ces deux
+points, sur décision de Benjamin. Sauvegarde complète d'avant réécriture :
+`../sauvegarde-jobcockpit-avant-reecriture.bundle`.
 
-1. **L'App ID Adzuna réel de Benjamin figurait en exemple dans le README.**
-   Remplacé par une valeur factice — mais il reste dans les **anciens
-   commits**. Ce n'est pas un secret (l'identifiant public d'une application,
-   inutilisable sans la clé), mais autant le savoir.
-2. **`profile/profile.json` est dans l'historique** des commits antérieurs :
-   nom, ville, critères de recherche et motifs de scoring calqués sur le CV.
-   Le sortir du suivi protège l'avenir, pas le passé. Pour effacer aussi le
-   passé il faudrait réécrire l'historique (`git filter-repo`) — à décider
-   avec Benjamin selon qu'il rend le dépôt public ou privé.
+> **Le piège de la réécriture.** `filter-branch` a **effacé `profile.json` du
+> disque** au passage : le fichier venait d'être retiré du suivi, et la
+> réécriture recharge l'arbre de travail. Il a fallu le reconstruire depuis le
+> dernier commit qui le contenait
+> (`git show <commit>^:profile/profile.json`), puis régénérer les 31 flux.
+> **Sauvegarder les fichiers non suivis AVANT toute réécriture d'historique.**
 
-**`gh` (GitHub CLI) n'est pas installé sur cette machine.** La création du
-dépôt se fera donc à la main sur github.com, ou après installation de `gh`.
+`gh` (GitHub CLI) n'est pas installé sur cette machine : le dépôt a été créé à
+la main sur github.com, puis rattaché par `git remote add origin` et
+`git push -u origin main`. L'authentification passe par **Git Credential
+Manager**, déjà présent — les identifiants sont maintenant enregistrés, les
+prochains push ne redemanderont rien.
 
 ### 12.5 Ce qui reste, et n'appartient qu'à Benjamin
 
 - **Les clés France Travail.** Le blocage historique était le formulaire, qui
-  exige une **URL publique** et refuse `localhost`. **Publier le dépôt sur
-  GitHub résout ce point** : l'URL du dépôt fait une URL d'application
-  parfaitement valable. Puis ne pas oublier de **souscrire à l'API « Offres
-  d'emploi v2 »**, étape distincte de la création de l'application.
+  exige une **URL publique** et refuse `localhost`. **C'est résolu** : donner
+  <https://github.com/VDEDemysrios/JobCockpit> comme URL d'application. Puis
+  ne pas oublier de **souscrire à l'API « Offres d'emploi v2 »**, étape
+  distincte de la création de l'application, et celle que tout le monde
+  oublie.
 - **La clé Careerjet**, gratuite, sur careerjet.com/partners/api.
