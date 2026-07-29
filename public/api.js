@@ -38,11 +38,15 @@ export const API = {
   rafraichir:    ()            => appeler('/api/refresh', { method: 'POST' }),
   migrer:        (donnees)     => appeler('/api/migrate', { method: 'POST', body: donnees }),
 
-  progression:   ()            => appeler('/api/progression'),
-  majObjectif:   (objectif)    => appeler('/api/progression/objectif', { method: 'PUT', body: { objectif } }),
+  majObjectif:   (objectif)    => appeler('/api/objectif', { method: 'PUT', body: { objectif } }),
+  reinitialiser: ()            => appeler('/api/historique/reinitialiser', { method: 'POST' }),
+  stats:         ()            => appeler('/api/stats'),
+  cv:            ()            => appeler('/api/cv'),
+  timeline:      (limite = 60) => appeler(`/api/timeline?limite=${limite}`),
 
   lettre:        (id)          => appeler(`/api/letter/${id}`),
   genererLettre: (id, options) => appeler(`/api/letter/${id}`, { method: 'POST', body: options ?? {} }),
   majLettre:     (id, contenu) => appeler(`/api/letter/${id}`, { method: 'PATCH', body: { contenu } }),
   urlDocx:       (id)          => `/api/letter/${id}/docx`,
+  urlDossier:    (id)          => `/api/letter/${id}/dossier`,
 };

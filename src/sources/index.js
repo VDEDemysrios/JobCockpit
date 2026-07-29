@@ -12,14 +12,17 @@ import { offreId } from '../hash.js';
  *
  * @returns {Promise<{offres: object[], sourcesOk: string[], sourcesEnEchec: string[], sourcesIgnorees: string[]}>}
  */
-export async function collecterDepuisSources(sources, { intitules, villes, rayonKm, depuisDate }) {
+export async function collecterDepuisSources(sources, { intitules, villes, rayonKm, depuisDate, profil }) {
   const brutes = [];
   const sourcesOk = new Set();
   const sourcesEnEchec = new Set();
   const sourcesIgnorees = [];
 
   for (const source of sources) {
-    if (!source.estConfiguree()) {
+    // Le profil est transmis à estConfiguree() : toutes les sources ne se
+    // configurent pas dans .env. Les flux RSS, par exemple, se déclarent dans
+    // profile.json — c'est là que vivent déjà les villes et les intitulés.
+    if (!source.estConfiguree(profil)) {
       sourcesIgnorees.push(source.nom);
       console.log(`  ⏭  ${source.nom} : non configurée, ignorée`);
       continue;
@@ -29,7 +32,7 @@ export async function collecterDepuisSources(sources, { intitules, villes, rayon
       // Passe prioritaire (une requête par ville) puis passe nationale (ville = null).
       for (const ville of [...villes, null]) {
         try {
-          const resultats = await source.chercher({ intitule, ville, rayonKm, depuisDate });
+          const resultats = await source.chercher({ intitule, ville, rayonKm, depuisDate, profil });
           for (const offre of resultats) {
             brutes.push({ ...offre, source: source.nom });
           }

@@ -15,3 +15,8 @@ profile/cv-source.pdf
 node_modules/
 collect.log
 npm-debug.log*
+
+# Profil personnel : nom, ville, critères de recherche et motifs de scoring
+# calqués sur le CV. Le dépôt publie profile.example.json à la place.
+profile/profile.json
+profile/*.sauvegarde-*

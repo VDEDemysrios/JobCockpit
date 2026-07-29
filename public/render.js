@@ -1,8 +1,10 @@
-// Construction du HTML des différentes vues.
+// Construction du HTML des vues centrées sur les offres :
+// cartes, focus du jour, kanban, agenda.
 // Aucun accès réseau ici : ces fonctions reçoivent les données et rendent.
 import {
-  GM, STATUSES, STATUS_COL, STATUS_PROG, STATUS_BG, KWCOLOR, MOIS, SOURCE_LABEL,
-  todayISO, joursDepuis, ageOffre, etiquetteFraicheur, dateLisible, echapper,
+  GM, STATUSES, STATUS_COL, STATUS_PROG, STATUS_BG, STATUS_EMOJI, KWCOLOR,
+  MOIS, MOIS_COURT, SOURCE_LABEL,
+  todayISO, joursDepuis, ageOffre, etiquetteFraicheur, dateLisible, echapper, pluriel,
 } from './format.js';
 
 const liste = (a) => (a ?? []).map(x => `<li>${echapper(x)}</li>`).join('');
@@ -16,36 +18,12 @@ export function relanceDue(offre) {
 
 // ------------------------------------------------------------- ANIMATIONS
 
-/**
- * Fait défiler un compteur de 0 jusqu'à sa valeur.
- *
- * La valeur finale est écrite AVANT de lancer l'animation. C'est essentiel :
- * requestAnimationFrame ne se déclenche pas dans un onglet en arrière-plan ni
- * quand la fenêtre n'est pas composée. Si l'animation ne démarrait jamais,
- * une version qui ne posait la valeur qu'à la fin laissait des « 0 » affichés.
- * L'animation est un embellissement, jamais la source du chiffre.
- */
-function animerCompteur(el, valeur, duree = 700) {
-  el.textContent = valeur;
-
-  if (valeur === 0 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-  const debut = performance.now();
-  const pas = (t) => {
-    const p = Math.min((t - debut) / duree, 1);
-    // Décélération : rapide au début, s'arrête en douceur.
-    el.textContent = Math.round(valeur * (1 - Math.pow(1 - p, 3)));
-    if (p < 1) requestAnimationFrame(pas);
-    else el.textContent = valeur; // garantit la valeur exacte à l'arrivée
-  };
-  requestAnimationFrame(pas);
-}
-
-/** Petite pluie de confettis — quand une candidature décroche un entretien. */
-export function celebrer() {
+// Un entretien décroché est le seul moment que l'application célèbre encore.
+// Ce n'est pas un score : c'est la seule chose que Benjamin cherche vraiment.
+export function celebrer(intensite = 44) {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const couleurs = ['var(--accent)', 'var(--accent2)', 'var(--g1)', 'var(--g2)', 'var(--pink)', 'var(--info)'];
-  for (let i = 0; i < 44; i++) {
+  for (let i = 0; i < intensite; i++) {
     const c = document.createElement('div');
     c.className = 'confetti';
     c.style.left = Math.random() * 100 + 'vw';
@@ -54,159 +32,6 @@ export function celebrer() {
     c.style.animationDuration = (2 + Math.random() * 1.4) + 's';
     document.body.appendChild(c);
     setTimeout(() => c.remove(), 4200);
-  }
-}
-
-// ---------------------------------------------------------------- DASHBOARD
-
-export function rendreDashboard(offres, meta) {
-  const parGroupe = { 1: 0, 2: 0, 3: 0, 0: 0 };
-  offres.forEach(o => { parGroupe[o.groupe] = (parGroupe[o.groupe] ?? 0) + 1; });
-  const actionnables = parGroupe[1] + parGroupe[2];
-
-  const parStatut = Object.fromEntries(STATUSES.map(s => [s, 0]));
-  offres.forEach(o => { parStatut[o.suivi.status] = (parStatut[o.suivi.status] ?? 0) + 1; });
-  const envoyees = parStatut['Envoyé'] + parStatut['Relancé'] + parStatut['Entretien'] + parStatut['Refus'];
-
-  const relances = offres.filter(relanceDue).length;
-  const fraiches = offres.filter(o => { const a = ageOffre(o.dateOffre); return a !== null && a <= 7; }).length;
-
-  document.getElementById('dashSub').textContent =
-    `${offres.length} offres · ${actionnables} actionnables · ${envoyees} envoyées`;
-
-  const tuile = (cls, ic, valeur, libelle, couleur) =>
-    `<div class="stat ${cls}"><span class="ic">${ic}</span>
-     <div class="n${couleur ? ' plain' : ''}"${couleur ? ` style="color:${couleur}"` : ''} data-compteur="${valeur}">0</div>
-     <div class="l">${libelle}</div></div>`;
-
-  document.getElementById('stats').innerHTML =
-    tuile('', '📋', offres.length, 'Offres suivies') +
-    tuile('s-g1', '🎯', actionnables, 'Actionnables', 'var(--g1)') +
-    tuile('s-info', '📨', envoyees, 'Envoyées', 'var(--info)') +
-    tuile('s-g2', '🤝', parStatut['Entretien'], 'Entretiens', 'var(--g2)') +
-    tuile('s-hot', '⏰', relances, 'Relances à faire', 'var(--hot)') +
-    tuile('', '🔥', fraiches, 'Offres fraîches (≤7j)');
-
-  document.getElementById('funnel').innerHTML = STATUSES.map(s => {
-    const n = parStatut[s];
-    const pct = offres.length ? Math.round(n / offres.length * 100) : 0;
-    return `<div class="funnel-row"><span class="fname">${s}</span><span class="ftrack"><span class="ffill" style="width:${pct}%;background:${STATUS_COL[s]}"></span></span><span class="fn">${n}</span></div>`;
-  }).join('');
-
-  // Anneau : part des offres pour lesquelles tu as effectivement postulé.
-  const pctEnvoye = offres.length ? Math.round(envoyees / offres.length * 100) : 0;
-  const anneau = document.getElementById('ringFg');
-  const circonference = 2 * Math.PI * 47;
-  anneau.style.strokeDasharray = circonference;
-  anneau.style.strokeDashoffset = circonference;
-  // Lecture forcée du layout : la transition CSS part bien de zéro, sans
-  // dépendre de requestAnimationFrame (bridé hors du premier plan).
-  void anneau.getBoundingClientRect();
-  anneau.style.strokeDashoffset = circonference * (1 - pctEnvoye / 100);
-  document.getElementById('ringPct').textContent = pctEnvoye + '%';
-
-  rendrePerformance(offres, parStatut, envoyees);
-  rendreActivite(offres);
-
-  document.querySelectorAll('#stats [data-compteur], #perf [data-compteur]')
-    .forEach(el => animerCompteur(el, Number(el.dataset.compteur)));
-
-  const villes = {};
-  offres.forEach(o => {
-    const v = (String(o.ville ?? '').match(/^([^(]+)/) || ['', o.ville])[1].trim() || '—';
-    villes[v] = (villes[v] ?? 0) + 1;
-  });
-  const max = Math.max(...Object.values(villes), 1);
-  document.getElementById('citybars').innerHTML = Object.entries(villes)
-    .sort((a, b) => b[1] - a[1])
-    .map(([v, n]) => `<div class="citybar"><span class="cn">${echapper(v)}</span><span class="ct"><span class="cf" style="width:${n / max * 100}%"></span></span><span style="font-weight:700;width:20px;text-align:right">${n}</span></div>`)
-    .join('');
-
-  rendreIndicateurMaj(meta);
-}
-
-/**
- * Statistiques de résultat : ce que tes candidatures donnent réellement.
- * Le taux de réponse se calcule sur les candidatures envoyées, pas sur
- * l'ensemble des offres — sinon il serait artificiellement bas.
- */
-function rendrePerformance(offres, parStatut, envoyees) {
-  const entretiens = parStatut['Entretien'];
-  const refus = parStatut['Refus'];
-  const reponses = entretiens + refus;
-
-  const tauxReponse = envoyees ? Math.round(reponses / envoyees * 100) : 0;
-  const tauxEntretien = envoyees ? Math.round(entretiens / envoyees * 100) : 0;
-
-  // Délai moyen entre l'envoi et aujourd'hui, pour les candidatures sans réponse.
-  const enAttente = offres.filter(o =>
-    o.suivi.sent && (o.suivi.status === 'Envoyé' || o.suivi.status === 'Relancé'));
-  const delaiMoyen = enAttente.length
-    ? Math.round(enAttente.reduce((t, o) => t + joursDepuis(o.suivi.sent), 0) / enAttente.length)
-    : 0;
-
-  const tuile = (ic, valeur, suffixe, libelle, couleur, cls = '') =>
-    `<div class="stat ${cls}"><span class="ic">${ic}</span>
-     <div class="n plain" style="color:${couleur}"><span data-compteur="${valeur}">0</span>${suffixe}</div>
-     <div class="l">${libelle}</div></div>`;
-
-  document.getElementById('perf').innerHTML =
-    tuile('💬', tauxReponse, '%', `Taux de réponse (sur ${envoyees} envoi${envoyees > 1 ? 's' : ''})`, 'var(--info)', 's-info') +
-    tuile('🎯', tauxEntretien, '%', 'Taux d\'entretien', 'var(--g1)', 's-g1') +
-    tuile('⏳', delaiMoyen, ' j', `En attente depuis (moy.)`, 'var(--g2)', 's-g2') +
-    tuile('🤐', envoyees - reponses, '', 'Sans réponse à ce jour', 'var(--muted)');
-}
-
-/** Courbe d'activité : nombre de candidatures envoyées par jour sur 30 jours. */
-function rendreActivite(offres) {
-  const jours = 30;
-  const compte = new Array(jours).fill(0);
-
-  offres.forEach(o => {
-    if (!o.suivi.sent) return;
-    const ecart = joursDepuis(o.suivi.sent);
-    if (ecart >= 0 && ecart < jours) compte[jours - 1 - ecart]++;
-  });
-
-  const max = Math.max(...compte, 1);
-  document.getElementById('spark').innerHTML = compte.map((n, i) => {
-    const date = new Date(Date.now() - (jours - 1 - i) * 86400000);
-    const titre = `${date.getDate()} ${MOIS[date.getMonth()].slice(0, 4)} : ${n} candidature${n > 1 ? 's' : ''}`;
-    return `<i class="${n === max && n > 0 ? 'hot' : ''}" style="height:${Math.max(n / max * 100, 3)}%;animation-delay:${i * 12}ms" title="${titre}"></i>`;
-  }).join('');
-}
-
-/** Indicateur « dernière mise à jour », alimenté par le backend. */
-export function rendreIndicateurMaj(meta) {
-  const banniere = document.getElementById('veilleBanner');
-  const texte = document.getElementById('veilleText');
-  banniere.classList.remove('stale', 'warn');
-
-  if (!meta?.derniereCollecte) {
-    banniere.classList.add('warn');
-    texte.innerHTML = '⚠️ <strong>Aucune collecte encore effectuée.</strong> Clique sur « Rafraîchir maintenant » pour lancer la première.';
-    return;
-  }
-
-  const jours = joursDepuis(meta.derniereCollecte);
-  const quand = jours === 0 ? "aujourd'hui" : jours === 1 ? 'hier' : `il y a ${jours} jours`;
-  const r = meta.resume;
-  const detail = r ? ` — ${r.retenues} offre(s) retenue(s), ${r.nouvelles} nouvelle(s)` : '';
-
-  if (meta.statut === 'non-configure') {
-    banniere.classList.add('warn');
-    texte.innerHTML = `⚙️ <strong>Aucune source configurée.</strong> Renseigne au moins une clé d'API dans le fichier <code>.env</code> pour que la collecte trouve des offres.`;
-  } else if (meta.statut === 'echec') {
-    banniere.classList.add('stale');
-    texte.innerHTML = `❌ <strong>Dernière collecte en échec</strong> (${quand}). Les offres déjà enregistrées sont intactes.`;
-  } else if (meta.statut === 'partiel') {
-    banniere.classList.add('warn');
-    texte.innerHTML = `⚠️ <strong>Collecte partielle</strong> ${quand}${detail}. Source(s) indisponible(s) : ${(r?.sourcesEnEchec ?? []).join(', ')}.`;
-  } else if (jours >= 3) {
-    banniere.classList.add('stale');
-    texte.innerHTML = `⏳ <strong>Dernière mise à jour ${quand}</strong> (${dateLisible(meta.derniereCollecte)}). Un rafraîchissement serait utile.`;
-  } else {
-    texte.innerHTML = `✅ <strong>À jour</strong> — dernière collecte ${quand}${detail}.`;
   }
 }
 
@@ -219,14 +44,13 @@ export function rendreIndicateurMaj(meta) {
  * ouverte quelques jours.
  */
 export function actionsDuJour(offres) {
-  const aujourdhui = todayISO();
   const actions = [];
 
   // 1. Relances en retard — le plus coûteux à laisser filer.
   offres.filter(relanceDue).forEach(o => {
     const retard = joursDepuis(o.suivi.relance);
     actions.push({
-      rang: 0, classe: 'urgent', icone: '⏰', offre: o,
+      rang: 0, classe: 'urgent', icone: '⏰', offre: o, groupe: 'Urgent',
       titre: o.titre,
       sous: `${o.entreprise} · relance prévue ${retard === 0 ? "aujourd'hui" : `il y a ${retard} j`}`,
       quoi: 'Relancer',
@@ -236,7 +60,7 @@ export function actionsDuJour(offres) {
   // 2. Entretiens à préparer.
   offres.filter(o => o.suivi.status === 'Entretien').forEach(o => {
     actions.push({
-      rang: 1, classe: 'chaud', icone: '🤝', offre: o,
+      rang: 1, classe: 'chaud', icone: '🤝', offre: o, groupe: 'Urgent',
       titre: o.titre,
       sous: `${o.entreprise} · entretien en cours — prépare tes arguments`,
       quoi: 'Préparer',
@@ -250,7 +74,7 @@ export function actionsDuJour(offres) {
     .forEach(o => {
       const age = ageOffre(o.dateOffre);
       actions.push({
-        rang: 2, classe: 'ok', icone: '🟢', offre: o,
+        rang: 2, classe: 'ok', icone: '🟢', offre: o, groupe: 'Prioritaires à traiter',
         titre: o.titre,
         sous: `${o.entreprise} · ${o.ville}${age !== null ? ` · publiée il y a ${age} j` : ''}`,
         quoi: o.aLettre ? 'Postuler' : 'Rédiger la lettre',
@@ -261,7 +85,7 @@ export function actionsDuJour(offres) {
   offres
     .filter(o => o.groupe === 2 && o.suivi.status === 'À postuler')
     .forEach(o => actions.push({
-      rang: 3, classe: '', icone: '🟡', offre: o,
+      rang: 3, classe: '', icone: '🟡', offre: o, groupe: 'À étudier',
       titre: o.titre, sous: `${o.entreprise} · ${o.ville}`, quoi: 'Étudier',
     }));
 
@@ -269,7 +93,7 @@ export function actionsDuJour(offres) {
   offres
     .filter(o => o.groupe === 0 && o.suivi.status === 'À postuler')
     .forEach(o => actions.push({
-      rang: 4, classe: '', icone: '⚪', offre: o,
+      rang: 4, classe: '', icone: '⚪', offre: o, groupe: 'À vérifier',
       titre: o.titre, sous: `${o.entreprise} · analyse incomplète`, quoi: 'Vérifier',
     }));
 
@@ -282,8 +106,8 @@ export function rendreFocus(offres, surClic) {
   const urgentes = actions.filter(a => a.rang === 0).length;
 
   document.getElementById('focusSub').textContent = actions.length
-    ? `${actions.length} action${actions.length > 1 ? 's' : ''} en attente${urgentes ? ` · ${urgentes} urgente${urgentes > 1 ? 's' : ''}` : ''}`
-    : '';
+    ? `${pluriel(actions.length, 'action')} en attente${urgentes ? ` · ${pluriel(urgentes, 'urgente')}` : ''}`
+    : 'Rien ne presse.';
 
   if (actions.length === 0) {
     zone.innerHTML = `<div class="focus-vide">
@@ -294,11 +118,23 @@ export function rendreFocus(offres, surClic) {
     return;
   }
 
+  // Au-delà d'une trentaine de lignes, la vue cesse d'être un « focus ».
+  const affichees = actions.slice(0, 30);
   zone.innerHTML = '';
-  actions.forEach((a, i) => {
+  let groupeCourant = null;
+
+  affichees.forEach((a, i) => {
+    if (a.groupe !== groupeCourant) {
+      groupeCourant = a.groupe;
+      const titre = document.createElement('div');
+      titre.className = 'focus-groupe';
+      titre.textContent = groupeCourant;
+      zone.appendChild(titre);
+    }
+
     const el = document.createElement('div');
     el.className = 'focus-card ' + a.classe;
-    el.style.animationDelay = (i * 0.04) + 's';
+    el.style.animationDelay = (i * 0.03) + 's';
     el.innerHTML = `
       <div class="focus-ic">${a.icone}</div>
       <div class="focus-body">
@@ -309,9 +145,24 @@ export function rendreFocus(offres, surClic) {
     el.addEventListener('click', () => surClic(a.offre));
     zone.appendChild(el);
   });
+
+  if (actions.length > affichees.length) {
+    const reste = document.createElement('div');
+    reste.className = 'count';
+    reste.style.marginTop = 'var(--e3)';
+    reste.textContent = `+ ${actions.length - affichees.length} autres offres en attente dans l'onglet Offres.`;
+    zone.appendChild(reste);
+  }
 }
 
 // ------------------------------------------------------------------- OFFRES
+
+/** Pastille de score, colorée selon la force du signal. */
+function pastilleScore(offre) {
+  if (offre.score === null || offre.score === undefined) return '';
+  const classe = offre.score >= 6 ? 'fort' : offre.score >= 3 ? 'moyen' : '';
+  return `<span class="scorepill ${classe}" title="Score par mots-clés">⚡ ${offre.score}</span>`;
+}
 
 export function rendreCarte(offre, actions) {
   const g = GM[offre.groupe] ?? GM[0];
@@ -319,14 +170,28 @@ export function rendreCarte(offre, actions) {
   const carte = document.createElement('div');
   carte.className = 'card';
   carte.dataset.g = offre.groupe;
+  carte.dataset.id = offre.id;
   if (s.pinned) carte.classList.add('pinned');
 
   const due = relanceDue(offre);
+  if (due) carte.classList.add('due');
   const fl = etiquetteFraicheur(ageOffre(offre.dateOffre));
   const prog = STATUS_PROG[s.status] ?? 10;
   const a = offre.analyse;
 
   let detail = '';
+
+  // Motifs de scoring : montrer POURQUOI l'offre est classée là évite de
+  // devoir faire confiance à un chiffre sans explication.
+  const positifs = offre.scoreDetail?.positifs ?? [];
+  const negatifs = [...(offre.scoreDetail?.negatifs ?? []), ...(offre.scoreDetail?.eliminatoires ?? [])];
+  if (positifs.length || negatifs.length) {
+    detail += `<div class="sec"><div class="lbl fix">🔬 POURQUOI CE CLASSEMENT</div>
+      <div class="motifs">
+        ${positifs.map(m => `<span class="motif" title="${echapper(m.note ?? '')}">+${m.poids} ${echapper(m.note ?? m.motif)}</span>`).join('')}
+        ${negatifs.map(m => `<span class="motif neg" title="${echapper(m.note ?? '')}">${m.poids ? m.poids : '⛔'} ${echapper(m.note ?? m.motif)}</span>`).join('')}
+      </div></div>`;
+  }
 
   if (a) {
     if ((a.exige ?? []).length || (a.souhaite ?? []).length) {
@@ -371,10 +236,18 @@ export function rendreCarte(offre, actions) {
     detail += `<div class="sec" style="color:var(--muted);font-size:13px">⏳ Analyse non disponible pour cette offre (quota atteint, ou description trop courte). Elle sera retentée à la prochaine collecte.</div>`;
   }
 
+  // Texte brut de l'annonce, replié : utile pour vérifier une exigence
+  // sans quitter l'application ni rouvrir le site d'origine.
+  if (offre.extrait) {
+    detail += `<div class="sec"><div class="lbl deco">📄 EXTRAIT DE L'ANNONCE
+      ${offre.salaireSource ? `<span style="margin-left:auto;color:var(--g1)">💶 ${echapper(offre.salaireSource)}</span>` : ''}</div>
+      <div class="extrait">${echapper(offre.extrait)}</div></div>`;
+  }
+
   // Suivi de candidature
   const postule = s.status !== 'À postuler';
   detail += `<div class="sec"><div class="lbl fix">📌 SUIVI DE CANDIDATURE</div>
-    <div style="margin-bottom:10px"><span class="applied-toggle ${postule ? '' : 'off'}" data-act="postule">${postule ? '✅ Candidature envoyée' : '⬜ Pas encore postulé'}</span></div>
+    <div style="margin-bottom:10px"><span class="applied-toggle ${postule ? '' : 'off'}" data-act="postule">${postule ? '✅ Candidature envoyée' : '⬜ Pas encore postulé — +25 pt'}</span></div>
     <div class="track-row">
       <div class="track-field"><label>Statut</label><select data-champ="status">${STATUSES.map(x => `<option ${x === s.status ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
       <div class="track-field"><label>Date d'envoi</label><input type="date" data-champ="sent" value="${s.sent}"></div>
@@ -387,7 +260,8 @@ export function rendreCarte(offre, actions) {
   detail += `<div class="sec" data-lettre="${offre.id}">
     <div class="lbl fix">✉️ LETTRE DE MOTIVATION</div>
     <div class="letter-actions">
-      <button class="btn btn-primary" data-act="lettre">${offre.aLettre ? '✉️ Afficher la lettre' : '✉️ Rédiger la lettre'}</button>
+      <button class="btn btn-primary" data-act="lettre">${offre.aLettre ? '✉️ Afficher la lettre' : '✉️ Rédiger la lettre'}${offre.aLettre ? '' : ' <span class="gain">+10 pt</span>'}</button>
+      ${offre.lettreEditee ? '<span class="badge badge-src">🎨 retouchée</span>' : ''}
     </div>
     <div class="letter-zone"></div>
   </div>`;
@@ -397,20 +271,22 @@ export function rendreCarte(offre, actions) {
 
   carte.innerHTML = `<div class="head">
     <span class="chevron">▸</span>
-    <span class="pinbtn ${s.pinned ? 'on' : ''}" data-act="pin">${s.pinned ? '★' : '☆'}</span>
+    <span class="pinbtn ${s.pinned ? 'on' : ''}" data-act="pin" title="Épingler">${s.pinned ? '★' : '☆'}</span>
     <div class="titlebox">
       <div class="ptitle">${echapper(offre.titre)}</div>
       <div class="pmeta">${echapper(offre.entreprise)} · ${echapper(offre.ville)}${offre.dateOffre ? ' · offre du ' + dateLisible(offre.dateOffre) : ''}</div>
       <div class="cardprog"><span style="width:${prog}%;background:${STATUS_COL[s.status]}"></span></div>
     </div>
     <div class="tags">
+      ${pastilleScore(offre)}
       ${fl ? `<span class="fresh ${fl[0]}">${fl[1]}</span>` : ''}
       ${offre.horsZone ? '<span class="badge badge-zone">🌍 Hors zone</span>' : ''}
+      ${offre.aLettre ? '<span class="badge badge-src">🖋️</span>' : ''}
       ${badgesSources}
-      <span class="status-pill" style="border-color:${STATUS_COL[s.status]};color:${STATUS_COL[s.status]}">${s.status}${due ? ' ⏰' : ''}</span>
-      <span class="badge ${g.key}">${g.label}</span>
+      <span class="status-pill" style="border-color:${STATUS_COL[s.status]};color:${STATUS_COL[s.status]}">${STATUS_EMOJI[s.status] ?? ''} ${s.status}${due ? ' ⏰' : ''}</span>
+      <span class="badge ${g.key}">${g.emoji} ${g.label}</span>
       ${offre.lien ? `<a class="link" href="${echapper(offre.lien)}" target="_blank" rel="noopener" data-act="lien">Voir ↗</a>` : ''}
-      ${offre.isManual ? '<span class="link" style="color:var(--g3);cursor:pointer" data-act="suppr">✕</span>' : ''}
+      ${offre.isManual ? '<span class="link" style="color:var(--g3);cursor:pointer" data-act="suppr" title="Supprimer">✕</span>' : ''}
     </div></div>
     <div class="detail">${detail}</div>`;
 
@@ -424,21 +300,43 @@ export function rendreKanban(offres, surDepot) {
   const zone = document.getElementById('kanban');
   zone.innerHTML = '';
 
+  const cote = document.getElementById('kanbanSide');
+  if (cote) {
+    const enCours = offres.filter(o => o.suivi.status === 'Envoyé' || o.suivi.status === 'Relancé').length;
+    cote.textContent = `${pluriel(enCours, 'candidature')} en cours de traitement`;
+  }
+
   STATUSES.forEach(statut => {
     const col = document.createElement('div');
     col.className = 'kcol';
     col.dataset.status = statut;
 
     const items = offres.filter(o => o.suivi.status === statut);
-    col.innerHTML = `<h4 style="background:${STATUS_BG[statut]};color:${STATUS_COL[statut]}">${statut}<span>${items.length}</span></h4>`;
+    col.innerHTML = `<h4 style="background:${STATUS_BG[statut]};color:${STATUS_COL[statut]}">
+      <span>${STATUS_EMOJI[statut]} ${statut}</span><span>${items.length}</span></h4>`;
+
+    if (!items.length) {
+      const v = document.createElement('div');
+      v.className = 'kcol-vide';
+      v.textContent = 'Glisse une carte ici';
+      col.appendChild(v);
+    }
 
     items.forEach(o => {
+      const due = relanceDue(o);
       const c = document.createElement('div');
       c.className = 'kcard';
       c.draggable = true;
       c.dataset.id = o.id;
-      c.style.borderLeftColor = { 1: 'var(--g1)', 2: 'var(--g2)', 3: 'var(--g3)', 0: 'var(--g0)' }[o.groupe];
-      c.innerHTML = `<div class="kt">${echapper(o.titre)}</div><div class="km">${echapper(o.entreprise)} · ${echapper(o.ville)}</div>`;
+      c.style.borderLeftColor = (GM[o.groupe] ?? GM[0]).couleur;
+      c.innerHTML = `<div class="kt">${echapper(o.titre)}</div>
+        <div class="km">${echapper(o.entreprise)} · ${echapper(o.ville)}</div>
+        <div class="kb">
+          ${o.suivi.pinned ? '<i>📌</i>' : ''}
+          ${o.aLettre ? '<i>🖋️</i>' : ''}
+          ${due ? '<i style="color:var(--hot)">⏰ relance due</i>' : ''}
+          ${o.score !== null && o.score !== undefined ? `<i style="color:var(--faint)">⚡${o.score}</i>` : ''}
+        </div>`;
       c.addEventListener('dragstart', ev => { ev.dataTransfer.setData('id', o.id); c.classList.add('drag'); });
       c.addEventListener('dragend', () => c.classList.remove('drag'));
       col.appendChild(c);
@@ -458,31 +356,86 @@ export function rendreKanban(offres, surDepot) {
 
 // ------------------------------------------------------------------- AGENDA
 
-export function rendreAgenda(offres) {
+export function rendreAgenda(offres, surClic) {
   const aujourdhui = todayISO();
   const items = offres
     .filter(o => o.suivi.relance && o.suivi.status !== 'Refus' && o.suivi.status !== 'Entretien')
     .map(o => ({ offre: o, date: o.suivi.relance }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
+  rendreMois(items, aujourdhui);
+
   const zone = document.getElementById('agenda');
   zone.innerHTML = '';
   document.getElementById('agendaEmpty').style.display = items.length ? 'none' : 'block';
-  document.getElementById('agendaSub').textContent = items.length ? `${items.length} relance(s) planifiée(s)` : '';
+  document.getElementById('agendaSub').textContent = items.length
+    ? `${pluriel(items.length, 'relance')} planifiée${items.length > 1 ? 's' : ''} · ${items.filter(i => i.date < aujourdhui).length} en retard`
+    : '';
 
   items.forEach((it, i) => {
-    const d = new Date(it.date);
+    const d = new Date(it.date + 'T12:00:00');
     const enRetard = it.date < aujourdhui;
     const bientot = !enRetard && joursDepuis(it.date) >= -2;
 
     const el = document.createElement('div');
     el.className = 'agenda-item' + (enRetard ? ' overdue' : bientot ? ' soon' : '');
-    el.style.animationDelay = (i * 0.05) + 's';
+    el.style.animationDelay = (i * 0.04) + 's';
     el.innerHTML = `
-      <div class="agenda-date"><div class="ad-d">${d.getDate()}</div><div class="ad-m">${MOIS[d.getMonth()].slice(0, 3)}</div></div>
+      <div class="agenda-date"><div class="ad-d">${d.getDate()}</div><div class="ad-m">${MOIS_COURT[d.getMonth()]}</div></div>
       <div class="agenda-body"><div class="ab-t">${echapper(it.offre.titre)}</div><div class="ab-s">${echapper(it.offre.entreprise)} · ${echapper(it.offre.ville)}</div></div>
       <span class="agenda-tag" style="background:${enRetard ? 'var(--hotb)' : 'var(--g2b)'};color:${enRetard ? 'var(--hot)' : 'var(--g2)'}">${enRetard ? '⏰ En retard' : '📌 À venir'}</span>
       ${it.offre.lien ? `<a class="link" href="${echapper(it.offre.lien)}" target="_blank" rel="noopener">Voir ↗</a>` : ''}`;
+    el.addEventListener('click', e => {
+      if (e.target.closest('a')) return;
+      surClic?.(it.offre);
+    });
     zone.appendChild(el);
   });
+}
+
+/**
+ * Calendrier du mois en cours, avec une pastille par relance.
+ * Une liste chronologique dit « quoi » ; une grille de mois dit « quand »,
+ * et fait voir d'un coup les semaines chargées.
+ */
+function rendreMois(items, aujourdhui) {
+  const zone = document.getElementById('moisCalendrier');
+  if (!zone) return;
+
+  const ref = new Date(aujourdhui + 'T12:00:00');
+  const premier = new Date(ref.getFullYear(), ref.getMonth(), 1);
+  const decalage = (premier.getDay() + 6) % 7; // lundi en tête
+  const debut = new Date(premier.getTime() - decalage * 86400000);
+
+  const parJour = items.reduce((acc, it) => {
+    (acc[it.date] ??= []).push(it);
+    return acc;
+  }, {});
+
+  const iso = (d) => {
+    const p = (v) => String(v).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  };
+
+  const entetes = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+    .map(j => `<div class="mois-tete">${j}</div>`).join('');
+
+  const cases = Array.from({ length: 42 }, (_, i) => {
+    const d = new Date(debut.getTime() + i * 86400000);
+    const cle = iso(d);
+    const relances = parJour[cle] ?? [];
+    const hors = d.getMonth() !== ref.getMonth();
+
+    return `<div class="mjour ${hors ? 'hors' : ''} ${cle === aujourdhui ? 'today' : ''} ${relances.length ? 'charge' : ''}"
+        title="${relances.length ? relances.map(r => r.offre.titre).join(' · ') : cle}">
+      <span class="mn">${d.getDate()}</span>
+      <span class="mp">${relances.slice(0, 4).map(r =>
+        `<i class="${r.date < aujourdhui ? 'retard' : ''}"></i>`).join('')}</span>
+    </div>`;
+  }).join('');
+
+  zone.innerHTML = entetes + cases;
+
+  const titre = document.getElementById('moisTitre');
+  if (titre) titre.textContent = `${MOIS[ref.getMonth()]} ${ref.getFullYear()}`;
 }

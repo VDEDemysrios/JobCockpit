@@ -66,17 +66,28 @@ CREATE TABLE IF NOT EXISTS meta (
   valeur TEXT
 );
 
--- Jours où Benjamin a fait quelque chose. Sert au calcul de la série.
+-- Jours où Benjamin a fait quelque chose. Alimente la carte d'activité.
 CREATE TABLE IF NOT EXISTS activite (
   jour    TEXT PRIMARY KEY,   -- AAAA-MM-JJ
   actions INTEGER DEFAULT 0
 );
 
--- Succès débloqués, avec leur date pour l'affichage « obtenu le ».
-CREATE TABLE IF NOT EXISTS succes (
-  code      TEXT PRIMARY KEY,
-  obtenu_le TEXT
+-- Journal des actions. Alimente les courbes d'activité et le journal.
+-- Contrairement à la table « activite » (un simple compteur par jour), il
+-- conserve le TYPE et l'HEURE de chaque action : c'est ce qui permet de
+-- distinguer « 3 candidatures » de « 3 épinglages » un même jour.
+CREATE TABLE IF NOT EXISTS evenements (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  type    TEXT NOT NULL,      -- candidature, relance, lettre, note, ajout…
+  offer_id TEXT,
+  jour    TEXT NOT NULL,      -- AAAA-MM-JJ, en heure locale
+  heure   INTEGER,            -- 0-23, heure locale
+  cree_le TEXT,
+  meta    TEXT
 );
+
+CREATE INDEX IF NOT EXISTS idx_evenements_jour ON evenements(jour);
+CREATE INDEX IF NOT EXISTS idx_evenements_type ON evenements(type);
 `;
 
 /**
@@ -211,11 +222,44 @@ export function noterActivite(db, jour = new Date().toISOString().slice(0, 10)) 
   `).run(jour);
 }
 
-/** Jours d'activité, du plus récent au plus ancien (120 derniers). */
+/** Jours d'activité, du plus récent au plus ancien (400 derniers). */
 export function lireJoursActifs(db) {
-  return db.prepare('SELECT jour FROM activite ORDER BY jour DESC LIMIT 120')
+  return db.prepare('SELECT jour FROM activite ORDER BY jour DESC LIMIT 400')
     .all().map(r => r.jour);
 }
+
+/**
+ * Journalise une action et note l'activité du jour.
+ *
+ * Le jour et l'heure sont pris en heure LOCALE, pas en UTC : « j'ai postulé
+ * lundi soir » doit compter pour lundi, y compris à 23 h — une conversion UTC
+ * l'aurait basculé au mardi et cassé la série d'un jour sur deux en été.
+ *
+ * `sansActivite` journalise l'action sans compter comme une journée de travail. Épingler, annoter ou
+ * lancer une collecte, ce n'est pas « avancer » : compter ces gestes
+ * entretiendrait une série sans qu'aucune candidature ne bouge.
+ *
+ * @param {string} type      candidature | relance | lettre | retouche | note |
+ *                           ajout | epingle | statut | entretien | refus | collecte
+ * @param {object} [options] { offerId, meta, quand, sansActivite }
+ */
+export function journaliser(db, type, options = {}) {
+  const quand = options.quand instanceof Date ? options.quand : new Date();
+  const p = (v) => String(v).padStart(2, '0');
+  const jour = `${quand.getFullYear()}-${p(quand.getMonth() + 1)}-${p(quand.getDate())}`;
+
+  db.prepare(`
+    INSERT INTO evenements (type, offer_id, jour, heure, cree_le, meta)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(type, options.offerId ?? null, jour, quand.getHours(),
+    quand.toISOString(), options.meta ? JSON.stringify(options.meta) : null);
+
+  if (!options.sansActivite) noterActivite(db, jour);
+  return jour;
+}
+
+/** Types d'action qui ne comptent pas comme une journée de travail. */
+export const SANS_ACTIVITE = new Set(['note', 'epingle', 'collecte']);
 
 /**
  * Supprime les offres disparues des sources depuis plus de `jours` jours

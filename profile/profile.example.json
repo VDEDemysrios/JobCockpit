@@ -1,0 +1,137 @@
+{
+  "_lisezMoi": [
+    "Ce fichier pilote la collecte et le classement des offres. Il est modifiable",
+    "sans savoir programmer : ajouter une ville, un intitulé, un mot-clé ou changer",
+    "un poids suffit.",
+    "",
+    "ATTENTION aux motifs de scoring : ce sont des expressions régulières appliquées",
+    "au texte DÉJÀ NORMALISÉ (minuscules, sans accents, toute ponctuation remplacée",
+    "par un espace). Un motif écrit avec sa ponctuation d'origine ne matchera JAMAIS,",
+    "et l'échec sera silencieux.",
+    "  « agrivoltaïque »          devient « agrivoltaique »        -> motif : agrivolta",
+    "  « M&A »                    devient « m a »                  -> motif : \\bm a\\b",
+    "  « droit de l'environnement » devient « droit de l environnement »",
+    "  « diplôme d'ingénieur »    devient « diplome d ingenieur »",
+    "",
+    "Pour vérifier ce que devient un mot : npm run normaliser -- \"M&A\""
+  ],
+  "_zonesProches": [
+    "Une offre est « dans la zone » si sa localisation correspond à la ville",
+    "OU à l'une de ses zonesProches. Les sources renvoient souvent un nom de",
+    "département plutôt qu'une commune (Adzuna a renvoyé « Hauts-de-Seine »),",
+    "ou une commune de banlieue inconnue de nous (« Dammartin-en-Goële »).",
+    "Sans cette liste, ces offres étaient marquées « hors zone » à tort.",
+    "Les codes de département couvrent le cas où la source fournit un code postal."
+  ],
+  "_candidat": [
+    "Coordonnées portées en en-tête des lettres de motivation Word.",
+    "Elles sont déclarées ici plutôt que devinées dans le CV : l'ordre",
+    "d'extraction d'un .docx est imprévisible (la première version avait mis",
+    "« Projets agrivoltaïques » à la place du nom).",
+    "Laisser un champ vide fait chercher la valeur dans le CV en dernier recours."
+  ],
+  "candidat": {
+    "nom": "Prénom Nom",
+    "email": "",
+    "telephone": "",
+    "ville": "Ta ville"
+  },
+  "villesPrioritaires": [
+    {
+      "nom": "Strasbourg",
+      "codeInsee": "67482",
+      "departement": "67",
+      "departementsProches": [
+        "67",
+        "68"
+      ],
+      "zonesProches": [
+        "bas rhin",
+        "haut rhin",
+        "alsace",
+        "eurometropole de strasbourg"
+      ]
+    }
+  ],
+  "_flux": [
+    "Flux RSS / Atom à surveiller, en plus des API. C'est le moyen d'ajouter un",
+    "site sans écrire de code : la plupart des job boards français (APEC,",
+    "Welcome to the Jungle, HelloWork) n'ouvrent pas d'API mais publient un flux",
+    "pour chaque recherche enregistrée, et beaucoup d'employeurs en publient un",
+    "pour leur page carrière.",
+    "",
+    "  url          l'adresse du flux. Le jeton {intitule} y est remplacé par",
+    "               chacun de tes intitulés de recherche, encodé pour l'URL.",
+    "               Sans ce jeton, le flux est simplement lu tel quel.",
+    "  nom          libellé affiché dans les journaux de collecte.",
+    "  entreprise   force le nom de l'employeur (utile pour un flux carrière).",
+    "  ville        force la ville (utile pour un flux régional).",
+    "  zone         situe les offres d'un flux déjà filtré par département,",
+    "               quand l'entrée elle-même ne donne pas d'adresse.",
+    "",
+    "Exemple :",
+    "  { \"nom\": \"Carrières Voltalia\", \"url\": \"https://…/jobs.rss\",",
+    "    \"entreprise\": \"Voltalia\" }",
+    "",
+    "Laisser la liste vide désactive simplement la source."
+  ],
+  "flux": [
+    {
+      "nom": "Exemple — Service Public, filière et département",
+      "url": "https://place-ep-recrute.talent-soft.com/handlers/offerRss.ashx?LCID=1036&Rss_JobFamily=3506&Rss_JobDepartment=236",
+      "zone": "Bas-Rhin, 67"
+    }
+  ],
+  "rayonKm": 30,
+  "intitules": [
+    "intitulé de poste 1",
+    "intitulé de poste 2",
+    "intitulé de poste 3"
+  ],
+  "fraicheurJours": 7,
+  "scoring": {
+    "positifs": [
+      {
+        "motif": "chef de projet",
+        "poids": 3,
+        "note": "exemple — intitulé recherché"
+      },
+      {
+        "motif": "droit de l environnement",
+        "poids": 2,
+        "note": "exemple — noter que l'apostrophe devient une espace"
+      }
+    ],
+    "negatifs": [
+      {
+        "motif": "diplome d ingenieur|ecole d ingenieur",
+        "poids": -3,
+        "note": "profil droit, pas ingénieur"
+      }
+    ],
+    "eliminatoires": [
+      {
+        "motif": "\\b([5-9]|[1-9]\\d)\\s*(ans|annees)\\b",
+        "note": "exigence d'expérience hors de portée (~2 ans)"
+      },
+      {
+        "motif": "\\bm a\\b|fusion acquisition",
+        "note": "aucune expérience en M&A — « M&A » devient « m a » après normalisation"
+      },
+      {
+        "motif": "genie electrique|chaudronnerie|mecanique|desp|asme",
+        "note": "hors compétences techniques"
+      },
+      {
+        "motif": "habilitation defense|certification amf|\\bamf\\b",
+        "note": "habilitations non détenues"
+      }
+    ],
+    "seuils": {
+      "prioritaire": 6,
+      "possible": 3,
+      "aVerifier": 1,
+      "descriptionMiniCaracteres": 200
+    }
+  }
+}

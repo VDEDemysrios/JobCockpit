@@ -3,7 +3,7 @@
 // Écoute sur 127.0.0.1 par défaut : l'application n'est PAS exposée au
 // réseau local. Les données (suivi de candidatures, CV, lettres) restent
 // sur cette machine.
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import express from 'express';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -14,6 +14,13 @@ import { creerRoutes } from './api.js';
 import { collecter, SOURCES } from '../scripts/collect.js';
 
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+// Le .env est cherché À CÔTÉ du projet, pas dans le dossier courant. Lancé
+// depuis ailleurs (raccourci, service, tâche planifiée), le serveur démarrait
+// sans aucune clé et affichait toutes les sources « non configurées » — sans
+// la moindre erreur pour l'expliquer.
+dotenv.config({ path: join(RACINE, '.env') });
+
 const PORT = Number(process.env.PORT ?? 3000);
 
 const profil = JSON.parse(readFileSync(join(RACINE, 'profile/profile.json'), 'utf8'));

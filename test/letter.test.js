@@ -65,6 +65,41 @@ test('construirePrompt impose la structure et interdit l\'invention', () => {
   assert.ok(p.includes('agrivoltaïsme'), 'les mots-clés doivent être transmis');
 });
 
+// Les premières lettres réelles faisaient 350 mots et restaient génériques :
+// Benjamin les a jugées « pas assez fournies ». Le prompt doit exiger une
+// longueur de vraie lettre de candidature.
+test('le prompt exige une lettre longue', () => {
+  const p = construirePrompt({ titre: 'Chef de projet EnR', description: 'x' }, null, 'CV');
+  const plancher = Number(p.match(/(\d{3})\s*(?:à|-)\s*\d{3}\s*mots/)?.[1] ?? 0);
+  assert.ok(plancher >= 600, `plancher trop bas (${plancher} mots)`);
+});
+
+// Le différenciateur de Benjamin : 90 % de son portefeuille est agrivoltaïque.
+// Le CV le porte désormais, mais le modèle passe à côté s'il n'y est pas invité.
+test('le prompt met en avant la spécialisation agrivoltaïque', () => {
+  const p = construirePrompt({ titre: 'Juriste', description: 'x' }, null, 'CV');
+  assert.match(p, /90\s*%/);
+  assert.match(p, /agrivolta/i);
+});
+
+// « Meilleure adaptation à l'offre » : le modèle doit d'abord dépouiller
+// l'annonce, pas plaquer une lettre type sur n'importe quel poste.
+test('le prompt impose de partir des exigences de l\'annonce', () => {
+  const p = construirePrompt(
+    { titre: 'Chef de projet', description: 'Instruction des autorisations d\'urbanisme.' },
+    null, 'CV');
+  assert.ok(p.includes('Instruction des autorisations d\'urbanisme.'),
+    'la description de l\'offre doit être transmise en entier');
+  assert.match(p, /exigence/i);
+});
+
+// La moitié des offres vient désormais de la fonction publique : une lettre
+// qui ignore le statut, la catégorie ou le versant sonne hors sujet.
+test('le prompt prévoit le cas d\'une offre de la fonction publique', () => {
+  const p = construirePrompt({ titre: 'Attaché', description: 'x' }, null, 'CV');
+  assert.match(p, /fonction publique/i);
+});
+
 test('nomFichier produit un nom de fichier sain', () => {
   assert.equal(
     nomFichier({ titre: 'Chef de projet ENR (H/F)', entreprise: 'Veles Énergies' }),

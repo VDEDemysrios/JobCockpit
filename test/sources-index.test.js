@@ -84,3 +84,22 @@ test('collecterDepuisSources interroge chaque ville PUIS la France entière', as
   assert.deepEqual(appels.map(a => a.ville), ['Nancy', 'Lyon', null],
     'la passe nationale (ville=null) doit suivre les villes prioritaires');
 });
+
+// Toutes les sources ne se configurent pas dans .env : les flux RSS se
+// déclarent dans profile.json, et doivent donc voir le profil.
+test('le profil est transmis à estConfiguree et à chercher', async () => {
+  const vu = { configuration: null, recherche: null };
+  const source = {
+    nom: 'profil-conscient',
+    estConfiguree: (profil) => { vu.configuration = profil; return true; },
+    chercher: async ({ profil }) => { vu.recherche = profil; return []; },
+  };
+  const profil = { flux: [{ url: 'https://exemple.fr/rss' }] };
+
+  await collecterDepuisSources([source], {
+    intitules: ['juriste'], villes: [], rayonKm: 30, depuisDate: '2026-07-21', profil,
+  });
+
+  assert.equal(vu.configuration, profil);
+  assert.equal(vu.recherche, profil);
+});

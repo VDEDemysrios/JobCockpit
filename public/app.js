@@ -1,17 +1,30 @@
 // Point d'entrée du dashboard : état, navigation, événements.
 import { API } from './api.js';
-import { GM, STATUSES, MOIS, JOURS, todayISO, ageOffre } from './format.js';
-import { rendreDashboard, rendreCarte, rendreKanban, rendreAgenda, rendreIndicateurMaj, relanceDue, rendreFocus, actionsDuJour, celebrer } from './render.js';
+import {
+  GM, SOURCE_LABEL, MOIS, JOURS, todayISO, ageOffre, echapper, pluriel,
+} from './format.js';
+import { poserIcones } from './icons.js';
+import {
+  rendreCarte, rendreKanban, rendreAgenda, relanceDue, rendreFocus, actionsDuJour,
+} from './render.js';
+import { rendreDashboard, rendreCourbe, rendreStats, rendreIndicateurMaj } from './dashboard.js';
+import { rendreCv } from './cv.js';
+import { animerCompteurs } from './anim.js';
 
-import { rendreBandeauNiveau, rendreProgression } from './progression.js';
+const dansNJours = (n) => {
+  const d = new Date(Date.now() + n * 86400000);
+  const p = (v) => String(v).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
 
-const dansNJours = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+const VUES = ['dashboard', 'offers', 'kanban', 'agenda', 'cv', 'options'];
+const THEMES = ['vivid', 'enr', 'dark', 'cockpit'];
 
 // ------------------------------------------------------------------ options
 
 const OPTIONS_DEFAUT = {
-  densite: 'normale', animations: true, confettis: true,
-  relanceJours: 7, ouvrirFocus: true, masquerEcartees: false,
+  densite: 'normale', animations: true,
+  relanceJours: 7, masquerEcartees: false, mosaique: false,
 };
 
 function lireOptions() {
@@ -31,27 +44,31 @@ appliquerOptions();
 const etat = {
   offres: [],
   meta: null,
-  progression: null,
+  stats: null,
+  cv: null,
+  timeline: [],
   vue: 'dashboard',
   filtre: 'all',
+  drapeaux: new Set(),   // filtres secondaires : pin, lettre, frais
   recherche: '',
   tri: 'grp',
   statut: 'all',
+  periode: '30',
   ouvertes: new Set(),   // cartes dépliées, à rouvrir après un rafraîchissement
 };
 
 // ----------------------------------------------------------------- utilitaires
 
-function toast(message, erreur = false) {
+function toast(message, type = '') {
   const t = document.createElement('div');
-  t.className = 'toast' + (erreur ? ' err' : '');
-  t.textContent = (erreur ? '⚠️ ' : '✨ ') + message;
+  t.className = 'toast' + (type ? ' ' + type : '');
+  t.textContent = (type === 'err' ? '⚠️ ' : type === 'win' ? '🎉 ' : '✨ ') + message;
   document.getElementById('toastZone').appendChild(t);
   setTimeout(() => {
     t.style.opacity = '0';
     t.style.transition = 'opacity .3s';
     setTimeout(() => t.remove(), 300);
-  }, erreur ? 5200 : 2400);
+  }, type === 'err' ? 5200 : 2600);
 }
 
 /** Enveloppe une action asynchrone : toute erreur devient un toast. */
@@ -59,32 +76,33 @@ async function essayer(action, messageSucces) {
   try {
     const r = await action();
     if (messageSucces) toast(messageSucces);
-    // Plusieurs routes renvoient la progression à jour : on en profite pour
-    // rafraîchir le niveau et fêter un éventuel succès, sans requête en plus.
-    if (r?.progression) appliquerProgression(r.progression);
     return r;
   } catch (erreur) {
-    toast(erreur.message, true);
+    toast(erreur.message, 'err');
     return null;
   }
 }
 
 // ----------------------------------------------------------------------- thème
 
-(() => {
-  const theme = localStorage.getItem('bp_theme') || 'vivid';
+function appliquerTheme(theme) {
   document.documentElement.dataset.theme = theme;
+  localStorage.setItem('bp_theme', theme);
   document.querySelectorAll('#themeSwitch button')
     .forEach(b => b.classList.toggle('active', b.dataset.t === theme));
-})();
+  const select = document.getElementById('optTheme');
+  if (select) select.value = theme;
+}
+
+appliquerTheme(localStorage.getItem('bp_theme') || 'vivid');
 
 document.getElementById('themeSwitch').addEventListener('click', e => {
   const b = e.target.closest('button');
   if (!b) return;
-  document.documentElement.dataset.theme = b.dataset.t;
-  localStorage.setItem('bp_theme', b.dataset.t);
-  document.querySelectorAll('#themeSwitch button').forEach(x => x.classList.toggle('active', x === b));
-  toast(`Thème « ${b.textContent} » appliqué`);
+  appliquerTheme(b.dataset.t);
+  // Les graphiques lisent les variables CSS à la construction : on redessine.
+  rendreTout();
+  toast(`Thème « ${b.textContent.trim()} » appliqué`);
 });
 
 // ---------------------------------------------------------------------- horloge
@@ -102,59 +120,34 @@ tic();
 // -------------------------------------------------------------------- données
 
 async function chargerDonnees() {
-  const [offres, meta, prog] = await Promise.all([API.offres(), API.meta(), API.progression()]);
+  const [offres, meta, stats, cv, timeline] = await Promise.all([
+    API.offres(), API.meta(), API.stats(), API.cv(), API.timeline(80).catch(() => ({ evenements: [] })),
+  ]);
   etat.offres = offres.offres;
   etat.meta = meta;
-  appliquerProgression(prog);
-}
+  etat.stats = stats.stats;
+  etat.cv = cv;
+  etat.timeline = timeline.evenements ?? [];
 
-/**
- * Prend en compte une progression renvoyée par le serveur.
- * Le serveur est seul juge des points : le navigateur ne fait qu'afficher.
- */
-function appliquerProgression(p) {
-  if (!p) return;
-
-  const ancienNiveau = etat.progression?.niveau.rang ?? null;
-  etat.progression = p;
-  rendreBandeauNiveau(p);
-
-  // Badge « Progression » : nombre de succès jamais consultés depuis leur obtention.
-  const nonVus = p.succes.filter(s => s.obtenu).length - Number(localStorage.getItem('bp_succes_vus') ?? 0);
-  const bp = document.getElementById('nb-prog');
-  bp.style.display = nonVus > 0 ? '' : 'none';
-  bp.textContent = nonVus;
-
-  // Montée de niveau : on la fête, mais jamais au tout premier chargement.
-  if (ancienNiveau !== null && p.niveau.rang > ancienNiveau) {
-    feter(p.niveau.embleme, `Niveau ${p.niveau.rang} atteint !`,
-      `Te voilà « ${p.niveau.titre} ». ${p.niveau.titreSuivant ? `Prochain palier : ${p.niveau.titreSuivant}.` : 'Dernier palier, rien au-dessus.'}`);
-    return;
-  }
-
-  // Sinon, on annonce le premier succès nouvellement débloqué.
-  if (p.nouveauxSucces?.length) {
-    const s = p.succes.find(x => x.code === p.nouveauxSucces[0]);
-    if (s) feter(s.emoji, `Succès débloqué — ${s.nom}`, s.astuce);
-  }
-}
-
-// ------------------------------------------------------------- célébration
-
-const fete = document.getElementById('fete');
-document.getElementById('feteOk').addEventListener('click', () => fete.classList.remove('show'));
-fete.addEventListener('click', e => { if (e.target === fete) fete.classList.remove('show'); });
-
-function feter(emoji, titre, texte) {
-  document.getElementById('feteEm').textContent = emoji;
-  document.getElementById('feteTitre').textContent = titre;
-  document.getElementById('feteTexte').textContent = texte;
-  fete.classList.add('show');
-  if (options.confettis) celebrer();
+  // Un CV absent bloque analyses et lettres : le signaler dans la navigation
+  // vaut mieux que de laisser Benjamin découvrir des offres sans verdict.
+  const badge = document.getElementById('nb-cv');
+  badge.style.display = (!cv.present || cv.perimee) ? '' : 'none';
 }
 
 function trouver(id) {
   return etat.offres.find(o => o.id === id);
+}
+
+/**
+ * Recopie le suivi tel que le serveur le renvoie.
+ *
+ * On ne se contente pas des champs demandés : repasser une offre à
+ * « À postuler » fait aussi effacer sa date d'envoi et sa relance côté
+ * serveur, et la carte doit le montrer immédiatement.
+ */
+function appliquerSuivi(offre, reponse, champsDemandes) {
+  Object.assign(offre.suivi, reponse?.suivi ?? champsDemandes ?? {});
 }
 
 // ------------------------------------------------------------------ navigation
@@ -164,59 +157,76 @@ document.getElementById('nav').addEventListener('click', e => {
   if (b) changerVue(b.dataset.view);
 });
 
-document.getElementById('lvlBox').addEventListener('click', () => changerVue('progression'));
+document.getElementById('burger').addEventListener('click', () =>
+  document.getElementById('sidebar').classList.toggle('open'));
 
 function changerVue(vue) {
+  if (!VUES.includes(vue)) return;
   etat.vue = vue;
   document.querySelectorAll('.nav button').forEach(x => x.classList.toggle('active', x.dataset.view === vue));
-  ['focus', 'dashboard', 'offers', 'kanban', 'agenda', 'progression', 'options'].forEach(id => {
+  VUES.forEach(id => {
     document.getElementById('view-' + id).style.display = id === vue ? 'block' : 'none';
   });
   document.getElementById('sidebar').classList.remove('open');
 
-  // Consulter la vue Progression éteint le badge de succès non vus.
-  if (vue === 'progression' && etat.progression) {
-    localStorage.setItem('bp_succes_vus', etat.progression.succes.filter(s => s.obtenu).length);
-    document.getElementById('nb-prog').style.display = 'none';
-  }
 
   rendreTout();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function majBadgesNav() {
   const aPostuler = etat.offres.filter(o =>
     (o.groupe === 1 || o.groupe === 2) && o.suivi.status === 'À postuler').length;
   const relances = etat.offres.filter(relanceDue).length;
-  const focus = actionsDuJour(etat.offres).filter(a => a.rang <= 1).length;
 
-  const bo = document.getElementById('nb-offers');
-  bo.style.display = aPostuler ? '' : 'none';
-  bo.textContent = aPostuler;
+  const poser = (id, valeur) => {
+    const el = document.getElementById(id);
+    el.style.display = valeur ? '' : 'none';
+    el.textContent = valeur;
+  };
 
-  const ba = document.getElementById('nb-agenda');
-  ba.style.display = relances ? '' : 'none';
-  ba.textContent = relances;
-
-  // Le badge Focus ne compte que l'urgent (relances dues, entretiens) :
-  // sinon il afficherait en permanence le nombre total d'offres à traiter.
-  const bf = document.getElementById('nb-focus');
-  bf.style.display = focus ? '' : 'none';
-  bf.textContent = focus;
+  poser('nb-offers', aPostuler);
+  poser('nb-agenda', relances);
 }
 
-/** Ouvre une offre depuis la vue Focus : bascule sur Offres et la déplie. */
+/** Bandeau de commande : salutation et pastilles de contexte. */
+function rendreBandeau() {
+  const h = new Date().getHours();
+  const salut = h < 6 ? 'Encore debout' : h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir';
+  document.getElementById('salut').textContent = `${salut}, Benjamin`;
+
+  const actions = actionsDuJour(etat.offres);
+  const urgentes = actions.filter(a => a.rang === 0).length;
+
+  document.getElementById('salutSous').textContent = urgentes
+    ? `${pluriel(urgentes, 'relance')} en retard — commence par là.`
+    : actions.length
+      ? `${pluriel(actions.length, 'action')} en attente. Rien d'urgent.`
+      : 'Tout est traité. Lance une collecte quand tu veux.';
+
+  const envoyees = etat.stats?.performance?.envoisSemaine ?? 0;
+  const objectif = etat.meta?.objectifHebdo ?? 5;
+
+  document.getElementById('cmdPills').innerHTML = [
+    `<span class="cpill ${envoyees >= objectif ? 'vert' : ''}"><span class="em">🎯</span> Semaine <b>${envoyees}/${objectif}</b></span>`,
+    urgentes ? `<span class="cpill chaud"><span class="em">⏰</span> <b>${urgentes}</b> en retard</span>` : '',
+  ].join('');
+}
+
+/** Ouvre une offre depuis une autre vue : bascule sur Offres et la déplie. */
 function ouvrirOffre(offre) {
   etat.ouvertes.add(offre.id);
   etat.filtre = 'all';
   etat.statut = 'all';
+  etat.drapeaux.clear();
   etat.recherche = '';
   document.getElementById('search').value = '';
+  document.getElementById('statusFilter').value = 'all';
   document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.g === 'all'));
   changerVue('offers');
 
   requestAnimationFrame(() => {
-    const carte = [...document.querySelectorAll('.card')]
-      .find(c => c.querySelector('.ptitle')?.textContent === offre.titre);
+    const carte = document.querySelector(`.card[data-id="${offre.id}"]`);
     carte?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
 }
@@ -225,13 +235,26 @@ function ouvrirOffre(offre) {
 
 function rendreTout() {
   majBadgesNav();
-  if (etat.vue === 'progression') { if (etat.progression) rendreProgression(etat.progression); }
-  else if (etat.vue === 'options') rendreOptions();
-  else if (etat.vue === 'focus') rendreFocus(etat.offres, ouvrirOffre);
-  else if (etat.vue === 'dashboard') rendreDashboard(etat.offres, etat.meta);
+  rendreBandeau();
+  poserIcones();
+
+  if (etat.vue === 'options') rendreOptions();
+  else if (etat.vue === 'dashboard') {
+    rendreFocus(etat.offres, ouvrirOffre);
+    if (etat.stats) {
+      rendreDashboard(etat.stats, etat.offres, etat.meta, { periode: etat.periode });
+      rendreStats(etat.stats, etat.timeline);
+    } else rendreIndicateurMaj(etat.meta);
+  }
+  else if (etat.vue === 'cv') rendreCv(etat.cv);
   else if (etat.vue === 'offers') rendreOffres();
   else if (etat.vue === 'kanban') rendreKanban(etat.offres, deposerKanban);
-  else if (etat.vue === 'agenda') rendreAgenda(etat.offres);
+  else if (etat.vue === 'agenda') rendreAgenda(etat.offres, ouvrirOffre);
+
+  poserIcones();
+  // Les rouleaux se lancent une fois le balisage en place : anim.js écrit
+  // d'abord la valeur juste, puis anime. Rien ne dépend de l'animation.
+  animerCompteurs();
 }
 
 const rangGroupe = g => ({ 1: 0, 2: 1, 0: 2, 3: 3 }[g] ?? 4);
@@ -246,12 +269,19 @@ function rendreOffres() {
   // Option « masquer les offres à écarter » — sans effet si on filtre justement dessus.
   if (options.masquerEcartees && etat.filtre !== '3') liste = liste.filter(o => o.groupe !== 3);
   if (etat.statut !== 'all') liste = liste.filter(o => o.suivi.status === etat.statut);
+  if (etat.drapeaux.has('pin')) liste = liste.filter(o => o.suivi.pinned);
+  if (etat.drapeaux.has('lettre')) liste = liste.filter(o => o.aLettre);
+  if (etat.drapeaux.has('frais')) liste = liste.filter(o => {
+    const a = ageOffre(o.dateOffre);
+    return a !== null && a <= 7;
+  });
   if (etat.recherche) {
     const q = etat.recherche.toLowerCase();
     liste = liste.filter(o => `${o.titre}${o.entreprise}${o.ville}`.toLowerCase().includes(q));
   }
 
   if (etat.tri === 'date') liste.sort((a, b) => String(b.dateOffre ?? '').localeCompare(String(a.dateOffre ?? '')));
+  else if (etat.tri === 'score') liste.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   else if (etat.tri === 'fresh') liste.sort((a, b) => (ageOffre(a.dateOffre) ?? 999) - (ageOffre(b.dateOffre) ?? 999));
   else if (etat.tri === 'ville') liste.sort((a, b) => String(a.ville).localeCompare(String(b.ville)));
   else if (etat.tri === 'relance') liste.sort((a, b) => (a.suivi.relance || '9999').localeCompare(b.suivi.relance || '9999'));
@@ -264,13 +294,14 @@ function rendreOffres() {
     `${compte[1]} prioritaires · ${compte[2]} possibles · ${compte[0]} à vérifier`;
   document.getElementById('empty').style.display = liste.length ? 'none' : 'block';
   document.getElementById('count').textContent =
-    `${liste.length} offre${liste.length > 1 ? 's' : ''} affichée${liste.length > 1 ? 's' : ''}`;
+    `${pluriel(liste.length, 'offre')} affichée${liste.length > 1 ? 's' : ''}`;
 
   const grille = document.getElementById('grid');
+  grille.classList.toggle('mosaique', options.mosaique);
   grille.innerHTML = '';
   liste.forEach((offre, i) => {
     const carte = rendreCarte(offre, { brancher: brancherCarte });
-    carte.style.animationDelay = (i * 0.03) + 's';
+    carte.style.animationDelay = Math.min(i * 0.025, 0.5) + 's';
     if (etat.ouvertes.has(offre.id)) carte.classList.add('open');
     grille.appendChild(carte);
   });
@@ -288,10 +319,8 @@ function brancherCarte(carte, offre) {
 
   carte.querySelector('[data-act="pin"]')?.addEventListener('click', async e => {
     e.stopPropagation();
-    const nouveau = !offre.suivi.pinned;
-    await essayer(() => API.majSuivi(offre.id, { pinned: nouveau }));
-    offre.suivi.pinned = nouveau;
-    rendreTout();
+    const r = await essayer(() => API.majSuivi(offre.id, { pinned: !offre.suivi.pinned }), null, e.target);
+    if (r) { appliquerSuivi(offre, r); rendreTout(); }
   });
 
   carte.querySelector('[data-act="suppr"]')?.addEventListener('click', async e => {
@@ -301,8 +330,10 @@ function brancherCarte(carte, offre) {
     if (r) { await chargerDonnees(); rendreTout(); }
   });
 
-  carte.querySelector('[data-act="postule"]')?.addEventListener('click', async () => {
+  carte.querySelector('[data-act="postule"]')?.addEventListener('click', async (e) => {
     const versEnvoye = offre.suivi.status === 'À postuler';
+    // Revenir à « À postuler », c'est dire « finalement je n'ai pas postulé » :
+    // le serveur efface alors la date d'envoi et la relance qui allaient avec.
     const champs = versEnvoye
       ? { status: 'Envoyé', sent: offre.suivi.sent || todayISO() }
       : { status: 'À postuler' };
@@ -318,9 +349,10 @@ function brancherCarte(carte, offre) {
     const r = await essayer(() => API.majSuivi(offre.id, champs),
       versEnvoye
         ? (relanceAjoutee ? `Envoyée ✅ — relance planifiée dans ${options.relanceJours} jours` : 'Marqué comme envoyé ✅')
-        : 'Remis à « À postuler »');
+        : 'Remis à « À postuler » — date d\'envoi et relance effacées',
+      e.currentTarget);
 
-    if (r) { Object.assign(offre.suivi, champs); rendreTout(); }
+    if (r) { appliquerSuivi(offre, r, champs); await rafraichirStats(); rendreTout(); }
   });
 
   carte.querySelectorAll('[data-champ]').forEach(el => {
@@ -339,13 +371,17 @@ function brancherCarte(carte, offre) {
         }
       }
 
-      const r = await essayer(() => API.majSuivi(offre.id, champs), message);
+      if (champ === 'status' && valeur === 'À postuler') {
+        message = 'Remis à « À postuler » — date d\'envoi et relance effacées';
+      }
+
+      const r = await essayer(() => API.majSuivi(offre.id, champs), message, el);
       if (r) {
-        Object.assign(offre.suivi, champs);
-        if (champ === 'status' && valeur === 'Entretien' && options.confettis) celebrer();
+        appliquerSuivi(offre, r, champs);
+        if (champ === 'status' && valeur === 'Entretien') celebrer(60);
         // Le statut change la couleur, la progression et le Kanban : on redessine.
-        if (champ === 'status' || champ === 'relance') rendreTout();
-        else majBadgesNav();
+        if (champ === 'status' || champ === 'relance') { await rafraichirStats(); rendreTout(); }
+        else { majBadgesNav(); rendreBandeau(); }
       }
     });
   });
@@ -354,6 +390,14 @@ function brancherCarte(carte, offre) {
     e.preventDefault();
     ouvrirLettre(carte, offre, e.currentTarget);
   });
+}
+
+/** Les statistiques sont calculées côté serveur : on les redemande après coup. */
+async function rafraichirStats() {
+  try {
+    const r = await API.stats();
+    etat.stats = r.stats;
+  } catch { /* le dashboard continue avec les chiffres précédents */ }
 }
 
 // ------------------------------------------------------ lettre de motivation
@@ -369,7 +413,7 @@ async function ouvrirLettre(carte, offre, bouton) {
     return;
   }
 
-  const libelleInitial = bouton.textContent;
+  const libelleInitial = bouton.innerHTML;
   bouton.disabled = true;
   bouton.innerHTML = '<span class="spinner"></span> Rédaction en cours…';
 
@@ -377,9 +421,9 @@ async function ouvrirLettre(carte, offre, bouton) {
   try {
     lettre = offre.aLettre ? await API.lettre(offre.id) : await API.genererLettre(offre.id);
   } catch (erreur) {
-    toast(erreur.message, true);
+    toast(erreur.message, 'err');
     bouton.disabled = false;
-    bouton.textContent = libelleInitial;
+    bouton.innerHTML = libelleInitial;
     return;
   }
 
@@ -390,10 +434,12 @@ async function ouvrirLettre(carte, offre, bouton) {
 
   zone.innerHTML = `
     <textarea class="letter-area"></textarea>
-    <div class="letter-hint">Modifie librement le texte : tes retouches sont enregistrées automatiquement.</div>
+    <div class="letter-hint">Modifie librement le texte : tes retouches sont enregistrées automatiquement.<br>
+      <strong>Dossier complet</strong> = la lettre + ton CV, dans un seul fichier à joindre au mail.</div>
     <div class="letter-actions" style="margin-top:10px">
+      <a class="btn btn-primary" data-l="dossier" href="${API.urlDossier(offre.id)}">📎 Dossier complet</a>
+      <a class="btn" data-l="docx" href="${API.urlDocx(offre.id)}">⬇ Lettre seule</a>
       <button class="btn" data-l="copier">📋 Copier</button>
-      <a class="btn" data-l="docx" href="${API.urlDocx(offre.id)}">⬇ Word</a>
       <button class="btn" data-l="regen">🔄 Régénérer</button>
     </div>`;
 
@@ -401,7 +447,7 @@ async function ouvrirLettre(carte, offre, bouton) {
   zoneTexte.value = lettre.contenu;
 
   zoneTexte.addEventListener('change', async () => {
-    await essayer(() => API.majLettre(offre.id, zoneTexte.value), 'Lettre enregistrée');
+    await essayer(() => API.majLettre(offre.id, zoneTexte.value), 'Lettre enregistrée', zoneTexte);
   });
 
   zone.querySelector('[data-l="copier"]').addEventListener('click', async () => {
@@ -410,7 +456,7 @@ async function ouvrirLettre(carte, offre, bouton) {
       toast('Lettre copiée dans le presse-papiers');
     } catch {
       zoneTexte.select();
-      toast('Sélectionne et copie avec Ctrl+C', true);
+      toast('Sélectionne et copie avec Ctrl+C', 'err');
     }
   });
 
@@ -425,10 +471,10 @@ async function ouvrirLettre(carte, offre, bouton) {
     } catch (erreur) {
       if (erreur.besoinConfirmation && confirm(erreur.message + '\n\nRégénérer quand même ?')) {
         const r = await essayer(() => API.genererLettre(offre.id, { regenerer: true, confirmerEcrasement: true }),
-          'Nouvelle lettre rédigée');
+          'Nouvelle lettre rédigée', bRegen);
         if (r) zoneTexte.value = r.contenu;
       } else if (!erreur.besoinConfirmation) {
-        toast(erreur.message, true);
+        toast(erreur.message, 'err');
       }
     } finally {
       bRegen.disabled = false;
@@ -453,35 +499,51 @@ async function deposerKanban(id, statut) {
       message = `Envoyée ✅ — relance planifiée dans ${options.relanceJours} jours`;
     }
   }
+  if (statut === 'À postuler') {
+    message = 'Remis à « À postuler » — date d\'envoi et relance effacées';
+  }
 
-  const r = await essayer(() => API.majSuivi(id, champs), message);
+  const r = await essayer(() => API.majSuivi(id, champs), message,
+    document.querySelector(`.kcard[data-id="${id}"]`));
   if (r) {
-    Object.assign(offre.suivi, champs);
-    if (statut === 'Entretien' && options.confettis) celebrer();
+    appliquerSuivi(offre, r, champs);
+    if (statut === 'Entretien') celebrer(60);
+    await rafraichirStats();
     rendreTout();
   }
 }
 
 // ---------------------------------------------------------------- rafraîchir
 
-document.getElementById('refreshBtn').addEventListener('click', async () => {
-  const b = document.getElementById('refreshBtn');
-  b.disabled = true;
-  b.innerHTML = '<span class="spinner"></span> Collecte en cours…';
+async function lancerCollecte(bouton) {
+  const boutons = [document.getElementById('refreshBtn'), document.getElementById('refreshBtn2')]
+    .filter(Boolean);
+  const libelles = boutons.map(b => b.innerHTML);
+  boutons.forEach(b => { b.disabled = true; b.innerHTML = '<span class="spinner"></span> Collecte…'; });
 
   try {
     const r = await API.rafraichir();
     await chargerDonnees();
     rendreTout();
     const s = r.resume;
-    toast(`Collecte terminée : ${s.nouvelles} nouvelle(s) offre(s), ${s.analysees} analysée(s).`);
+    toast(`Collecte terminée : ${s.nouvelles} nouvelle(s) offre(s), ${s.analysees} analysée(s).`,
+      s.nouvelles > 0 ? 'win' : '');
   } catch (erreur) {
-    toast(erreur.message, true);
+    toast(erreur.message, 'err');
     rendreIndicateurMaj(etat.meta);
   } finally {
-    b.disabled = false;
-    b.textContent = '🔄 Rafraîchir maintenant';
+    boutons.forEach((b, i) => { b.disabled = false; b.innerHTML = libelles[i]; });
+    poserIcones();
   }
+}
+
+document.getElementById('refreshBtn').addEventListener('click', e => lancerCollecte(e.currentTarget));
+document.getElementById('refreshBtn2').addEventListener('click', e => lancerCollecte(e.currentTarget));
+
+document.getElementById('quickAdd').addEventListener('click', () => {
+  changerVue('offers');
+  document.getElementById('form').classList.add('show');
+  document.getElementById('f-titre').focus();
 });
 
 // ------------------------------------------------------------ barre d'outils
@@ -489,15 +551,41 @@ document.getElementById('refreshBtn').addEventListener('click', async () => {
 document.getElementById('chips').addEventListener('click', e => {
   const c = e.target.closest('.chip');
   if (!c) return;
-  document.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
-  c.classList.add('active');
-  etat.filtre = c.dataset.g;
+
+  if (c.dataset.f) {
+    // Drapeaux secondaires : cumulables entre eux et avec un groupe.
+    c.classList.toggle('active');
+    if (etat.drapeaux.has(c.dataset.f)) etat.drapeaux.delete(c.dataset.f);
+    else etat.drapeaux.add(c.dataset.f);
+  } else {
+    document.querySelectorAll('.chip[data-g]').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+    etat.filtre = c.dataset.g;
+  }
   rendreOffres();
 });
 
 document.getElementById('search').addEventListener('input', e => { etat.recherche = e.target.value; rendreOffres(); });
 document.getElementById('sort').addEventListener('change', e => { etat.tri = e.target.value; rendreOffres(); });
 document.getElementById('statusFilter').addEventListener('change', e => { etat.statut = e.target.value; rendreOffres(); });
+
+document.getElementById('toggleVue').addEventListener('click', e => {
+  options.mosaique = !options.mosaique;
+  appliquerOptions();
+  e.currentTarget.innerHTML = options.mosaique
+    ? '<span data-ic="liste" data-ic-taille="15"></span> Liste'
+    : '<span data-ic="colonnes" data-ic-taille="15"></span> Grille';
+  poserIcones();
+  rendreOffres();
+});
+
+document.getElementById('segRythme').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  document.querySelectorAll('#segRythme button').forEach(x => x.classList.toggle('active', x === b));
+  etat.periode = b.dataset.p;
+  if (etat.stats) rendreCourbe(etat.stats, etat.periode);
+});
 
 const formulaire = document.getElementById('form');
 document.getElementById('toggleForm').addEventListener('click', () => formulaire.classList.toggle('show'));
@@ -511,16 +599,16 @@ document.getElementById('formTabs').addEventListener('click', e => {
   document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + b.dataset.tab));
 });
 
-document.getElementById('saveOffer').addEventListener('click', async () => {
+document.getElementById('saveOffer').addEventListener('click', async (e) => {
   const v = id => document.getElementById(id).value.trim();
-  if (!v('f-titre') || !v('f-entreprise')) { toast('Titre et entreprise sont obligatoires.', true); return; }
+  if (!v('f-titre') || !v('f-entreprise')) { toast('Titre et entreprise sont obligatoires.', 'err'); return; }
 
   const r = await essayer(() => API.ajouterOffre({
     titre: v('f-titre'), entreprise: v('f-entreprise'), ville: v('f-ville'),
     date: v('f-date'), contrat: v('f-contrat'),
     groupe: document.getElementById('f-groupe').value,
     lien: v('f-lien'), verdict: v('f-verdict'),
-  }), 'Offre ajoutée ✅');
+  }), 'Offre ajoutée ✅', e.currentTarget);
 
   if (r) {
     ['f-titre', 'f-entreprise', 'f-ville', 'f-date', 'f-contrat', 'f-lien', 'f-verdict']
@@ -534,8 +622,9 @@ document.getElementById('saveOffer').addEventListener('click', async () => {
 document.getElementById('savePaste').addEventListener('click', async () => {
   const zone = document.getElementById('pasteArea');
   const bouton = document.getElementById('savePaste');
-  if (zone.value.trim().length < 100) { toast('Colle l\'annonce complète (au moins quelques lignes).', true); return; }
+  if (zone.value.trim().length < 100) { toast('Colle l\'annonce complète (au moins quelques lignes).', 'err'); return; }
 
+  const libelle = bouton.innerHTML;
   bouton.disabled = true;
   bouton.innerHTML = '<span class="spinner"></span> Analyse en cours…';
   try {
@@ -544,43 +633,53 @@ document.getElementById('savePaste').addEventListener('click', async () => {
     formulaire.classList.remove('show');
     await chargerDonnees();
     rendreTout();
-    toast(`« ${r.titre} » ajoutée et classée ${GM[r.groupe].label}`);
+    toast(`« ${r.titre} » ajoutée et classée ${GM[r.groupe].emoji} ${GM[r.groupe].label}`, 'win');
   } catch (erreur) {
-    toast(erreur.message, true);
+    toast(erreur.message, 'err');
   } finally {
     bouton.disabled = false;
-    bouton.textContent = 'Analyser et ajouter';
+    bouton.innerHTML = libelle;
   }
 });
 
 document.getElementById('exportBtn').addEventListener('click', () => {
-  const lignes = [['Titre', 'Entreprise', 'Ville', 'Date offre', 'Groupe', 'Statut', 'Date envoi', 'Relance', 'Notes', 'Lien']];
+  const lignes = [['Titre', 'Entreprise', 'Ville', 'Date offre', 'Score', 'Groupe', 'Statut', 'Date envoi', 'Relance', 'Notes', 'Lien']];
   etat.offres.forEach(o => lignes.push([
-    o.titre, o.entreprise, o.ville, o.dateOffre ?? '',
-    (GM[o.groupe]?.label ?? '').replace(/[^\wÀ-ÿ ]/g, '').trim(),
+    o.titre, o.entreprise, o.ville, o.dateOffre ?? '', o.score ?? '',
+    GM[o.groupe]?.label ?? '',
     o.suivi.status, o.suivi.sent, o.suivi.relance,
     (o.suivi.notes || '').replace(/\n/g, ' '), o.lien ?? '',
   ]));
 
   const csv = lignes.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'candidatures_benjamin_perrin.csv';
-  a.click();
+  telecharger(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }), 'candidatures_benjamin_perrin.csv');
   toast('Export CSV téléchargé');
 });
+
+function telecharger(blob, nom) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = nom;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
 
 // ------------------------------------------------------------ vue Options
 
 function rendreOptions() {
   document.getElementById('optDensite').value = options.densite;
   document.getElementById('optAnim').checked = options.animations;
-  document.getElementById('optConfettis').checked = options.confettis;
   document.getElementById('optRelance').value = options.relanceJours;
-  document.getElementById('optFocus').checked = options.ouvrirFocus;
   document.getElementById('optMasquer').checked = options.masquerEcartees;
   document.getElementById('optTheme').value = document.documentElement.dataset.theme;
+  document.getElementById('goalInput').value = etat.meta?.objectifHebdo ?? 5;
+
+  document.getElementById('optSources').innerHTML = (etat.meta?.sources ?? [])
+    .map(s => `<div class="src-row ${s.configuree ? 'on' : ''}">
+      <span class="pastille"></span>
+      <span>${SOURCE_LABEL[s.nom] ?? s.nom}</span>
+      <span class="etat">${s.configuree ? 'active' : 'non configurée'}</span>
+    </div>`).join('') || '<div class="gr-vide">Aucune source déclarée.</div>';
 }
 
 function brancherOption(id, cle, lire, message) {
@@ -594,47 +693,147 @@ function brancherOption(id, cle, lire, message) {
 
 brancherOption('optDensite', 'densite', el => el.value, v => `Densité : ${v}`);
 brancherOption('optAnim', 'animations', el => el.checked, v => v ? 'Animations activées' : 'Animations désactivées');
-brancherOption('optConfettis', 'confettis', el => el.checked, v => v ? 'Confettis activés' : 'Confettis désactivés');
-brancherOption('optFocus', 'ouvrirFocus', el => el.checked, null);
 brancherOption('optMasquer', 'masquerEcartees', el => el.checked,
   v => v ? 'Les offres à écarter sont masquées' : 'Toutes les offres sont affichées');
 
 document.getElementById('optRelance').addEventListener('change', e => {
   const v = Number(e.target.value);
-  if (!Number.isInteger(v) || v < 1 || v > 60) { toast('Choisis un nombre entre 1 et 60.', true); e.target.value = options.relanceJours; return; }
+  if (!Number.isInteger(v) || v < 1 || v > 60) { toast('Choisis un nombre entre 1 et 60.', 'err'); e.target.value = options.relanceJours; return; }
   options.relanceJours = v;
   appliquerOptions();
   toast(`Relance proposée ${v} jours après l'envoi`);
 });
 
-document.getElementById('optTheme').addEventListener('change', e => {
-  document.querySelector(`#themeSwitch button[data-t="${e.target.value}"]`).click();
-});
+document.getElementById('optTheme').addEventListener('change', e => appliquerTheme(e.target.value));
 
 document.getElementById('optExport').addEventListener('click', () => {
   const donnees = {
     exporteLe: new Date().toISOString(),
-    progression: etat.progression,
+    statistiques: etat.stats,
     offres: etat.offres,
   };
-  const blob = new Blob([JSON.stringify(donnees, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `job-cockpit-${new Date().toISOString().slice(0, 10)}.json`;
-  a.click();
+  telecharger(new Blob([JSON.stringify(donnees, null, 2)], { type: 'application/json' }),
+    `job-cockpit-${todayISO()}.json`);
   toast('Sauvegarde téléchargée');
 });
 
+document.getElementById('optResetHisto').addEventListener('click', async () => {
+  if (!confirm('Effacer le journal des actions et le calendrier d\'assiduité ?\n\nTes offres, ton suivi et tes lettres ne sont pas touchés.')) return;
+  const r = await essayer(() => API.reinitialiser(), 'Historique effacé');
+  if (r) { await chargerDonnees(); rendreTout(); }
+});
+
 // Objectif hebdomadaire
-document.getElementById('goalSave').addEventListener('click', async () => {
+document.getElementById('goalSave').addEventListener('click', async (e) => {
   const v = Number(document.getElementById('goalInput').value);
   const r = await essayer(() => API.majObjectif(v), `Objectif : ${v} candidatures par semaine`);
-  if (r) {
-    const p = await API.progression();
-    appliquerProgression(p);
-    rendreTout();
-  }
+  if (r) await chargerDonnees();
+  if (r) rendreTout();
 });
+
+// ------------------------------------------------------- palette de commandes
+
+const palette = document.getElementById('palette');
+const paletteInput = document.getElementById('paletteInput');
+const paletteRes = document.getElementById('paletteRes');
+let paletteSel = 0;
+let paletteItems = [];
+
+const COMMANDES = [
+  { emoji: '📊', titre: 'Tableau de bord', cat: 'Aller à', faire: () => changerVue('dashboard') },
+  { emoji: '🗂️', titre: 'Toutes les offres', cat: 'Aller à', faire: () => changerVue('offers') },
+  { emoji: '🧲', titre: 'Kanban', cat: 'Aller à', faire: () => changerVue('kanban') },
+  { emoji: '📅', titre: 'Agenda des relances', cat: 'Aller à', faire: () => changerVue('agenda') },
+  { emoji: '📄', titre: 'Mon CV', cat: 'Aller à', faire: () => changerVue('cv') },
+  { emoji: '⚙️', titre: 'Options', cat: 'Aller à', faire: () => changerVue('options') },
+  { emoji: '📡', titre: 'Lancer une collecte', cat: 'Action', faire: () => lancerCollecte() },
+  { emoji: '➕', titre: 'Ajouter une offre', cat: 'Action', faire: () => document.getElementById('quickAdd').click() },
+  { emoji: '💾', titre: 'Exporter une sauvegarde', cat: 'Action', faire: () => document.getElementById('optExport').click() },
+  { emoji: '📄', titre: 'Exporter en CSV', cat: 'Action', faire: () => document.getElementById('exportBtn').click() },
+  { emoji: '🎨', titre: 'Changer de thème', cat: 'Action', faire: () => themeSuivant() },
+  { emoji: '⌨️', titre: 'Afficher les raccourcis', cat: 'Action', faire: () => aide.classList.add('show') },
+];
+
+function ouvrirPalette() {
+  palette.classList.add('show');
+  paletteInput.value = '';
+  majPalette('');
+  paletteInput.focus();
+}
+
+function fermerPalette() { palette.classList.remove('show'); }
+
+function majPalette(q) {
+  const requete = q.trim().toLowerCase();
+  const correspond = (t) => !requete || t.toLowerCase().includes(requete);
+
+  const commandes = COMMANDES.filter(c => correspond(c.titre)).map(c => ({ ...c }));
+
+  // Les offres deviennent des résultats de recherche : atteindre une
+  // candidature précise en trois frappes est le geste le plus fréquent.
+  const offres = requete
+    ? etat.offres
+      .filter(o => `${o.titre} ${o.entreprise} ${o.ville}`.toLowerCase().includes(requete))
+      .slice(0, 12)
+      .map(o => ({
+        emoji: (GM[o.groupe] ?? GM[0]).emoji,
+        titre: o.titre,
+        sous: `${o.entreprise} · ${o.ville}`,
+        cat: 'Offres',
+        faire: () => ouvrirOffre(o),
+      }))
+    : [];
+
+  paletteItems = [...commandes, ...offres];
+  paletteSel = 0;
+
+  if (!paletteItems.length) {
+    paletteRes.innerHTML = '<div class="palette-vide">Aucun résultat.</div>';
+    return;
+  }
+
+  let cat = null;
+  paletteRes.innerHTML = paletteItems.map((it, i) => {
+    let entete = '';
+    if (it.cat !== cat) { cat = it.cat; entete = `<div class="palette-cat">${cat}</div>`; }
+    return `${entete}<div class="pres ${i === 0 ? 'sel' : ''}" data-i="${i}">
+      <span class="pem">${it.emoji}</span>
+      <span class="pt2">${echapper(it.titre)}</span>
+      ${it.sous ? `<span class="ps">${echapper(it.sous)}</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function selectionnerPalette(delta) {
+  const lignes = [...paletteRes.querySelectorAll('.pres')];
+  if (!lignes.length) return;
+  paletteSel = (paletteSel + delta + lignes.length) % lignes.length;
+  lignes.forEach((l, i) => l.classList.toggle('sel', i === paletteSel));
+  lignes[paletteSel].scrollIntoView({ block: 'nearest' });
+}
+
+function validerPalette() {
+  const item = paletteItems[paletteSel];
+  if (!item) return;
+  fermerPalette();
+  item.faire();
+}
+
+paletteInput.addEventListener('input', e => majPalette(e.target.value));
+paletteRes.addEventListener('click', e => {
+  const l = e.target.closest('.pres');
+  if (!l) return;
+  paletteSel = Number(l.dataset.i);
+  validerPalette();
+});
+palette.addEventListener('click', e => { if (e.target === palette) fermerPalette(); });
+document.getElementById('paletteBtn').addEventListener('click', ouvrirPalette);
+
+function themeSuivant() {
+  const actuel = document.documentElement.dataset.theme;
+  appliquerTheme(THEMES[(THEMES.indexOf(actuel) + 1) % THEMES.length]);
+  rendreTout();
+}
 
 // ------------------------------------------------------- raccourcis clavier
 
@@ -643,10 +842,10 @@ const fermerAide = () => aide.classList.remove('show');
 document.getElementById('fermerAide').addEventListener('click', fermerAide);
 aide.addEventListener('click', e => { if (e.target === aide) fermerAide(); });
 
-// Séquences « G puis lettre », comme dans Méridien.
+// Séquences « G puis lettre ».
 const VUES_RACCOURCI = {
-  f: 'focus', d: 'dashboard', o: 'offers', k: 'kanban',
-  a: 'agenda', p: 'progression', r: 'options',
+  d: 'dashboard', o: 'offers', k: 'kanban',
+  a: 'agenda', v: 'cv', r: 'options',
 };
 let attendLettre = false;
 let minuterieG = null;
@@ -658,9 +857,26 @@ document.addEventListener('keydown', e => {
   // TOUS les raccourcis.
   const cible = e.target;
   const saisie = cible instanceof Element && cible.matches('input, textarea, select');
+
+  // Ctrl+K est le seul raccourci qui traverse une zone de saisie.
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    palette.classList.contains('show') ? fermerPalette() : ouvrirPalette();
+    return;
+  }
+
+  if (palette.classList.contains('show')) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); selectionnerPalette(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); selectionnerPalette(-1); }
+    else if (e.key === 'Enter') { e.preventDefault(); validerPalette(); }
+    else if (e.key === 'Escape') { e.preventDefault(); fermerPalette(); }
+    return;
+  }
+
   if (e.ctrlKey || e.altKey || e.metaKey) return;
 
   if (e.key === 'Escape') {
+    if (fete.classList.contains('show')) { fermerFete(); return; }
     if (aide.classList.contains('show')) { fermerAide(); return; }
     if (saisie) { cible.blur(); return; }
     document.getElementById('form').classList.remove('show');
@@ -688,24 +904,24 @@ document.addEventListener('keydown', e => {
     case '/':
       e.preventDefault();
       changerVue('offers');
-      // changerVue a déjà rendu la vue visible : pas besoin d'attendre une frame.
       document.getElementById('search').focus();
       document.getElementById('search').select();
       break;
 
     case 'r':
       e.preventDefault();
-      changerVue('dashboard');
-      document.getElementById('refreshBtn').click();
+      lancerCollecte();
       break;
 
-    case 't': {
+    case 'n':
       e.preventDefault();
-      const themes = ['vivid', 'enr', 'dark'];
-      const suivant = themes[(themes.indexOf(document.documentElement.dataset.theme) + 1) % themes.length];
-      document.querySelector(`#themeSwitch button[data-t="${suivant}"]`).click();
+      document.getElementById('quickAdd').click();
       break;
-    }
+
+    case 't':
+      e.preventDefault();
+      themeSuivant();
+      break;
 
     case '?':
       e.preventDefault();
@@ -722,8 +938,7 @@ document.addEventListener('keydown', e => {
  * de sécurité si quelque chose se passait mal.
  */
 async function migrerSiNecessaire() {
-  const meta = etat.meta;
-  if (meta?.migre) return;
+  if (etat.meta?.migre) return;
 
   const lire = (cle, defaut) => {
     try { return JSON.parse(localStorage.getItem(cle) ?? defaut); } catch { return JSON.parse(defaut); }
@@ -752,10 +967,12 @@ async function migrerSiNecessaire() {
 // ------------------------------------------------------------------ démarrage
 
 (async function demarrer() {
+  poserIcones();
+
   try {
     await chargerDonnees();
   } catch (erreur) {
-    toast(erreur.message, true);
+    toast(erreur.message, 'err');
     return;
   }
 
@@ -763,7 +980,6 @@ async function migrerSiNecessaire() {
 
   // On ouvre sur le Focus du jour s'il y a de l'urgent à traiter.
   const urgent = actionsDuJour(etat.offres).filter(a => a.rang <= 1).length;
-  if (options.ouvrirFocus && urgent > 0) etat.vue = 'focus';
   changerVue(etat.vue);
 
   const jours = etat.meta?.derniereCollecte
@@ -771,8 +987,8 @@ async function migrerSiNecessaire() {
     : null;
 
   setTimeout(() => {
-    if (jours === null) toast('Bienvenue 🚀 Clique sur « Rafraîchir maintenant » pour lancer ta première collecte.');
+    if (jours === null) toast('Bienvenue 🚀 Clique sur « Collecter » pour lancer ta première collecte.');
     else if (jours >= 3) toast(`Dernière collecte il y a ${jours} jours — pense à rafraîchir.`);
     else toast('Bienvenue dans ton Job Cockpit 🚀');
-  }, 700);
+  }, 800);
 })();

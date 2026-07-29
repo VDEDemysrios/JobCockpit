@@ -17,9 +17,11 @@ import { normaliser } from '../src/hash.js';
 import franceTravail from '../src/sources/franceTravail.js';
 import adzuna from '../src/sources/adzuna.js';
 import jooble from '../src/sources/jooble.js';
+import careerjet from '../src/sources/careerjet.js';
+import flux from '../src/sources/rss.js';
 import indeed from '../src/sources/indeed.js';
 
-export const SOURCES = [franceTravail, adzuna, jooble, indeed];
+export const SOURCES = [franceTravail, adzuna, jooble, careerjet, flux, indeed];
 
 /** Date ISO d'il y a N jours — borne de fraîcheur. */
 function ilYaNJours(n) {
@@ -100,6 +102,7 @@ export async function collecter({ db, profil, sources, cv, analyser = true }) {
       villes: profil.villesPrioritaires,
       rayonKm: profil.rayonKm,
       depuisDate,
+      profil,
     });
 
   console.log(`  ${offres.length} offre(s) distincte(s) après dédoublonnage`);
