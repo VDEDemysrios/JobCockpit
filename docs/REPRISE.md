@@ -411,3 +411,104 @@ le tableau de bord désormais alimenté. Et toujours les clés France Travail.
 
 Rien n'est commité : le dernier commit reste `a457123`, et trois sessions de
 travail attendent au-dessus.
+
+---
+
+## 12. Session du 29 juillet 2026 (3) — sources élargies, automatisation, dépôt
+
+### 12.1 La collecte tourne toute seule, toutes les 6 heures
+
+Tâche planifiée Windows **« JobCockpit - collecte »**, répétition `PT6H` à
+partir de 7h00, option « démarrer dès que possible » pour rattraper les
+passages manqués.
+
+Elle appelle `scripts/collecte-silencieuse.vbs`, qui lance
+`Collecte automatique.cmd` **sans ouvrir de fenêtre** — sans ce détour, une
+console noire clignotait toutes les 6 heures en plein travail. Le compte rendu
+s'ajoute à `collect.log`.
+
+Les commandes pour vérifier, modifier la fréquence, relancer ou supprimer la
+tâche sont dans le README §5.
+
+### 12.2 De 13 à 31 flux
+
+Le catalogue du Service Public compte **29 filières**, on n'en exploitait que
+3. Deux découpages se complètent désormais, parce qu'un flux ne renvoie que
+ses **20 entrées les plus récentes** :
+
+- **par département** (20 flux) — 5 filières × 4 départements. Filtrer par
+  département donne 20 offres *par département*.
+- **par région** (9 flux) — 3 filières × Grand Est, Auvergne-Rhône-Alpes,
+  Île-de-France, pour les départements limitrophes.
+
+Les 5 filières : affaires juridiques, aménagement du territoire,
+environnement, **agriculture** (l'agrivoltaïsme est à cheval sur l'énergie et
+le foncier agricole) et **pilotage des politiques publiques** (chef de projet
+cadre A).
+
+Rendement mesuré à blanc, le 29 juillet :
+
+```
+326 offres distinctes · 203 dans la zone · 265 retenues
+groupe 1 « Prioritaire » 136 · groupe 2 87 · groupe 3 14
+```
+
+Contre 85 retenues / 50 prioritaires avec 13 flux.
+
+### 12.3 Ce qui a été cherché en vain
+
+Pour ne pas refaire le tour une troisième fois.
+
+- **Pages carrière des employeurs EnR.** Les `/feed/` de **Valeco, JPee et EDF
+  PowerSolutions** existent mais publient des **actualités**, pas des offres
+  (vérifié entrée par entrée : « La centrale solaire de Gabardan célèbre ses
+  15 ans »…). **Engie Green** : flux vide. Seul **TotalEnergies** publie un
+  vrai flux d'offres (`jobs.totalenergies.com/fr_FR/careers/Home/feed/`),
+  ajouté.
+- **SmartRecruiters** expose bien une API publique par entreprise
+  (`api.smartrecruiters.com/v1/companies/{nom}/postings`), mais **Akuo** n'y a
+  aucune offre publiée. La piste reste valable pour d'autres employeurs.
+- **Indeed : impasse définitive.** Le programme « Publisher », seule API qui
+  permettait de lire ses offres, a fermé en 2023, et ses conditions
+  d'utilisation interdisent la lecture automatisée. `src/sources/indeed.js`
+  reste un emplacement inerte. **Ne pas contourner** : Jooble et Careerjet
+  couvrent une large part des mêmes annonces, légalement.
+
+### 12.4 Le dépôt est prêt à être publié
+
+Trois sessions de travail ont enfin été commitées, sur la branche
+**`refonte-sources-et-epuration`** (commit `99e4e3e`, 41 fichiers,
++5 574 / −1 808). `master` reste sur `a457123` en attendant la fusion.
+
+Audit de confidentialité fait avant tout dépôt public :
+
+| Vérification | Résultat |
+|---|---|
+| `.env` déjà commité ? | **jamais** |
+| Clés d'API dans l'historique ? | **aucune** |
+| `profile/profile.json` suivi ? | **retiré** du suivi, remplacé par `profile.example.json` anonymisé |
+| Sauvegardes de CV | ignorées (`profile/*.sauvegarde-*`) |
+
+Deux réserves, à connaître avant de rendre le dépôt public :
+
+1. **L'App ID Adzuna réel de Benjamin figurait en exemple dans le README.**
+   Remplacé par une valeur factice — mais il reste dans les **anciens
+   commits**. Ce n'est pas un secret (l'identifiant public d'une application,
+   inutilisable sans la clé), mais autant le savoir.
+2. **`profile/profile.json` est dans l'historique** des commits antérieurs :
+   nom, ville, critères de recherche et motifs de scoring calqués sur le CV.
+   Le sortir du suivi protège l'avenir, pas le passé. Pour effacer aussi le
+   passé il faudrait réécrire l'historique (`git filter-repo`) — à décider
+   avec Benjamin selon qu'il rend le dépôt public ou privé.
+
+**`gh` (GitHub CLI) n'est pas installé sur cette machine.** La création du
+dépôt se fera donc à la main sur github.com, ou après installation de `gh`.
+
+### 12.5 Ce qui reste, et n'appartient qu'à Benjamin
+
+- **Les clés France Travail.** Le blocage historique était le formulaire, qui
+  exige une **URL publique** et refuse `localhost`. **Publier le dépôt sur
+  GitHub résout ce point** : l'URL du dépôt fait une URL d'application
+  parfaitement valable. Puis ne pas oublier de **souscrire à l'API « Offres
+  d'emploi v2 »**, étape distincte de la création de l'application.
+- **La clé Careerjet**, gratuite, sur careerjet.com/partners/api.
