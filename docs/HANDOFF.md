@@ -52,11 +52,11 @@ Dépôt : <https://github.com/VDEDemysrios/JobCockpit>
 > Benjamin a indiqué qu'il ajouterait **les sites d'emploi en dernier**. Ce
 > n'est donc pas la priorité du moment.
 
-### 🚧 Demandé, pas encore commencé
+### 🚧 En chantier
 
-| Chantier | Taille | Où c'est décrit |
+| Chantier | État | Où |
 |---|---|---|
-| **Comptes et multi-utilisateurs** | très gros — change l'architecture | §5 |
+| **Mise en ligne + comptes** | schéma de base écrit ; en attente du projet Supabase | §5 |
 
 ---
 
@@ -95,45 +95,102 @@ Dépôt : <https://github.com/VDEDemysrios/JobCockpit>
 
 ---
 
-## 5. Comptes et multi-utilisateurs — demandé le 29 juillet 2026
+## 5. Mise en ligne et comptes — chantier en cours
 
-Benjamin veut pouvoir ouvrir le site à d'autres personnes : compte, import de
-son propre CV, suppression de compte, offres correspondant à son profil, et
-raccordement de ses propres accès France Travail / Adzuna / Indeed.
+Décidé le 29 juillet 2026 : **Supabase** (comptes + base + fichiers) et
+**Cloudflare** (hébergement), c'est-à-dire le socle qui fait déjà tourner
+Méridien (<https://meridien-veille.pages.dev>).
 
-**Ce n'est pas une fonctionnalité, c'est un changement de nature du projet.**
-Aujourd'hui Job Cockpit est un outil **local, mono-utilisateur, sans
-authentification**, dont la base contient un seul profil. Le rendre
-multi-utilisateur touche à tout :
+### 5.1 L'architecture retenue
 
-| Ce que ça implique | Pourquoi c'est du travail |
-|---|---|
-| Authentification | inscription, connexion, mot de passe oublié, sessions |
-| Cloisonnement des données | chaque table gagne un `user_id` ; **une fuite entre comptes serait grave** |
-| CV par compte | téléversement, stockage, extraction, suppression |
-| Clés d'API par compte | des **secrets de tiers** à chiffrer au repos — plus seulement un `.env` |
-| Suppression de compte | effacer *tout* : offres, suivi, lettres, CV, clés |
-| Hébergement | le poste de Benjamin ne suffit plus ; il faut un serveur, un nom de domaine, HTTPS |
-| Obligations légales | données personnelles de tiers : RGPD, mentions, durée de conservation |
-| Coût | le quota Gemini est **par clé** : soit chacun apporte la sienne, soit Benjamin paie pour tous |
+| Brique | Où | Pourquoi |
+|---|---|---|
+| Interface | Cloudflare (statique) | déjà en place pour Méridien, gratuit |
+| Comptes | Supabase Auth | inscription, mot de passe oublié, sessions : **ne jamais écrire ça soi-même** |
+| Données | Supabase Postgres | RLS = cloisonnement appliqué par la base, pas par le code |
+| CV | Supabase Storage | seau privé, un dossier par compte |
+| Collecte | *à trancher* — §5.4 | c'est le seul point qui coince |
 
-**Décisions nécessaires avant d'écrire la moindre ligne** — elles n'ont pas
-encore été prises :
+### 5.2 Le cloisonnement, et pourquoi RLS
 
-1. **Pour qui ?** Trois amis, ou un service ouvert ? La réponse change tout.
-2. **Où l'héberger ?**
-3. **Qui paie l'analyse Gemini ?**
-4. **Chacun apporte-t-il ses propres clés d'API**, ou partage-t-on celles de
-   Benjamin ? (Les conditions d'Adzuna et de France Travail encadrent la
-   redistribution — à vérifier avant de choisir.)
+`supabase/migrations/0001_socle_multi_comptes.sql` porte tout le schéma.
 
-> **Recommandation.** Ne pas se lancer tant que ces quatre points ne sont pas
-> tranchés. Et si le besoin réel est « faire essayer à deux ou trois
-> personnes », une piste bien plus économe existe : garder l'application
-> mono-utilisateur et la faire installer chez chacun — le dépôt est public,
-> le `Lancer Job Cockpit.bat` est déjà là. Zéro serveur, zéro RGPD, zéro
-> secret de tiers à protéger.
+Chaque table a un `user_id`, et une politique **RLS** qui limite chaque
+requête aux lignes du compte connecté. La différence avec un filtre écrit
+dans le code est décisive : une requête qui oublie son `WHERE user_id = …`
+ne renvoie **rien** au lieu de tout renvoyer. La faute est visible tout de
+suite, au lieu d'exposer silencieusement les candidatures des autres.
 
+Deux conséquences heureuses :
+
+- **La suppression de compte est gratuite.** Tout est en
+  `on delete cascade` depuis `auth.users` : effacer le compte efface offres,
+  suivi, lettres, journal, réglages et CV. C'est ce que le RGPD exige.
+- **L'identifiant d'offre reste un hachage du contenu**, donc deux comptes
+  peuvent collecter la même offre. La clé primaire est le couple
+  `(user_id, id)` — sans ça, le second collecteur écraserait le premier.
+
+### 5.3 La limite Cloudflare qu'il faut connaître
+
+Vérifié sur la documentation officielle le 29 juillet 2026 :
+
+| | Gratuit | Payant (5 $/mois) |
+|---|---|---|
+| CPU par exécution | **10 ms** | 30 s |
+| Requêtes sortantes par exécution | **50** | 10 000 |
+
+**La collecte ne tient pas dans le plan gratuit** : 31 flux à analyser, plus
+les appels Gemini. Ni les 10 ms de CPU, ni les 50 requêtes.
+
+### 5.4 Décision en attente : où tourne la collecte
+
+| Option | Coût | Conséquence |
+|---|---|---|
+| **A — la collecte reste sur le PC** | 0 € | L'app est en ligne, consultable du téléphone ; mais le PC doit être allumé pour que les offres arrivent. La tâche Windows actuelle continue, en écrivant vers Supabase au lieu du fichier local. |
+| **B — Workers payant** | 5 $/mois | Tout est dans le cloud. Le PC ne sert plus à rien. |
+
+> Le travail est **le même dans les deux cas** jusqu'à la dernière étape :
+> schéma, comptes, interface, portage des données. La bifurcation n'arrive
+> qu'au moment de déplacer la collecte. Rien n'oblige à trancher maintenant.
+
+### 5.5 Ce que Benjamin doit créer — rien ne peut avancer sans
+
+Je ne crée pas de comptes à sa place (ni ne saisis de mot de passe).
+
+1. **Un projet Supabase** sur <https://supabase.com/dashboard> — gratuit.
+   Région : *Europe (Paris ou Frankfurt)*, pour que les données restent en UE.
+2. Dans **SQL Editor**, coller et exécuter
+   `supabase/migrations/0001_socle_multi_comptes.sql`.
+3. Me transmettre, depuis *Project Settings → API* :
+   - l'**URL du projet** (publique, sans risque) ;
+   - la clé **anon / publishable** (publique elle aussi : c'est RLS qui
+     protège, pas le secret de cette clé).
+4. **Ne jamais me transmettre la clé `service_role`.** Elle contourne RLS.
+   Si la collecte passe un jour dans un Worker, elle s'y déposera par
+   `wrangler secret put`, sans passer par la conversation.
+
+### 5.6 Les étapes, dans l'ordre
+
+- [x] Schéma Postgres + RLS + suppression en cascade
+- [ ] Projet Supabase créé, schéma appliqué *(Benjamin)*
+- [ ] Écran de connexion et portage de l'interface vers Supabase
+- [ ] Import des 264 offres locales vers le compte de Benjamin
+- [ ] Mise en ligne sur Cloudflare
+- [ ] Téléversement du CV par compte
+- [ ] Clés d'API par compte, chiffrées
+- [ ] Décision A ou B sur la collecte *(§5.4)*
+
+### 5.7 Ce à quoi il faudra penser avant d'ouvrir à d'autres
+
+Tant que Benjamin est seul utilisateur, ces points peuvent attendre. Le jour
+où quelqu'un d'autre crée un compte, ils deviennent obligatoires :
+
+- une **page de confidentialité** : quelles données, pourquoi, combien de
+  temps, comment les supprimer ;
+- le **quota Gemini est par clé** — soit chacun apporte la sienne, soit
+  Benjamin paie pour tout le monde ;
+- les **conditions d'Adzuna et de France Travail** encadrent la
+  redistribution de leurs données : à relire avant d'ouvrir le service.
 ---
 
 ## 6. Pistes ouvertes, par ordre d'intérêt
@@ -152,7 +209,8 @@ encore été prises :
 
 | Date | Ce qui a changé |
 |---|---|
-| **29 juil. 2026** | Titre d'offre cliquable vers l'annonce ; garde-fous anti-invention dans les lettres (plus d'« expertise agronomique ») ; création de ce document |
+| **29 juil. 2026** | Socle multi-comptes : schéma Postgres + RLS + suppression en cascade ; architecture Supabase/Cloudflare arrêtée |
+| 29 juil. 2026 | Titre d'offre cliquable vers l'annonce ; garde-fous anti-invention dans les lettres (plus d'« expertise agronomique ») ; création de ce document |
 | 29 juil. 2026 | Dépôt publié sur GitHub, historique purgé ; collecte automatique toutes les 6 h ; 31 flux ; première vraie collecte (264 offres) ; correction du bug qui perdait la moisson en cas de panne d'analyse |
 | 29 juil. 2026 | CV joint en pièce jointe ; lettres étoffées ; gamification retirée ; 9 vues → 6 |
 | 28 juil. 2026 | Tableau de bord, statistiques, sources Careerjet et RSS |
