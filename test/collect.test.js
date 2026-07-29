@@ -223,3 +223,51 @@ test('les offres prioritaires sont analysées avant les autres', async () => {
   assert.deepEqual(vus, [1, 2], 'le groupe 1 doit passer avant le groupe 2');
   db.close();
 });
+
+// Le quota Gemini gratuit est journalier et partagé entre l'analyse des
+// offres et la rédaction des lettres. Une collecte toutes les 6 heures qui
+// analyse tout ce qu'elle peut le vide entièrement — et Benjamin se retrouve
+// sans lettre au moment où il en veut une. Or la lettre vaut bien plus qu'un
+// verdict sur une offre qu'il ne lira peut-être jamais.
+test('une collecte n\'analyse jamais plus que son budget d\'analyses', async () => {
+  const db = ouvrirBase(':memory:');
+  // Les titres doivent différer : l'identifiant d'une offre est un hachage de
+  // titre + entreprise + ville, donc vingt copies du même titre n'en font
+  // qu'une seule après dédoublonnage.
+  const offres = Array.from({ length: 20 }, (_, i) => ({
+    ...OFFRE_NANCY, titre: `Juriste agrivoltaïque ${i}`,
+    externalId: `b${i}`, lien: `https://exemple.fr/b${i}`,
+  }));
+
+  let appels = 0;
+  const r = await collecter({
+    db, profil: { ...PROFIL, analysesParCollecte: 6 },
+    sources: [sourceFactice(offres)], cv: 'x'.repeat(200), analyser: true,
+    analyserOffre: async () => { appels++; return { verdict: 'ok' }; },
+  });
+
+  assert.equal(appels, 6, 'le budget doit être respecté à l\'unité près');
+  assert.equal(r.analysees, 6);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM offers').get().n, 20,
+    'toutes les offres sont enregistrées, même celles qui ne seront pas analysées');
+  db.close();
+});
+
+test('sans budget déclaré, une valeur par défaut raisonnable s\'applique', async () => {
+  const db = ouvrirBase(':memory:');
+  const offres = Array.from({ length: 60 }, (_, i) => ({
+    ...OFFRE_NANCY, titre: `Juriste agrivoltaïque poste ${i}`,
+    externalId: `d${i}`, lien: `https://exemple.fr/d${i}`,
+  }));
+
+  let appels = 0;
+  await collecter({
+    db, profil: PROFIL, sources: [sourceFactice(offres)],
+    cv: 'x'.repeat(200), analyser: true,
+    analyserOffre: async () => { appels++; return { verdict: 'ok' }; },
+  });
+
+  assert.ok(appels > 0 && appels < 60,
+    `un plafond par défaut doit s'appliquer, ${appels} analyses faites sur 60`);
+  db.close();
+});

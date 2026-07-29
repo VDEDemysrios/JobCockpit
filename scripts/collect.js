@@ -25,6 +25,15 @@ import indeed from '../src/sources/indeed.js';
 
 export const SOURCES = [franceTravail, adzuna, jooble, careerjet, flux, indeed];
 
+/**
+ * Nombre d'offres analysées par collecte, tant que `profile.json` n'en décide
+ * pas autrement (clé `analysesParCollecte`).
+ *
+ * 25 × 4 collectes par jour = 100 analyses, ce qui laisse de la marge sur le
+ * quota gratuit pour les lettres — de loin le meilleur usage de ce quota.
+ */
+const ANALYSES_PAR_COLLECTE = 25;
+
 /** Date ISO d'il y a N jours — borne de fraîcheur. */
 function ilYaNJours(n) {
   return new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
@@ -164,9 +173,24 @@ export async function collecter({
     // limité, on analyse d'abord celles que Benjamin va réellement ouvrir :
     // groupe 1, puis 2, puis les « à vérifier ».
     const RANG = { 1: 0, 2: 1, 0: 2 };
+
+    // BUDGET. Le quota Gemini est JOURNALIER et PARTAGÉ entre l'analyse des
+    // offres et la rédaction des lettres. Une collecte toutes les 6 heures qui
+    // analyse tout ce qu'elle peut le vide entièrement — et il ne reste plus
+    // rien pour écrire une lettre au moment où Benjamin en veut une.
+    //
+    // Or une lettre vaut bien plus qu'un verdict sur une offre qu'il ne lira
+    // peut-être jamais. On plafonne donc l'analyse pour lui en garder.
+    const budget = Number(profil.analysesParCollecte ?? ANALYSES_PAR_COLLECTE);
+
     const aAnalyser = retenues
       .filter(o => o.groupe !== 3 && !dejaAnalysees.has(o.id))
-      .sort((a, b) => RANG[a.groupe] - RANG[b.groupe]);
+      .sort((a, b) => RANG[a.groupe] - RANG[b.groupe])
+      .slice(0, budget);
+
+    if (retenues.filter(o => o.groupe !== 3 && !dejaAnalysees.has(o.id)).length > budget) {
+      console.log(`  ⏳ ${budget} analyses ce tour-ci ; le reste attendra la prochaine collecte.`);
+    }
 
     // S'acharner après plusieurs refus d'affilée ne fait que rallonger la
     // collecte : le quota est journalier, il ne se rouvrira pas dans la minute.

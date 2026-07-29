@@ -52,11 +52,11 @@ Dépôt : <https://github.com/VDEDemysrios/JobCockpit>
 > Benjamin a indiqué qu'il ajouterait **les sites d'emploi en dernier**. Ce
 > n'est donc pas la priorité du moment.
 
-### 🚧 En chantier
+### ⏸️ Mis en pause, par décision de Benjamin
 
 | Chantier | État | Où |
 |---|---|---|
-| **Mise en ligne + comptes** | schéma de base écrit ; en attente du projet Supabase | §5 |
+| **Mise en ligne + comptes** | **suspendu le 29 juil. 2026** — « cockpit que pour moi pour le moment ». Le schéma Postgres est écrit et conservé, prêt à servir. | §5 |
 
 ---
 
@@ -82,11 +82,12 @@ Dépôt : <https://github.com/VDEDemysrios/JobCockpit>
 
 ## 4. Les limites connues, à ne pas prendre pour des bugs
 
-- **Le quota Gemini gratuit ne couvre pas 264 offres.** Environ 40 analyses
-  par jour passent, puis l'API répond `429`. Les offres sont bien en base,
-  simplement sans verdict ; chaque collecte reprend où la précédente s'est
-  arrêtée, en commençant par les prioritaires. Passer au palier payant, ou
-  accepter le rythme.
+- **Le quota Gemini gratuit ne couvre pas 264 offres.** Il est JOURNALIER et
+  PARTAGÉ entre l'analyse des offres et la rédaction des lettres. Chaque
+  collecte s'arrête donc à **25 analyses** (réglable par `analysesParCollecte`
+  dans `profile.json`), pour en garder aux lettres — qui valent bien plus
+  qu'un verdict sur une offre jamais lue. Les offres non analysées restent en
+  base et passeront aux collectes suivantes, prioritaires d'abord.
 - **Emploi-Environnement tronque ses descriptions** à ~150 caractères et abîme
   ses accents *à la source*. Utile pour repérer, pas pour analyser.
 - **Careerjet n'a jamais été testé en vrai** — pas de clé. Le code existe.
@@ -209,7 +210,8 @@ où quelqu'un d'autre crée un compte, ils deviennent obligatoires :
 
 | Date | Ce qui a changé |
 |---|---|
-| **29 juil. 2026** | Socle multi-comptes : schéma Postgres + RLS + suppression en cascade ; architecture Supabase/Cloudflare arrêtée |
+| **29 juil. 2026** | Budget d'analyses par collecte, pour ne plus vider le quota Gemini réservé aux lettres ; chantier multi-comptes suspendu |
+| 29 juil. 2026 | Socle multi-comptes : schéma Postgres + RLS + suppression en cascade ; architecture Supabase/Cloudflare arrêtée |
 | 29 juil. 2026 | Titre d'offre cliquable vers l'annonce ; garde-fous anti-invention dans les lettres (plus d'« expertise agronomique ») ; création de ce document |
 | 29 juil. 2026 | Dépôt publié sur GitHub, historique purgé ; collecte automatique toutes les 6 h ; 31 flux ; première vraie collecte (264 offres) ; correction du bug qui perdait la moisson en cas de panne d'analyse |
 | 29 juil. 2026 | CV joint en pièce jointe ; lettres étoffées ; gamification retirée ; 9 vues → 6 |
