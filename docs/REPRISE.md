@@ -1,9 +1,11 @@
-# Document de reprise — Job Cockpit
+# Journal des sessions — Job Cockpit
 
-> À lire en entier avant de toucher au code. Écrit le **28 juillet 2026**, à la
-> fin d'une session qui a transformé le tableau de bord et ajouté deux sources
-> d'offres. Tout ce qui suit a été **exécuté et vérifié**, sauf mention
-> contraire explicite.
+> **Ceci est le journal détaillé, session par session.** Pour savoir
+> simplement où en est le projet et ce qui reste à faire, lire
+> **[HANDOFF.md](HANDOFF.md)** — c'est lui qui fait foi sur l'état courant.
+>
+> Ce fichier garde la trace du *pourquoi* : ce qui a été essayé, ce qui a
+> échoué, et les pièges à ne pas refaire.
 
 ---
 
@@ -518,3 +520,76 @@ prochains push ne redemanderont rien.
   distincte de la création de l'application, et celle que tout le monde
   oublie.
 - **La clé Careerjet**, gratuite, sur careerjet.com/partners/api.
+
+---
+
+## 13. Session du 29 juillet 2026 (4) — lettres crédibles, lien direct, handoff
+
+### 13.1 Le problème de fond des lettres : les compétences inventées
+
+Benjamin : « du bullshit dans les lettres, ça parle de mes qualités
+agronomiques, ça ne colle pas à mes compétences ni à mon CV ».
+
+La lettre déjà en base, relue, ne l'affirmait pas franchement — « échanger
+avec les experts en agronomie » désigne bien ses interlocuteurs, pas lui.
+Mais **le risque était réel et venait d'être aggravé** : le prompt réécrit à
+la session précédente martèle « 90 % du portefeuille est agrivoltaïque », ce
+qui pousse le modèle à en déduire une compétence agronomique.
+
+La correction ne consiste pas à retirer l'agrivoltaïsme, mais à **le situer**.
+Deux blocs ajoutés au prompt :
+
+- l'agrivoltaïsme est le **secteur d'exercice** de Benjamin, jamais une
+  compétence agronomique ; il y intervient **en tant que juriste et chef de
+  projet** ;
+- une section **« CE QUE LE CANDIDAT N'EST PAS »**, qui interdit nommément de
+  lui prêter une expertise agronomique, une compétence en ingénierie
+  électrique ou une expérience d'exploitant agricole — et impose les verbes
+  justes : *cadrer*, *coordonner*, *traduire*, *faire dialoguer*.
+
+Dire au modèle ce qu'il ne doit **pas** écrire marche mieux que d'espérer
+qu'il le devine. Deux tests verrouillent ces deux blocs.
+
+> Le quota Gemini étant épuisé, **la qualité du résultat n'a pas pu être
+> vérifiée sur une lettre réellement générée**. À faire dès que le quota
+> repart : c'est la seule preuve qui vaille.
+
+### 13.2 Le titre de l'offre est devenu le lien
+
+Le lien vers l'annonce existait déjà, mais sous la forme d'un « Voir ↗ »
+minuscule, en bout d'une ligne de badges chargée — invisible en pratique.
+
+Le **titre de chaque offre est maintenant le lien** : c'est le premier
+réflexe. Vérifié sur les 264 offres en base. Le dépliage de la carte n'est pas
+cassé — le gestionnaire de clic ignorait déjà les `<a>`.
+
+### 13.3 HANDOFF.md, le document d'état
+
+Le journal que tu lis avait pris 500 lignes et douze sections : excellent pour
+comprendre *pourquoi*, illisible pour savoir *où on en est*.
+
+Les deux rôles sont désormais séparés :
+
+- **`docs/HANDOFF.md`** — l'état courant : ce qui est fait, ce qui attend
+  Benjamin, ce qui est décidé, les limites connues, le journal des mises à
+  jour. **Mis à jour à chaque session.** C'est lui qui fait foi.
+- **`docs/REPRISE.md`** (ce fichier) — le journal détaillé, session par
+  session : ce qui a été essayé, ce qui a échoué, les pièges.
+
+### 13.4 Comptes et multi-utilisateurs : cadré, pas commencé
+
+Benjamin veut ouvrir le site à d'autres : comptes, CV par profil, suppression
+de compte, offres personnalisées, raccordement des accès France Travail /
+Adzuna / Indeed de chacun.
+
+**Rien n'a été codé, volontairement.** Ce n'est pas une fonctionnalité de plus
+mais un changement de nature : d'un outil local mono-utilisateur sans
+authentification vers une application multi-locataire hébergée. Cela implique
+authentification, cloisonnement des données par compte, **chiffrement de
+secrets appartenant à des tiers**, suppression complète sur demande,
+hébergement, et des obligations RGPD.
+
+Quatre décisions doivent être prises avant la première ligne de code : pour
+qui, hébergé où, qui paie le quota Gemini, et clés partagées ou apportées par
+chacun. Le détail et la recommandation sont dans
+**[HANDOFF.md §5](HANDOFF.md)**.

@@ -273,7 +273,10 @@ export function rendreCarte(offre, actions) {
     <span class="chevron">▸</span>
     <span class="pinbtn ${s.pinned ? 'on' : ''}" data-act="pin" title="Épingler">${s.pinned ? '★' : '☆'}</span>
     <div class="titlebox">
-      <div class="ptitle">${echapper(offre.titre)}</div>
+      <div class="ptitle">${offre.lien
+        ? `<a href="${echapper(offre.lien)}" target="_blank" rel="noopener"
+             title="Ouvrir l'annonce d'origine">${echapper(offre.titre)}<span class="ext">↗</span></a>`
+        : echapper(offre.titre)}</div>
       <div class="pmeta">${echapper(offre.entreprise)} · ${echapper(offre.ville)}${offre.dateOffre ? ' · offre du ' + dateLisible(offre.dateOffre) : ''}</div>
       <div class="cardprog"><span style="width:${prog}%;background:${STATUS_COL[s.status]}"></span></div>
     </div>

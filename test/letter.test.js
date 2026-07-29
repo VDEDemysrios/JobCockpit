@@ -100,6 +100,22 @@ test('le prompt prévoit le cas d\'une offre de la fonction publique', () => {
   assert.match(p, /fonction publique/i);
 });
 
+// Benjamin est juriste et chef de projet. L'agrivoltaïsme est son SECTEUR,
+// pas une compétence agronomique : les premières lettres lui prêtaient une
+// expertise en agronomie que ni son CV ni son M2 ne portent — le genre
+// d'affirmation qui s'effondre à la première question en entretien.
+test('le prompt interdit de s\'attribuer une expertise agronomique ou technique', () => {
+  const p = construirePrompt({ titre: 'Chef de projet agrivoltaïque', description: 'x' }, null, 'CV');
+  assert.match(p, /agronom/i, 'le piège doit être nommé explicitement');
+  assert.match(p, /n['’]est (?:pas|ni)|jamais.{0,40}agronom/i,
+    'le prompt doit dire ce que le candidat N\'EST PAS');
+});
+
+test('le prompt situe l\'agrivoltaïsme comme un secteur, pas une compétence', () => {
+  const p = construirePrompt({ titre: 'Juriste', description: 'x' }, null, 'CV');
+  assert.match(p, /secteur|domaine d['’]exercice/i);
+});
+
 test('nomFichier produit un nom de fichier sain', () => {
   assert.equal(
     nomFichier({ titre: 'Chef de projet ENR (H/F)', entreprise: 'Veles Énergies' }),

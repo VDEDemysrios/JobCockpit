@@ -7,6 +7,10 @@ de motivation.
 Tout tourne **sur ton ordinateur**. Aucune donnée n'est envoyée ailleurs, à une
 exception près, signalée plus bas.
 
+> **Où en est le projet ?** → [`docs/HANDOFF.md`](docs/HANDOFF.md) : ce qui est
+> fait, ce qui reste à faire, les décisions prises et les limites connues.
+> Le journal détaillé des sessions est dans [`docs/REPRISE.md`](docs/REPRISE.md).
+
 ---
 
 ## Sommaire
