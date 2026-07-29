@@ -8,7 +8,9 @@
 import 'dotenv/config';
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { ouvrirBase, upsertOffre, ecrireMeta, transaction, purgerOffresPerimees } from '../src/db.js';
+import {
+  ouvrirBase, upsertOffre, ecrireMeta, transaction, purgerOffresPerimees, enregistrerAnalyse,
+} from '../src/db.js';
 import { collecterDepuisSources } from '../src/sources/index.js';
 import { scorer } from '../src/scoring.js';
 import { analyserOffre } from '../src/analyze.js';
@@ -87,9 +89,12 @@ function deduireDepartement(offre) {
  * @param {object[]} options.sources adaptateurs de sources
  * @param {string} options.cv        texte du CV
  * @param {boolean} options.analyser lancer l'analyse LLM (false dans les tests)
+ * @param {Function} [options.analyserOffre] injectable pour les tests
  * @returns {Promise<object>} résumé de la collecte
  */
-export async function collecter({ db, profil, sources, cv, analyser = true }) {
+export async function collecter({
+  db, profil, sources, cv, analyser = true, analyserOffre: analyse = analyserOffre,
+}) {
   const debut = Date.now();
   const depuisDate = ilYaNJours(profil.fraicheurJours);
 
@@ -133,34 +138,61 @@ export async function collecter({ db, profil, sources, cv, analyser = true }) {
 
   console.log(`  ${retenues.length} offre(s) retenue(s) après filtres`);
 
-  // 7. Analyse LLM — uniquement les groupes 1, 2 et 0, et jamais deux fois
-  //    la même offre (économie de quota, stabilité du verdict).
-  let analysees = 0;
-  if (analyser) {
-    const dejaAnalysees = new Set(
-      db.prepare('SELECT id FROM offers WHERE analysis_json IS NOT NULL').all().map(r => r.id)
-    );
-
-    for (const offre of retenues) {
-      if (offre.groupe === 3) continue;
-      if (dejaAnalysees.has(offre.id)) continue;
-
-      const analyse = await analyserOffre(offre, cv);
-      if (analyse) {
-        offre.analysisJson = analyse;
-        analysees++;
-        console.log(`  ✓ analysée : ${offre.titre}`);
-      }
-    }
-  }
-
-  // 8. Écriture en base — en transaction, et UNIQUEMENT dans `offers`.
+  // 7. Écriture en base — AVANT l'analyse, en transaction, et UNIQUEMENT
+  //    dans `offers`.
+  //
+  //    L'ordre compte. L'analyse durait quarante minutes le jour où le quota
+  //    Gemini s'est épuisé en cours de route : la collecte s'est arrêtée avant
+  //    l'écriture, et la moisson entière a été perdue. La récolte est un
+  //    résultat en soi — elle ne doit dépendre d'aucun service extérieur.
   let nouvelles = 0;
   transaction(db, () => {
     for (const offre of retenues) {
       if (upsertOffre(db, offre).nouvelle) nouvelles++;
     }
   });
+
+  // 8. Analyse LLM — groupes 1, 2 et 0 seulement, jamais deux fois la même
+  //    offre, et les prioritaires d'abord.
+  let analysees = 0;
+  if (analyser) {
+    const dejaAnalysees = new Set(
+      db.prepare('SELECT id FROM offers WHERE analysis_json IS NOT NULL').all().map(r => r.id)
+    );
+
+    // Le quota gratuit ne couvre pas plusieurs centaines d'offres. À budget
+    // limité, on analyse d'abord celles que Benjamin va réellement ouvrir :
+    // groupe 1, puis 2, puis les « à vérifier ».
+    const RANG = { 1: 0, 2: 1, 0: 2 };
+    const aAnalyser = retenues
+      .filter(o => o.groupe !== 3 && !dejaAnalysees.has(o.id))
+      .sort((a, b) => RANG[a.groupe] - RANG[b.groupe]);
+
+    // S'acharner après plusieurs refus d'affilée ne fait que rallonger la
+    // collecte : le quota est journalier, il ne se rouvrira pas dans la minute.
+    const ECHECS_AVANT_ABANDON = 5;
+    let echecsConsecutifs = 0;
+
+    for (const offre of aAnalyser) {
+      let resultat = null;
+      try {
+        resultat = await analyse(offre, cv);
+      } catch (erreur) {
+        console.warn(`  ⚠ Analyse impossible pour « ${offre.titre} » : ${erreur.message}`);
+      }
+
+      if (resultat) {
+        enregistrerAnalyse(db, offre.id, resultat);
+        analysees++;
+        echecsConsecutifs = 0;
+        console.log(`  ✓ analysée : ${offre.titre}`);
+      } else if (++echecsConsecutifs >= ECHECS_AVANT_ABANDON) {
+        console.warn(`  ⏸ Analyse interrompue après ${ECHECS_AVANT_ABANDON} échecs d'affilée.`);
+        console.warn('    Les offres sont bien enregistrées ; la prochaine collecte reprendra.');
+        break;
+      }
+    }
+  }
 
   // Nettoyage : offres disparues depuis 30 jours sur lesquelles rien n'a été fait.
   const purgees = purgerOffresPerimees(db, 30);

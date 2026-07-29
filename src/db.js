@@ -305,3 +305,15 @@ export function purgerOffresPerimees(db, jours = 30) {
     return perimees.length;
   });
 }
+
+/**
+ * Enregistre l'analyse d'une offre déjà en base.
+ *
+ * Écrire l'analyse offre par offre, plutôt qu'en un bloc à la fin de la
+ * collecte, garantit que chaque analyse payée en quota est conservée — même
+ * si la suivante échoue.
+ */
+export function enregistrerAnalyse(db, id, analyse) {
+  db.prepare('UPDATE offers SET analysis_json = ?, analysis_at = ? WHERE id = ?')
+    .run(JSON.stringify(analyse), new Date().toISOString(), id);
+}

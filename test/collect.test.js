@@ -146,3 +146,80 @@ test('une collecte ne modifie JAMAIS la table tracking', async () => {
   assert.equal(t.pinned, 1);
   db.close();
 });
+
+// ------------------------------------------------- résistance de la collecte
+
+// Offre volontairement moins bien notée : « juriste » seul (3 points) la place
+// en groupe 2, derrière OFFRE_NANCY qui cumule agrivoltaïque + juriste.
+const OFFRE_MOYENNE = {
+  externalId: 'f2', titre: 'Juriste collectivité', entreprise: 'MAIRIE', ville: 'Nancy (54)',
+  description: 'Poste de juriste en collectivité territoriale, marchés et contentieux.'.padEnd(120, ' .'),
+  dateOffre: aujourdhui, lien: 'https://exemple.fr/2', contrat: 'CDI',
+};
+
+// Régression coûteuse : l'analyse tournait AVANT l'écriture en base. Quarante
+// minutes de collecte se sont perdues d'un coup le jour où le quota Gemini
+// s'est épuisé en cours de route — pas une seule offre n'avait été enregistrée.
+test('les offres sont enregistrées même si l\'analyse échoue entièrement', async () => {
+  const db = ouvrirBase(':memory:');
+  const r = await collecter({
+    db, profil: PROFIL, sources: [sourceFactice([OFFRE_NANCY, OFFRE_MOYENNE])],
+    cv: 'x'.repeat(200), analyser: true,
+    analyserOffre: async () => { throw new Error('429 quota épuisé'); },
+  });
+
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM offers').get().n, 2,
+    'la moisson doit survivre à une panne d\'analyse');
+  assert.equal(r.analysees, 0);
+  assert.equal(r.statut, 'ok', 'une analyse en panne ne fait pas échouer la collecte');
+  db.close();
+});
+
+test('une analyse réussie est bien enregistrée', async () => {
+  const db = ouvrirBase(':memory:');
+  await collecter({
+    db, profil: PROFIL, sources: [sourceFactice([OFFRE_NANCY])],
+    cv: 'x'.repeat(200), analyser: true,
+    analyserOffre: async () => ({ verdict: 'ok', prouvable: ['M2'] }),
+  });
+
+  const ligne = db.prepare('SELECT analysis_json FROM offers').get();
+  assert.ok(ligne.analysis_json, 'l\'analyse doit être écrite en base');
+  assert.equal(JSON.parse(ligne.analysis_json).verdict, 'ok');
+  db.close();
+});
+
+// Le quota Gemini gratuit ne tient pas 265 offres. S'acharner ne fait que
+// rallonger la collecte de plusieurs dizaines de minutes pour rien.
+test('l\'analyse s\'arrête après une série d\'échecs consécutifs', async () => {
+  const db = ouvrirBase(':memory:');
+  const offres = Array.from({ length: 12 }, (_, i) => ({
+    ...OFFRE_NANCY, externalId: `f${i}`, lien: `https://exemple.fr/${i}`,
+  }));
+
+  let tentatives = 0;
+  await collecter({
+    db, profil: PROFIL, sources: [sourceFactice(offres)],
+    cv: 'x'.repeat(200), analyser: true,
+    analyserOffre: async () => { tentatives++; throw new Error('429 quota'); },
+  });
+
+  assert.ok(tentatives < 12, `abandon attendu avant la 12e offre, ${tentatives} tentatives faites`);
+  db.close();
+});
+
+// À quota limité, mieux vaut analyser les offres que Benjamin va vraiment
+// lire. Une offre « à vérifier » analysée à la place d'une prioritaire est du
+// quota gaspillé.
+test('les offres prioritaires sont analysées avant les autres', async () => {
+  const db = ouvrirBase(':memory:');
+  const vus = [];
+  await collecter({
+    db, profil: PROFIL, sources: [sourceFactice([OFFRE_MOYENNE, OFFRE_NANCY])],
+    cv: 'x'.repeat(200), analyser: true,
+    analyserOffre: async (offre) => { vus.push(offre.groupe); return { verdict: 'ok' }; },
+  });
+
+  assert.deepEqual(vus, [1, 2], 'le groupe 1 doit passer avant le groupe 2');
+  db.close();
+});
