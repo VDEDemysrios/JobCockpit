@@ -262,8 +262,7 @@ export function journaliser(db, type, options = {}) {
 export const SANS_ACTIVITE = new Set(['note', 'epingle', 'collecte']);
 
 /**
- * Supprime les offres disparues des sources depuis plus de `jours` jours
- * ET sur lesquelles Benjamin n'a rien fait.
+ * Condition SQL isolant les offres SUPPRIMABLES.
  *
  * Une offre est PROTÉGÉE dès qu'elle porte la moindre trace d'activité :
  * un statut autre que « À postuler », une date d'envoi, une relance, une note,
@@ -271,39 +270,112 @@ export const SANS_ACTIVITE = new Set(['note', 'epingle', 'collecte']);
  * En cas de doute, on garde : perdre une offre suivie est irrécupérable,
  * garder une offre morte ne coûte qu'une ligne.
  *
+ * Cette condition est partagée par toutes les suppressions automatiques.
+ * Deux copies auraient fini par diverger, et la copie oubliée aurait effacé
+ * une candidature suivie.
+ */
+const SANS_TRACE = `
+  o.is_manual = 0
+  AND l.offer_id IS NULL
+  AND (
+    t.offer_id IS NULL
+    OR (
+      COALESCE(t.status, 'À postuler') = 'À postuler'
+      AND COALESCE(t.sent_date, '')    = ''
+      AND COALESCE(t.relance_date, '') = ''
+      AND COALESCE(t.notes, '')        = ''
+      AND COALESCE(t.pinned, 0)        = 0
+    )
+  )`;
+
+/** Supprime les offres désignées, et le suivi vide qui leur reste attaché. */
+export function supprimerOffres(db, ids) {
+  return transaction(db, () => {
+    const supprimerOffre    = db.prepare('DELETE FROM offers   WHERE id = ?');
+    const supprimerTracking = db.prepare('DELETE FROM tracking WHERE offer_id = ?');
+    for (const id of ids) {
+      supprimerTracking.run(id);
+      supprimerOffre.run(id);
+    }
+    return ids.length;
+  });
+}
+
+/**
+ * Supprime les offres disparues des sources depuis plus de `jours` jours
+ * ET sur lesquelles Benjamin n'a rien fait.
+ *
  * @returns {number} nombre d'offres supprimées
  */
 export function purgerOffresPerimees(db, jours = 30) {
   const limite = new Date(Date.now() - jours * 86400000).toISOString();
 
-  return transaction(db, () => {
-    const perimees = db.prepare(`
-      SELECT o.id FROM offers o
-      LEFT JOIN tracking t ON t.offer_id = o.id
-      LEFT JOIN letters  l ON l.offer_id = o.id
-      WHERE o.is_manual = 0
-        AND o.last_seen < @limite
-        AND l.offer_id IS NULL
-        AND (
-          t.offer_id IS NULL
-          OR (
-            COALESCE(t.status, 'À postuler') = 'À postuler'
-            AND COALESCE(t.sent_date, '')    = ''
-            AND COALESCE(t.relance_date, '') = ''
-            AND COALESCE(t.notes, '')        = ''
-            AND COALESCE(t.pinned, 0)        = 0
-          )
-        )
-    `).all({ limite }).map(r => r.id);
+  const perimees = db.prepare(`
+    SELECT o.id FROM offers o
+    LEFT JOIN tracking t ON t.offer_id = o.id
+    LEFT JOIN letters  l ON l.offer_id = o.id
+    WHERE o.last_seen < @limite AND ${SANS_TRACE}
+  `).all({ limite }).map(r => r.id);
 
-    const supprimerOffre    = db.prepare('DELETE FROM offers   WHERE id = ?');
-    const supprimerTracking = db.prepare('DELETE FROM tracking WHERE offer_id = ?');
-    for (const id of perimees) {
-      supprimerTracking.run(id);
-      supprimerOffre.run(id);
+  return supprimerOffres(db, perimees);
+}
+
+/**
+ * Un verdict d'analyse qui commence par un refus.
+ *
+ * Le score par mots-clés voit « énergie renouvelable » là où l'analyse voit un
+ * poste d'ingénieur d'exploitation : quand les deux divergent, c'est le verdict
+ * qui a raison — les cartes le disent déjà à l'écran, le nettoyage s'aligne.
+ */
+const VERDICT_NEGATIF = /^\s*(non|à écarter|a ecarter|passe ton chemin)/i;
+
+/**
+ * Les offres qui ne correspondent pas au profil, sans en supprimer aucune.
+ *
+ * Deux motifs, du plus sûr au plus discutable :
+ *   - « ecartee »  : le classement déterministe les a mises en groupe 3,
+ *                    soit un motif éliminatoire, soit un score sous le seuil ;
+ *   - « verdict »  : l'analyse du contenu commence par un refus, alors que
+ *                    les mots-clés les avaient classées ailleurs.
+ *
+ * Rien n'est décidé ici : la fonction rend la liste, l'appelant tranche.
+ * @returns {{id: string, titre: string, entreprise: string, ville: string,
+ *            score: number, groupe: number, motif: 'ecartee'|'verdict',
+ *            detail: string}[]}
+ */
+export function offresHorsProfil(db) {
+  const lignes = db.prepare(`
+    SELECT o.id, o.titre, o.entreprise, o.ville, o.score, o.groupe,
+           o.score_detail, o.analysis_json
+    FROM offers o
+    LEFT JOIN tracking t ON t.offer_id = o.id
+    LEFT JOIN letters  l ON l.offer_id = o.id
+    WHERE ${SANS_TRACE}
+    ORDER BY o.groupe DESC, o.score ASC
+  `).all();
+
+  const hors = [];
+
+  for (const o of lignes) {
+    let analyse = null;
+    try { analyse = o.analysis_json ? JSON.parse(o.analysis_json) : null; } catch { /* illisible : ignorée */ }
+
+    if (o.groupe === 3) {
+      let detail = 'score sous le seuil';
+      try {
+        const eliminatoires = JSON.parse(o.score_detail ?? '{}').eliminatoires ?? [];
+        if (eliminatoires.length) detail = eliminatoires.map(e => e.note ?? e.motif).join(' · ');
+      } catch { /* détail illisible : le motif générique suffit */ }
+      hors.push({ ...o, motif: 'ecartee', detail });
+      continue;
     }
-    return perimees.length;
-  });
+
+    if (analyse?.verdict && VERDICT_NEGATIF.test(analyse.verdict)) {
+      hors.push({ ...o, motif: 'verdict', detail: String(analyse.verdict).slice(0, 120) });
+    }
+  }
+
+  return hors.map(({ score_detail, analysis_json, ...reste }) => reste);
 }
 
 /**
