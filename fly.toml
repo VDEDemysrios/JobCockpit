@@ -1,0 +1,44 @@
+# Déploiement de Job Cockpit sur Fly.io.
+#
+# Le nom d'application doit être unique sur toute la plateforme : `fly launch`
+# le remplacera si « job-cockpit » est déjà pris. L'URL suivra.
+app = "job-cockpit"
+primary_region = "cdg"          # Paris — les données restent en Europe
+
+[build]
+
+[env]
+  # Écoute au-delà de la machine. server.js REFUSE de démarrer dans ce mode
+  # sans COCKPIT_MOT_DE_PASSE, qui se dépose par `fly secrets set`.
+  HOST = "0.0.0.0"
+  PORT = "3000"
+
+  # La base vit sur le volume monté plus bas, pas dans l'image : sans cela,
+  # chaque déploiement repartirait de la copie figée embarquée.
+  DB_PATH = "/data/data.db"
+
+  # Collecte toutes les 6 h depuis le serveur lui-même. Une fois en ligne,
+  # DÉSACTIVE la tâche Windows : deux collectes vers deux bases séparées
+  # scinderaient le suivi de candidatures en deux.
+  COLLECTE_AUTO = "1"
+
+[http_service]
+  internal_port = 3000
+  force_https = true            # le cookie de session est posé en `Secure`
+  auto_start_machines = true
+
+  # NE PAS passer à `true`. Une machine endormie ne collecte pas : les
+  # passages de 6 heures ne se déclencheraient qu'au moment où quelqu'un
+  # ouvre la page, ce qui vide l'intérêt de l'automatisation.
+  auto_stop_machines = false
+  min_machines_running = 1
+
+# Le volume garde offres, suivi, notes et lettres d'un déploiement à l'autre.
+# À créer une fois : fly volumes create cockpit_data --region cdg --size 1
+[mounts]
+  source = "cockpit_data"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

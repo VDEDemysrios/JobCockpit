@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="vivid" data-densite="normale">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Job Cockpit — connexion</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  /* Cette page ne partage pas la structure du tableau de bord : elle est
+     servie avant toute authentification, et ne charge donc aucun script. */
+  body{display:flex;align-items:center;justify-content:center;min-height:100vh;
+    background:var(--bg);padding:var(--e5);}
+  .porte{width:100%;max-width:420px;background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--r5);box-shadow:var(--sh4);padding:var(--e6);text-align:center;}
+  .porte .logo{font-size:42px;line-height:1;margin-bottom:var(--e3);}
+  .porte h1{font-size:26px;margin:0 0 var(--e2);letter-spacing:-.8px;}
+  .porte p{color:var(--muted);font-size:14px;margin:0 0 var(--e5);line-height:1.6;}
+  .porte input{width:100%;text-align:center;font-size:16px;padding:var(--e3);
+    letter-spacing:.5px;margin-bottom:var(--e3);}
+  .porte button{width:100%;justify-content:center;font-size:15px;padding:var(--e3);}
+  .erreur{display:none;margin-top:var(--e3);font-size:13.5px;color:var(--hot);
+    background:var(--hotb);border-radius:var(--r2);padding:var(--e2) var(--e3);}
+  .erreur.visible{display:block;}
+  .pied{margin-top:var(--e5);font-size:12px;color:var(--faint);line-height:1.6;}
+</style>
+</head>
+<body>
+  <main class="porte">
+    <div class="logo">🚀</div>
+    <h1>Job Cockpit</h1>
+    <p>Cet espace contient ton CV, tes candidatures et tes lettres.<br>Il demande un mot de passe.</p>
+
+    <form id="form" autocomplete="on">
+      <input type="password" id="motDePasse" name="password" placeholder="Mot de passe"
+             autocomplete="current-password" required autofocus>
+      <button class="btn btn-primary" type="submit" id="valider">Entrer</button>
+    </form>
+
+    <div class="erreur" id="erreur"></div>
+    <div class="pied">Données hébergées en Europe · rien n'est partagé.</div>
+  </main>
+
+<script>
+  const form = document.getElementById('form');
+  const champ = document.getElementById('motDePasse');
+  const bouton = document.getElementById('valider');
+  const erreur = document.getElementById('erreur');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    erreur.classList.remove('visible');
+    bouton.disabled = true;
+    bouton.textContent = 'Vérification…';
+
+    try {
+      const r = await fetch('/api/connexion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ motDePasse: champ.value }),
+      });
+      const d = await r.json().catch(() => ({}));
+
+      if (r.ok && d.ok) { window.location.href = '/'; return; }
+
+      erreur.textContent = d.error ?? 'Connexion impossible.';
+      erreur.classList.add('visible');
+      champ.select();
+    } catch {
+      erreur.textContent = 'Serveur injoignable.';
+      erreur.classList.add('visible');
+    } finally {
+      bouton.disabled = false;
+      bouton.textContent = 'Entrer';
+    }
+  });
+</script>
+</body>
+</html>

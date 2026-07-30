@@ -16,6 +16,16 @@ async function appeler(url, options = {}) {
     throw new Error('Le serveur ne répond pas. Est-il bien démarré (npm start) ?');
   }
 
+  // Session expirée : inutile d'afficher une erreur dans un toast, puis une
+  // seconde, puis une troisième — chaque appel de la page échouerait pareil.
+  // On repasse par la porte d'entrée, ce qui est la seule suite possible.
+  if (reponse.status === 401) {
+    window.location.href = '/connexion';
+    // La navigation n'est pas instantanée : cette erreur évite que l'appelant
+    // continue avec des données absentes le temps que la page change.
+    throw new Error('Session expirée — redirection vers la connexion.');
+  }
+
   let donnees = null;
   try { donnees = await reponse.json(); } catch { /* réponse non JSON */ }
 
