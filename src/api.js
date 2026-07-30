@@ -7,6 +7,7 @@ import { readFileSync, existsSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { normaliser } from './hash.js';
+import { villeDeRattachement } from './zone.js';
 import {
   lireMeta, ecrireMeta, upsertOffre, transaction, noterActivite,
   journaliser, SANS_ACTIVITE,
@@ -87,6 +88,12 @@ export function creerRoutes({ db, collecter, sources, profil }) {
       score: o.score,
       scoreDetail: o.score_detail ? JSON.parse(o.score_detail) : null,
       horsZone: Boolean(o.hors_zone),
+      // Calculé à la lecture plutôt que stocké : les 264 offres déjà en base
+      // se rangent ainsi dans leur onglet sans attendre une nouvelle collecte,
+      // et changer une zone limitrophe dans profile.json prend effet aussitôt.
+      villePrio: villeDeRattachement({
+        ville: o.ville, departement: o.departement,
+      }, profil.villesPrioritaires ?? []),
       sources: o.sources_all ? JSON.parse(o.sources_all) : [],
       source: o.source,
       isManual: Boolean(o.is_manual),

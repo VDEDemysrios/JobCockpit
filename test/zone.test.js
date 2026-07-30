@@ -2,11 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { estDansZonePrioritaire } from '../scripts/collect.js';
+import { villeDeRattachement } from '../src/zone.js';
 
 const profil = JSON.parse(readFileSync(new URL('../profile/profile.json', import.meta.url), 'utf8'));
 const VILLES = profil.villesPrioritaires;
 
 const dansLaZone = (offre) => estDansZonePrioritaire(offre, VILLES);
+const rattachee = (offre) => villeDeRattachement(offre, VILLES);
 
 test('reconnaît une ville prioritaire nommée directement', () => {
   assert.ok(dansLaZone({ ville: 'Strasbourg' }));
@@ -48,4 +50,39 @@ test('classe bien hors zone ce qui est réellement éloigné', () => {
 test('une localisation vide n\'est jamais considérée dans la zone', () => {
   assert.equal(dansLaZone({ ville: '', zone: '' }), false);
   assert.equal(dansLaZone({}), false);
+});
+
+// ----------------------------------------------------------- onglets de ville
+
+test('rattache chaque offre à la bonne ville prioritaire', () => {
+  assert.equal(rattachee({ ville: 'Strasbourg' }), 'Strasbourg');
+  assert.equal(rattachee({ ville: 'NANCY', zone: '54 - NANCY' }), 'Nancy');
+  assert.equal(rattachee({ ville: 'Lyon' }), 'Lyon');
+  assert.equal(rattachee({ ville: 'Paris' }), 'Paris');
+});
+
+test('rattache par zone limitrophe et par département', () => {
+  assert.equal(rattachee({ ville: 'Hauts-de-Seine', zone: 'France, Ile-de-France, Hauts-de-Seine' }), 'Paris');
+  assert.equal(rattachee({ ville: 'Benfeld', codePostal: '67230' }), 'Strasbourg');
+  assert.equal(rattachee({ ville: 'Ecrouves', codePostal: '54200' }), 'Nancy');
+  assert.equal(rattachee({ ville: 'Villeurbanne' }), 'Lyon');
+});
+
+// Les offres relues en base ne portent plus de libellé de zone : seuls
+// `ville` et la colonne `departement` subsistent. L'onglet doit tenir avec ça.
+test('rattache une offre relue en base, à partir du département stocké', () => {
+  assert.equal(rattachee({ ville: 'Schiltigheim', departement: '67' }), 'Strasbourg');
+  assert.equal(rattachee({ ville: 'Dammartin-en-Goele', departement: '77' }), 'Paris');
+});
+
+// Un nom de commune explicite doit primer sur une simple coïncidence de
+// département, quel que soit l'ordre des villes dans profile.json.
+test('le nom de la commune prime sur le département', () => {
+  assert.equal(rattachee({ ville: 'Lyon', departement: '67' }), 'Lyon');
+});
+
+test('ce qui est hors zone n\'est rattaché à aucune ville', () => {
+  assert.equal(rattachee({ ville: 'Bordeaux', zone: 'France, Nouvelle-Aquitaine, Gironde' }), null);
+  assert.equal(rattachee({ ville: 'Fuveau', zone: 'France, Provence-Alpes-Cote d Azur, Bouches-du-Rhone' }), null);
+  assert.equal(rattachee({}), null);
 });
