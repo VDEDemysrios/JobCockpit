@@ -335,6 +335,49 @@ en arrière-plan. Le compte rendu de chaque passage s'ajoute à `collect.log`.
 Le bouton **« Rafraîchir maintenant »** du tableau de bord reste disponible
 quand tu ne veux pas attendre.
 
+### La collecte n'a pas besoin du serveur
+
+C'est la confusion la plus naturelle, et elle mérite d'être levée : **`npm start`
+n'entre pas dans la chaîne de collecte.**
+
+```
+Tâche Windows → wscript → collecte-silencieuse.vbs
+                        → Collecte automatique.cmd
+                        → node scripts/collect.js  →  écrit dans data.db
+```
+
+Le serveur ne sert qu'à *regarder* le cockpit. La collecte écrit directement
+dans la base, que le serveur tourne ou non, session ouverte ou non.
+
+### Le serveur démarre tout seul, lui aussi
+
+Une seconde tâche, **« JobCockpit - serveur »**, le lance à l'ouverture de ta
+session, sans fenêtre, via `scripts/serveur-silencieux.vbs`.
+<http://localhost:3000> est donc toujours disponible : plus rien à lancer.
+
+Son journal est `serveur.log`. Pour la piloter :
+
+```powershell
+Start-ScheduledTask   -TaskName "JobCockpit - serveur"   # démarrer maintenant
+Unregister-ScheduledTask -TaskName "JobCockpit - serveur" -Confirm:$false
+```
+
+Pour la recréer :
+
+```powershell
+$racine = "C:\Users\benja\Desktop\JobCockpit\JobCockpit"
+$action = New-ScheduledTaskAction -Execute "wscript.exe" -Argument "`"$racine\scripts\serveur-silencieux.vbs`"" -WorkingDirectory $racine
+$declencheur = New-ScheduledTaskTrigger -AtLogOn -User "$env:COMPUTERNAME\$env:USERNAME"
+$reglages = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+  -DontStopOnIdleEnd -ExecutionTimeLimit 0 -MultipleInstances IgnoreNew
+Register-ScheduledTask -TaskName "JobCockpit - serveur" -Action $action -Trigger $declencheur -Settings $reglages -Force
+```
+
+> `-User` n'est pas décoratif : sans lui, le déclencheur vise **tous** les
+> utilisateurs de la machine, ce qui exige les droits administrateur et échoue
+> par « Accès refusé ». `-ExecutionTimeLimit 0` retire la limite de durée —
+> un serveur n'est pas censé se terminer.
+
 > L'ordinateur doit être allumé à l'heure prévue. S'il était éteint, Windows
 > rattrape la collecte manquée au démarrage suivant (option « démarrer dès que
 > possible »).
@@ -371,12 +414,30 @@ Si tu déplaces le dossier du projet, la tâche pointera dans le vide. Colle
 ceci dans PowerShell, après avoir adapté la première ligne :
 
 ```powershell
-$racine = "C:\Users\BenjaminPerrin\Développement Dropbox\Benjamin PERRIN\Benjamin Perrin\JobCockpit2"
+$racine = "C:\Users\benja\Desktop\JobCockpit\JobCockpit"
 $action = New-ScheduledTaskAction -Execute "wscript.exe" -Argument "`"$racine\scripts\collecte-silencieuse.vbs`"" -WorkingDirectory $racine
 $declencheur = New-ScheduledTaskTrigger -Once -At 7am -RepetitionInterval (New-TimeSpan -Hours 6)
-$reglages = New-ScheduledTaskSettingsSet -StartWhenAvailable -DontStopOnIdleEnd -ExecutionTimeLimit (New-TimeSpan -Hours 1)
+$reglages = New-ScheduledTaskSettingsSet -StartWhenAvailable -DontStopOnIdleEnd `
+  -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+  -ExecutionTimeLimit (New-TimeSpan -Hours 1) -MultipleInstances IgnoreNew
 Register-ScheduledTask -TaskName "JobCockpit - collecte" -Action $action -Trigger $declencheur -Settings $reglages -Force
 ```
+
+> ⚠️ **`-AllowStartIfOnBatteries` et `-DontStopIfGoingOnBatteries` ne sont pas
+> optionnels sur un portable.** Sans eux, Windows applique ses valeurs par
+> défaut : il *refuse* de lancer la tâche quand la machine est sur batterie, et
+> l'interrompt si tu débranches en cours de route. Constaté le 30 juillet 2026 :
+> **4 collectes manquées en une journée**, sans le moindre message — ni dans
+> `collect.log`, qui n'est écrit qu'au démarrage de la collecte, ni ailleurs.
+> Le compteur `NumberOfMissedRuns` est le seul endroit où ça se voit :
+>
+> ```powershell
+> Get-ScheduledTaskInfo -TaskName "JobCockpit - collecte" | Select LastRunTime, NumberOfMissedRuns
+> ```
+>
+> `-WakeToRun` est volontairement absent : réveiller un portable à 1 h du matin
+> pour collecter des offres coûterait plus qu'il ne rapporte. Avec
+> `-StartWhenAvailable`, la collecte manquée se rattrape au réveil.
 
 ### Linux / macOS
 
