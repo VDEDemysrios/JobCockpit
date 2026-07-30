@@ -5,7 +5,7 @@ import {
 } from './format.js';
 import { poserIcones } from './icons.js';
 import {
-  rendreCarte, rendreKanban, rendreAgenda, relanceDue, rendreFocus, actionsDuJour,
+  rendreCarte, rendreKanban, rendreAgenda, relanceDue, rendreFocus, actionsDuJour, celebrer,
 } from './render.js';
 import { rendreDashboard, rendreCourbe, rendreStats, rendreIndicateurMaj } from './dashboard.js';
 import { rendreCv } from './cv.js';
@@ -19,6 +19,9 @@ const dansNJours = (n) => {
 
 const VUES = ['dashboard', 'offers', 'kanban', 'agenda', 'cv', 'options'];
 const THEMES = ['vivid', 'enr', 'dark', 'cockpit'];
+
+/** Onglet fourre-tout : tout ce qui n'est rattaché à aucune ville prioritaire. */
+const VILLE_AUTRE = 'autre';
 
 // ------------------------------------------------------------------ options
 
@@ -49,6 +52,10 @@ const etat = {
   timeline: [],
   vue: 'dashboard',
   filtre: 'all',
+  // Onglet de ville courant. Conservé d'une session à l'autre : on revient
+  // presque toujours sur la même ville, la retrouver soi-même à chaque
+  // ouverture est un péage.
+  ville: localStorage.getItem('bp_ville') ?? null,
   drapeaux: new Set(),   // filtres secondaires : pin, lettre, frais
   recherche: '',
   tri: 'grp',
@@ -222,7 +229,18 @@ function ouvrirOffre(offre) {
   etat.recherche = '';
   document.getElementById('search').value = '';
   document.getElementById('statusFilter').value = 'all';
-  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.g === 'all'));
+  document.querySelectorAll('#chips .chip').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('#segGroupe button')
+    .forEach(b => b.classList.toggle('active', b.dataset.g === 'all'));
+
+  // Sans cette bascule, une offre lyonnaise ouverte depuis l'agenda resterait
+  // invisible tant que l'onglet Strasbourg est actif.
+  construireOnglets();
+  etat.ville = ongletDe(offre);
+  localStorage.setItem('bp_ville', etat.ville);
+  document.querySelectorAll('#villes .ville')
+    .forEach(b => b.classList.toggle('active', b.dataset.v === etat.ville));
+
   changerVue('offers');
 
   requestAnimationFrame(() => {
@@ -259,26 +277,92 @@ function rendreTout() {
 
 const rangGroupe = g => ({ 1: 0, 2: 1, 0: 2, 3: 3 }[g] ?? 4);
 
-function rendreOffres() {
-  const compte = { all: etat.offres.length, 1: 0, 2: 0, 3: 0, 0: 0 };
-  etat.offres.forEach(o => { compte[o.groupe] = (compte[o.groupe] ?? 0) + 1; });
-  document.getElementById('c-all').textContent = compte.all;
-  ['1', '2', '3', '0'].forEach(g => { document.getElementById('c-' + g).textContent = compte[g]; });
+/** Les onglets, dans l'ordre : les villes du profil, puis le fourre-tout. */
+function villesOnglets() {
+  return [...(etat.meta?.villes ?? []), VILLE_AUTRE];
+}
 
-  let liste = etat.offres.filter(o => etat.filtre === 'all' || String(o.groupe) === etat.filtre);
-  // Option « masquer les offres à écarter » — sans effet si on filtre justement dessus.
-  if (options.masquerEcartees && etat.filtre !== '3') liste = liste.filter(o => o.groupe !== 3);
-  if (etat.statut !== 'all') liste = liste.filter(o => o.suivi.status === etat.statut);
-  if (etat.drapeaux.has('pin')) liste = liste.filter(o => o.suivi.pinned);
-  if (etat.drapeaux.has('lettre')) liste = liste.filter(o => o.aLettre);
-  if (etat.drapeaux.has('frais')) liste = liste.filter(o => {
+/** L'onglet d'une offre. Une ville disparue du profil retombe dans « Autre ». */
+function ongletDe(offre) {
+  return villesOnglets().includes(offre.villePrio) ? offre.villePrio : VILLE_AUTRE;
+}
+
+/**
+ * (Re)construit la barre d'onglets d'après le profil servi par /meta.
+ * Sans effet tant que la liste des villes ne change pas : reconstruire à
+ * chaque rendu perdrait le focus clavier au milieu d'une navigation.
+ */
+let ongletsRendus = null;
+
+function construireOnglets() {
+  const villes = villesOnglets();
+  if (villes.join('|') === ongletsRendus) return;
+  ongletsRendus = villes.join('|');
+
+  // Première visite : on ouvre sur la ville la mieux fournie plutôt que sur
+  // la première du profil. Tomber sur un onglet vide en arrivant donne
+  // l'impression que la collecte n'a rien ramené.
+  if (!villes.includes(etat.ville)) {
+    const compte = Object.fromEntries(villes.map(v => [v, 0]));
+    etat.offres.forEach(o => { compte[ongletDe(o)]++; });
+    etat.ville = villes.reduce((a, b) => (compte[b] > compte[a] ? b : a), villes[0]);
+  }
+
+  const libelle = (v) => (v === VILLE_AUTRE ? 'Autre' : v);
+
+  document.getElementById('villes').innerHTML = villes.map(v => `
+    <button class="ville ${v === etat.ville ? 'active' : ''}" data-v="${echapper(v)}"
+            title="${v === VILLE_AUTRE ? 'Offres hors des villes prioritaires' : `Offres autour de ${echapper(v)}`}">
+      <span class="vv">${echapper(libelle(v))}</span>
+      <span class="vn" data-compte="${echapper(v)}">0</span>
+    </button>`).join('');
+}
+
+function choisirVille(ville) {
+  etat.ville = ville;
+  localStorage.setItem('bp_ville', ville);
+  document.querySelectorAll('#villes .ville')
+    .forEach(b => b.classList.toggle('active', b.dataset.v === ville));
+  rendreOffres();
+}
+
+function rendreOffres() {
+  construireOnglets();
+
+  // Filtres de CONTEXTE : ils s'appliquent avant de compter les onglets, pour
+  // que « Nancy 3 » veuille bien dire « 3 offres à voir ici, avec ce que tu
+  // cherches en ce moment » — et non 3 offres dont aucune ne s'affichera.
+  let contexte = etat.offres;
+  if (etat.statut !== 'all') contexte = contexte.filter(o => o.suivi.status === etat.statut);
+  if (etat.drapeaux.has('pin')) contexte = contexte.filter(o => o.suivi.pinned);
+  if (etat.drapeaux.has('lettre')) contexte = contexte.filter(o => o.aLettre);
+  if (etat.drapeaux.has('frais')) contexte = contexte.filter(o => {
     const a = ageOffre(o.dateOffre);
     return a !== null && a <= 7;
   });
   if (etat.recherche) {
     const q = etat.recherche.toLowerCase();
-    liste = liste.filter(o => `${o.titre}${o.entreprise}${o.ville}`.toLowerCase().includes(q));
+    contexte = contexte.filter(o => `${o.titre}${o.entreprise}${o.ville}`.toLowerCase().includes(q));
   }
+  // Option « masquer les offres à écarter » — sans effet si on filtre justement dessus.
+  if (options.masquerEcartees && etat.filtre !== '3') contexte = contexte.filter(o => o.groupe !== 3);
+
+  // Compteurs d'onglets.
+  const parVille = {};
+  villesOnglets().forEach(v => { parVille[v] = 0; });
+  contexte.forEach(o => { parVille[ongletDe(o)]++; });
+  document.querySelectorAll('#villes .vn').forEach(el => {
+    el.textContent = parVille[el.dataset.compte] ?? 0;
+  });
+
+  // Le classement par groupe décrit la ville affichée, pas la France entière.
+  const dansLaVille = contexte.filter(o => ongletDe(o) === etat.ville);
+  const compte = { all: dansLaVille.length, 1: 0, 2: 0, 3: 0, 0: 0 };
+  dansLaVille.forEach(o => { compte[o.groupe] = (compte[o.groupe] ?? 0) + 1; });
+  document.getElementById('c-all').textContent = compte.all;
+  ['1', '2', '3', '0'].forEach(g => { document.getElementById('c-' + g).textContent = compte[g]; });
+
+  let liste = dansLaVille.filter(o => etat.filtre === 'all' || String(o.groupe) === etat.filtre);
 
   if (etat.tri === 'date') liste.sort((a, b) => String(b.dateOffre ?? '').localeCompare(String(a.dateOffre ?? '')));
   else if (etat.tri === 'score') liste.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
@@ -290,9 +374,16 @@ function rendreOffres() {
   // Les épinglées remontent toujours en tête.
   liste.sort((a, b) => (b.suivi.pinned ? 1 : 0) - (a.suivi.pinned ? 1 : 0));
 
+  const ouLibelle = etat.ville === VILLE_AUTRE ? 'hors des villes prioritaires' : `à ${etat.ville}`;
   document.getElementById('offersSub').textContent =
-    `${compte[1]} prioritaires · ${compte[2]} possibles · ${compte[0]} à vérifier`;
-  document.getElementById('empty').style.display = liste.length ? 'none' : 'block';
+    `${ouLibelle} — ${compte[1]} prioritaires · ${compte[2]} possibles · ${compte[0]} à vérifier`;
+
+  const vide = document.getElementById('empty');
+  vide.style.display = liste.length ? 'none' : 'block';
+  // Dire QUEL onglet est vide évite de conclure que la collecte n'a rien donné.
+  vide.textContent = dansLaVille.length
+    ? `Aucune offre ${ouLibelle} avec ce filtre.`
+    : `Aucune offre ${ouLibelle} pour l'instant. Regarde les autres onglets.`;
   document.getElementById('count').textContent =
     `${pluriel(liste.length, 'offre')} affichée${liste.length > 1 ? 's' : ''}`;
 
@@ -548,20 +639,26 @@ document.getElementById('quickAdd').addEventListener('click', () => {
 
 // ------------------------------------------------------------ barre d'outils
 
+document.getElementById('villes').addEventListener('click', e => {
+  const b = e.target.closest('.ville');
+  if (b) choisirVille(b.dataset.v);
+});
+
+document.getElementById('segGroupe').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  document.querySelectorAll('#segGroupe button').forEach(x => x.classList.toggle('active', x === b));
+  etat.filtre = b.dataset.g;
+  rendreOffres();
+});
+
+// Drapeaux secondaires : cumulables entre eux, et avec un groupe.
 document.getElementById('chips').addEventListener('click', e => {
   const c = e.target.closest('.chip');
   if (!c) return;
-
-  if (c.dataset.f) {
-    // Drapeaux secondaires : cumulables entre eux et avec un groupe.
-    c.classList.toggle('active');
-    if (etat.drapeaux.has(c.dataset.f)) etat.drapeaux.delete(c.dataset.f);
-    else etat.drapeaux.add(c.dataset.f);
-  } else {
-    document.querySelectorAll('.chip[data-g]').forEach(x => x.classList.remove('active'));
-    c.classList.add('active');
-    etat.filtre = c.dataset.g;
-  }
+  c.classList.toggle('active');
+  if (etat.drapeaux.has(c.dataset.f)) etat.drapeaux.delete(c.dataset.f);
+  else etat.drapeaux.add(c.dataset.f);
   rendreOffres();
 });
 
@@ -876,7 +973,6 @@ document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.altKey || e.metaKey) return;
 
   if (e.key === 'Escape') {
-    if (fete.classList.contains('show')) { fermerFete(); return; }
     if (aide.classList.contains('show')) { fermerAide(); return; }
     if (saisie) { cible.blur(); return; }
     document.getElementById('form').classList.remove('show');

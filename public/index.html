@@ -100,54 +100,67 @@
         <div id="courbeRythme"></div>
       </div>
 
-      <div class="panel-box">
-        <h3><span data-ic="flamme" data-ic-taille="14"></span> Calendrier d'assiduité
-          <span class="h3-side" id="heatSub"></span></h3>
-        <div id="heat"></div>
-      </div>
+      <!-- Tout ce qui décrit plutôt que d'appeler à agir est replié.
+           Rien n'est supprimé : ces graphiques répondent à des questions
+           réelles, mais une par mois. Les laisser dépliés faisait payer à
+           chaque ouverture le prix d'une page qu'on ne lit pas. -->
+      <details class="plus" id="dashPlus">
+        <summary>
+          <span data-ic="graphique" data-ic-taille="15"></span>
+          <span class="pl-t">Analyse détaillée</span>
+          <span class="pl-s">assiduité, villes, sources, thèmes, contrats, journal</span>
+          <span class="pl-fl">▾</span>
+        </summary>
 
-      <div class="grille-2">
         <div class="panel-box">
-          <h3><span data-ic="carte" data-ic-taille="14"></span> Répartition par ville</h3>
-          <div id="citybars"></div>
+          <h3><span data-ic="flamme" data-ic-taille="14"></span> Calendrier d'assiduité
+            <span class="h3-side" id="heatSub"></span></h3>
+          <div id="heat"></div>
         </div>
-        <div class="panel-box">
-          <h3><span data-ic="globe" data-ic-taille="14"></span> D'où viennent les offres</h3>
-          <div id="sourceDonut"></div>
-        </div>
-      </div>
 
-      <div class="grille-2">
-        <div class="panel-box">
-          <h3><span data-ic="boussole" data-ic-taille="14"></span> Adéquation par thème
-            <span class="h3-side">offres collectées</span></h3>
-          <div id="radarThemes" class="centre"></div>
-          <p class="note-panel">Ce que le marché propose réellement, mesuré sur les mots-clés de ton profil.
-            Un axe creux signale un thème sur lequel peu d'offres remontent — pas une faiblesse de ton CV.</p>
+        <div class="grille-2">
+          <div class="panel-box">
+            <h3><span data-ic="carte" data-ic-taille="14"></span> Répartition par ville</h3>
+            <div id="citybars"></div>
+          </div>
+          <div class="panel-box">
+            <h3><span data-ic="globe" data-ic-taille="14"></span> D'où viennent les offres</h3>
+            <div id="sourceDonut"></div>
+          </div>
         </div>
-        <div class="panel-box">
-          <h3><span data-ic="colonnes" data-ic-taille="14"></span> Distribution des scores</h3>
-          <div id="histoScores"></div>
-          <p class="note-panel">Le score par mots-clés de chaque offre collectée. Un pic à gauche veut dire
-            que tes intitulés de recherche ramènent trop large.</p>
-        </div>
-      </div>
 
-      <div class="grille-2">
-        <div class="panel-box">
-          <h3><span data-ic="poignee" data-ic-taille="14"></span> Types de contrat</h3>
-          <div id="barresContrat"></div>
+        <div class="grille-2">
+          <div class="panel-box">
+            <h3><span data-ic="boussole" data-ic-taille="14"></span> Adéquation par thème
+              <span class="h3-side">offres collectées</span></h3>
+            <div id="radarThemes" class="centre"></div>
+            <p class="note-panel">Ce que le marché propose réellement, mesuré sur les mots-clés de ton profil.
+              Un axe creux signale un thème sur lequel peu d'offres remontent — pas une faiblesse de ton CV.</p>
+          </div>
+          <div class="panel-box">
+            <h3><span data-ic="colonnes" data-ic-taille="14"></span> Distribution des scores</h3>
+            <div id="histoScores"></div>
+            <p class="note-panel">Le score par mots-clés de chaque offre collectée. Un pic à gauche veut dire
+              que tes intitulés de recherche ramènent trop large.</p>
+          </div>
         </div>
-        <div class="panel-box">
-          <h3><span data-ic="gratte-ciel" data-ic-taille="14"></span> Entreprises qui recrutent le plus</h3>
-          <div id="topEntreprises"></div>
-        </div>
-      </div>
 
-      <div class="panel-box">
-        <h3><span data-ic="liste" data-ic-taille="14"></span> Journal d'activité</h3>
-        <div class="timeline" id="timeline"></div>
-      </div>
+        <div class="grille-2">
+          <div class="panel-box">
+            <h3><span data-ic="poignee" data-ic-taille="14"></span> Types de contrat</h3>
+            <div id="barresContrat"></div>
+          </div>
+          <div class="panel-box">
+            <h3><span data-ic="gratte-ciel" data-ic-taille="14"></span> Entreprises qui recrutent le plus</h3>
+            <div id="topEntreprises"></div>
+          </div>
+        </div>
+
+        <div class="panel-box">
+          <h3><span data-ic="liste" data-ic-taille="14"></span> Journal d'activité</h3>
+          <div class="timeline" id="timeline"></div>
+        </div>
+      </details>
     </div>
 
     <!-- ══════════════ OFFRES ══════════════ -->
@@ -155,9 +168,15 @@
       <div class="view-head"><div><h2>🗂️ Toutes les offres</h2>
         <div class="vh-sub" id="offersSub"></div></div></div>
 
+      <!-- Onglets de villes : la première question devant une liste d'offres
+           est « où ? ». Chaque ville prioritaire a le sien, « Autre » recueille
+           tout le reste — la partition est complète, rien n'est masqué.
+           Construits par app.js d'après profile.json : ajouter une ville au
+           profil suffit à créer son onglet. -->
+      <div class="villes" id="villes"></div>
+
       <div class="toolbar">
-        <input class="search" id="search" placeholder="Rechercher un poste, une entreprise, une ville…">
-        <select id="statusFilter"><option value="all">Tous les statuts</option><option>À postuler</option><option>Envoyé</option><option>Relancé</option><option>Entretien</option><option>Refus</option></select>
+        <input class="search" id="search" placeholder="Rechercher un poste, une entreprise…">
         <select id="sort">
           <option value="grp">Tri : pertinence</option>
           <option value="score">Tri : score</option>
@@ -166,20 +185,28 @@
           <option value="ville">Tri : ville</option>
           <option value="relance">Tri : relance</option>
         </select>
-        <button class="btn" id="toggleVue" title="Basculer liste / grille"><span data-ic="colonnes" data-ic-taille="15"></span> Grille</button>
+        <select id="statusFilter"><option value="all">Tous les statuts</option><option>À postuler</option><option>Envoyé</option><option>Relancé</option><option>Entretien</option><option>Refus</option></select>
+        <span class="tb-espace"></span>
+        <button class="btn btn-discret" id="toggleVue" title="Basculer liste / grille"><span data-ic="colonnes" data-ic-taille="15"></span> Grille</button>
+        <button class="btn btn-discret" id="exportBtn"><span data-ic="document" data-ic-taille="15"></span> CSV</button>
         <button class="btn btn-primary" id="toggleForm">+ Offre</button>
-        <button class="btn" id="exportBtn"><span data-ic="document" data-ic-taille="15"></span> CSV</button>
       </div>
 
-      <div class="chips" id="chips">
-        <span class="chip active" data-g="all"><i class="pt"></i>Toutes (<span id="c-all">0</span>)</span>
-        <span class="chip" data-g="1"><i class="pt"></i>🟢 Prioritaires (<span id="c-1">0</span>)</span>
-        <span class="chip" data-g="2"><i class="pt"></i>🟡 Possibles (<span id="c-2">0</span>)</span>
-        <span class="chip" data-g="3"><i class="pt"></i>🔴 À écarter (<span id="c-3">0</span>)</span>
-        <span class="chip" data-g="0"><i class="pt"></i>⚪ À vérifier (<span id="c-0">0</span>)</span>
-        <span class="chip sep" data-f="pin">📌 Épinglées</span>
-        <span class="chip" data-f="lettre">🖋️ Avec lettre</span>
-        <span class="chip" data-f="frais">🔥 Fraîches</span>
+      <!-- Le classement tient en un seul objet segmenté plutôt qu'en cinq
+           pastilles flottantes : c'est un choix unique, il se lit comme tel. -->
+      <div class="filtres">
+        <span class="seg seg-groupe" id="segGroupe">
+          <button data-g="all" class="active">Toutes <b id="c-all">0</b></button>
+          <button data-g="1" title="Prioritaires">🟢 <b id="c-1">0</b></button>
+          <button data-g="2" title="Possibles">🟡 <b id="c-2">0</b></button>
+          <button data-g="0" title="À vérifier">⚪ <b id="c-0">0</b></button>
+          <button data-g="3" title="À écarter">🔴 <b id="c-3">0</b></button>
+        </span>
+        <span class="chips" id="chips">
+          <span class="chip" data-f="pin">📌 Épinglées</span>
+          <span class="chip" data-f="lettre">🖋️ Avec lettre</span>
+          <span class="chip" data-f="frais">🔥 Fraîches</span>
+        </span>
       </div>
 
       <div class="form" id="form">
