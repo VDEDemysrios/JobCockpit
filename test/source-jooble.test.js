@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normaliserOffre, filtrerParDate } from '../src/sources/jooble.js';
+import jooble, { normaliserOffre, filtrerParDate } from '../src/sources/jooble.js';
 
 const REPONSE_JOOBLE = {
   id: 8812345,
@@ -44,4 +44,40 @@ test('normaliserOffre tolère les champs absents', () => {
   assert.equal(o.ville, '');
   assert.equal(o.dateOffre, null);
   assert.equal(o.salaireSource, null);
+});
+
+// ------------------------------------------------- construction de la requête
+
+/** Remplace `fetch` le temps d'un appel et rend l'URL demandée. */
+async function urlDemandee(options) {
+  const vraiFetch = globalThis.fetch;
+  const vraieCle = process.env.JOOBLE_API_KEY;
+  let url = null;
+
+  process.env.JOOBLE_API_KEY = 'cle-de-test';
+  globalThis.fetch = async (u) => {
+    url = String(u);
+    return { ok: true, status: 200, text: async () => '{"jobs":[]}', json: async () => ({ jobs: [] }) };
+  };
+
+  try {
+    await jooble.chercher(options);
+    return url;
+  } finally {
+    globalThis.fetch = vraiFetch;
+    if (vraieCle === undefined) delete process.env.JOOBLE_API_KEY;
+    else process.env.JOOBLE_API_KEY = vraieCle;
+  }
+}
+
+// L'hôte détermine le pays et n'est pas interchangeable : `jooble.org` renvoie
+// un 403 sur CHAQUE appel, même avec une clé valide. L'adaptateur visait ce
+// domaine international — la source n'a donc jamais rien remonté, sans que
+// rien ne le signale, aucun test ne regardant l'URL appelée.
+test('la recherche vise l\'hôte français, jamais le domaine international', async () => {
+  const url = await urlDemandee({
+    intitule: 'juriste', ville: null, rayonKm: 30, depuisDate: '2026-07-22',
+  });
+  assert.match(url, /^https:\/\/fr\.jooble\.org\/api\//);
+  assert.ok(url.endsWith('/cle-de-test'), 'la clé est le dernier segment du chemin');
 });

@@ -3,6 +3,13 @@
 // à celle d'Indeed (elle ratisse APEC, sites carrière, job boards…).
 // Particularité : l'API ne propose PAS de filtre de date → filtrage côté client.
 
+// L'hôte détermine le pays, et il n'est PAS interchangeable : `jooble.org`
+// répond HTTP 403 à toutes les requêtes, y compris avec une clé valide. Seul
+// l'hôte du pays où la clé a été demandée répond. L'adaptateur visait le
+// domaine international : il n'a donc jamais rien pu remonter, jusqu'au
+// 29 juillet 2026. Verrouillé par un test.
+const HOTE = 'fr.jooble.org';
+
 /** Convertit une offre Jooble vers le format commun du projet. */
 export function normaliserOffre(brute) {
   // location arrive sous la forme « Strasbourg, 67 »
@@ -47,12 +54,15 @@ export default {
       corps.radius = String(rayonKm);
     }
 
-    const reponse = await fetch(`https://jooble.org/api/${process.env.JOOBLE_API_KEY}`, {
+    const reponse = await fetch(`https://${HOTE}/api/${process.env.JOOBLE_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(corps),
     });
 
+    if (reponse.status === 403) {
+      throw new Error(`Jooble a refusé l'appel (403) — clé invalide, ou hôte ${HOTE} qui ne correspond pas au pays de la clé`);
+    }
     if (!reponse.ok) {
       throw new Error(`recherche Jooble en échec (HTTP ${reponse.status})`);
     }

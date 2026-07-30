@@ -40,6 +40,19 @@ async function obtenirJeton() {
   return jetonCache.valeur;
 }
 
+/**
+ * Borne haute de la fenêtre de publication, au format attendu par l'API
+ * (`AAAA-MM-JJThh:mm:ssZ`, sans millisecondes).
+ *
+ * Elle est posée un jour dans le futur, et non à l'instant présent : l'API
+ * accepte une date à venir, et une horloge locale en retard de quelques
+ * minutes sur celle de France Travail suffirait à faire disparaître les offres
+ * les plus fraîches — précisément celles qu'on vient chercher.
+ */
+function borneHaute() {
+  return new Date(Date.now() + 86400000).toISOString().slice(0, 19) + 'Z';
+}
+
 /** Convertit une offre France Travail vers le format commun du projet. */
 export function normaliserOffre(brute) {
   const libelleLieu = brute.lieuTravail?.libelle ?? '';
@@ -73,9 +86,14 @@ export default {
   async chercher({ intitule, ville, rayonKm, depuisDate }) {
     const jeton = await obtenirJeton();
 
+    // `minCreationDate` et `maxCreationDate` sont DÉPENDANTS : l'API refuse
+    // le premier sans le second, avec un HTTP 400 explicite. Envoyer la borne
+    // basse seule faisait échouer TOUTES les requêtes — la source n'a jamais
+    // rien remonté jusqu'au 29 juillet 2026. Verrouillé par un test.
     const params = new URLSearchParams({
       motsCles: intitule,
       minCreationDate: `${depuisDate}T00:00:00Z`,
+      maxCreationDate: borneHaute(),
       range: '0-49',
     });
     // ville === null → passe nationale (aucun filtre géographique).
