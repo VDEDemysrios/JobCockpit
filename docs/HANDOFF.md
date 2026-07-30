@@ -7,8 +7,43 @@
 > sessions passées vit dans [REPRISE.md](REPRISE.md) ; ici, seul l'état
 > courant. En cas de contradiction, ce document a raison.
 
-**Dernière mise à jour : 29 juillet 2026**
-**État : 163 tests passent · 264 offres en base · dépôt publié**
+**Dernière mise à jour : 29 juillet 2026 (soir)**
+**État : 177 tests passent · 258 offres en base · France Travail et 30 flux actifs**
+
+> ## ⚠️ Il existe DEUX postes. Celui-ci n'est pas celui qui a tout.
+>
+> Découvert le 29 juillet 2026 au soir, et c'est la clé de trois anomalies qui
+> semblaient sans rapport. Le README §5 donne le chemin d'origine de la tâche
+> planifiée, écrit en dur :
+>
+> `C:\Users\BenjaminPerrin\Développement Dropbox\…\JobCockpit2`
+>
+> Trois choses n'y correspondent pas à la machine du Bureau : le profil Windows
+> est `BenjaminPerrin` et non `benja`, le projet est dans un **Dropbox**, et le
+> dossier s'appelle **JobCockpit2**. Aucun des trois n'existe ici (vérifié :
+> profils utilisateur, dossiers Dropbox, `JobCockpit2` sur C: et D:).
+>
+> **Ce qui manque sur ce poste, et qui est sur l'autre :**
+>
+> | Manquait ici | Conséquence | État |
+> |---|---|---|
+> | `data.db` avec 264 offres | la base repartait de 3 offres | **258 offres** recollectées le 29 juil. au soir |
+> | `profile.json` avec 31 flux RSS | `"flux": []` → 8 offres au lieu de 326 | **30 flux reconstitués** (§11) |
+> | tâche planifiée + `collect.log` | aucune collecte automatique ici | **recréée et éprouvée** |
+>
+> Ces deux fichiers sont dans `.gitignore` : ils ne sont donc **pas** sur GitHub.
+> **Mais Dropbox se moque de `.gitignore`** — ils restent probablement
+> récupérables depuis le dossier `JobCockpit2` synchronisé. Ça n'a plus rien
+> d'urgent pour les offres et les flux, qui sont reconstitués. Ça le reste pour
+> **le suivi de candidatures, les notes et les lettres déjà rédigées** : ceux-là
+> ne se recollectent pas.
+>
+> **Avant de faire tourner les deux postes en même temps :** deux collectes vers
+> deux bases séparées scindent le suivi en deux. Décider lequel fait foi.
+>
+> La copie du Bureau était par ailleurs en retard de 6 commits sur GitHub ; elle
+> a été remise à niveau, l'ancien dossier est conservé dans
+> `Bureau\JobCockpit\_sauvegarde-avant-refonte-2026-07-29`.
 
 ---
 
@@ -30,7 +65,8 @@ Dépôt : <https://github.com/VDEDemysrios/JobCockpit>
 
 | Chantier | État |
 |---|---|
-| Collecte automatique toutes les 6 h | tâche Windows « JobCockpit - collecte », sans fenêtre |
+| Collecte automatique toutes les 6 h | tâche Windows « JobCockpit - collecte », sans fenêtre. **Attention au piège de la batterie — voir §4.** La collecte n'a PAS besoin du serveur : elle écrit dans `data.db` par un chemin séparé. |
+| Serveur au démarrage | tâche « JobCockpit - serveur », lancée à l'ouverture de session, sans fenêtre. `localhost:3000` est toujours disponible, plus rien à lancer à la main. |
 | Sources | 31 flux RSS + Adzuna ; **264 offres en base**, 135 prioritaires |
 | Classement et zone | scoring déterministe réglable dans `profile.json` |
 | Analyse des offres | Gemini, **bridée par le quota gratuit** (§4) |
@@ -39,24 +75,46 @@ Dépôt : <https://github.com/VDEDemysrios/JobCockpit>
 | Vue « Mon CV » | document joint + couverture des mots-clés |
 | Interface | 6 vues, 4 thèmes, palette `Ctrl+K` ; gamification retirée |
 | Lien vers l'annonce | **le titre de chaque offre est cliquable** |
+| Onglets de villes | Strasbourg · Nancy · Lyon · Paris · Autre, classement par pertinence dans chacun (§8) |
+| Sources | France Travail + Adzuna + Jooble + **30 flux RSS** (§10) — **425 offres en base**, 143 prioritaires |
+| Nettoyage hors profil | `npm run nettoyer`, en simulation par défaut (§9) |
+| **France Travail** | **branché et vérifié le 29 juil. 2026 au soir** — identifiants dans `.env`, abonnement « Offres d'emploi v2 » actif, 10 appels/s. Voir le piège §4. |
 | Dépôt public | historique purgé de toute donnée personnelle |
 
 ### 🔑 En attente de Benjamin — rien ne bouge sans lui
 
 | Quoi | Pourquoi ça bloque | Ce qu'il faut faire |
 |---|---|---|
-| **France Travail** | le formulaire exige une URL publique | donner l'URL du dépôt GitHub, puis **souscrire à l'API « Offres d'emploi v2 »** (étape distincte, toujours oubliée) |
-| **Careerjet** | clé gratuite non demandée | compte sur careerjet.com/partners/api |
-| **Jooble** | clé sur demande | fr.jooble.org/api/about |
+| **Careerjet** | **le formulaire éditeur refuse l'URL du dépôt GitHub** — leur programme délivre une clé « par site web éditeur », c'est-à-dire un site qui affichera leurs offres à ses visiteurs. Job Cockpit est un outil privé : il n'entre pas dans ce cadre. | soit attendre la mise en ligne (§5) pour avoir une vraie URL publique, soit leur écrire en exposant l'usage personnel, soit s'en passer — voir §4 |
+
+> **Jooble est branché** depuis le 29 juillet 2026 au soir. Clé obtenue sur
+> fr.jooble.org, plafond annoncé à 500 requêtes.
 
 > Benjamin a indiqué qu'il ajouterait **les sites d'emploi en dernier**. Ce
 > n'est donc pas la priorité du moment.
 
-### ⏸️ Mis en pause, par décision de Benjamin
+### 🚀 Mise en ligne — prête à déployer, en attente de Benjamin
 
-| Chantier | État | Où |
-|---|---|---|
-| **Mise en ligne + comptes** | **suspendu le 29 juil. 2026** — « cockpit que pour moi pour le moment ». Le schéma Postgres est écrit et conservé, prêt à servir. | §5 |
+Benjamin a demandé une adresse permanente le 29 juillet 2026 au soir. **Tout
+est écrit et éprouvé en local** ; il reste à créer le compte Fly et à lancer
+trois commandes : [MISE-EN-LIGNE.md](MISE-EN-LIGNE.md).
+
+| Brique | État |
+|---|---|
+| Porte d'entrée par mot de passe | `src/auth.js` — cookie signé HMAC, sans dépendance ; 8 tests |
+| Garde-fou | `src/server.js` **refuse de démarrer** en écoute publique sans mot de passe |
+| Collecte en ligne | `src/planificateur.js` — toutes les 6 h depuis le serveur, activé par `COLLECTE_AUTO=1` |
+| Conteneur | `Dockerfile`, `.dockerignore`, `fly.toml`, volume `/data` |
+| Amorçage | `scripts/amorcer-base.js` — recopie la base dans le volume au 1ᵉʳ démarrage, n'écrase jamais |
+
+> ⚠️ **Une fois en ligne, désactiver la tâche Windows.** Sinon elle continue de
+> remplir une base LOCALE que plus personne ne regarde, et le suivi de
+> candidatures se scinde en deux.
+
+Le socle **multi-comptes** (Supabase, §5) reste suspendu, et c'est cohérent :
+un mot de passe unique suffit à un utilisateur unique. Le jour où quelqu'un
+d'autre doit avoir son propre accès, c'est §5 qu'on reprend — pas `auth.js`
+qu'on étend.
 
 ---
 
@@ -88,11 +146,38 @@ Dépôt : <https://github.com/VDEDemysrios/JobCockpit>
   dans `profile.json`), pour en garder aux lettres — qui valent bien plus
   qu'un verdict sur une offre jamais lue. Les offres non analysées restent en
   base et passeront aux collectes suivantes, prioritaires d'abord.
-- **Emploi-Environnement tronque ses descriptions** à ~150 caractères et abîme
-  ses accents *à la source*. Utile pour repérer, pas pour analyser.
-- **Careerjet n'a jamais été testé en vrai** — pas de clé. Le code existe.
+- **Le piège de la batterie, sur les tâches planifiées.** Windows applique par
+  défaut « ne pas démarrer sur batterie » et « arrêter si on passe sur
+  batterie ». Sur un portable, la collecte est donc **refusée en silence** dès
+  que la machine est débranchée : le 30 juillet 2026, **4 exécutions manquées
+  en une journée**, sans une ligne dans `collect.log` — il n'est écrit qu'au
+  démarrage d'une collecte. Corrigé par `-AllowStartIfOnBatteries` et
+  `-DontStopIfGoingOnBatteries` sur les deux tâches. Le seul endroit où ça se
+  voit :
+  `Get-ScheduledTaskInfo -TaskName "JobCockpit - collecte" | Select LastRunTime, NumberOfMissedRuns`
+- **Emploi-Environnement est mort.** Son flux `gestion_offre/rss.php4` répond
+  HTTP 404 depuis le 29 juillet 2026 au soir ; il a été retiré des flux. La
+  perte est faible : il tronquait ses descriptions à ~150 caractères et abîmait
+  ses accents *à la source*. Utile pour repérer, jamais pour analyser.
+- **Careerjet n'a jamais été testé en vrai** — pas de clé, et le formulaire
+  éditeur refuse l'URL d'un dépôt GitHub. Son intérêt a par ailleurs beaucoup
+  baissé : sa valeur annoncée était de couvrir APEC, HelloWork, Meteojob et
+  Jobijoba — or **Jooble ratisse déjà largement les mêmes sites**. Ce n'est plus
+  une priorité.
+- **Jooble annonce un plafond de 500 requêtes.** Une collecte l'interroge 25
+  fois (5 intitulés × 4 villes + passe nationale), soit ~100 appels par jour à
+  4 collectes. Si les 500 sont un total et non un quota journalier, la source
+  s'éteindra en cinq jours. À surveiller dans `collect.log`.
 - **Un flux ne renvoie que ses 20 entrées les plus récentes.** D'où le
   découpage par département plutôt que par région.
+- **France Travail exige `minCreationDate` ET `maxCreationDate` ensemble.**
+  L'adaptateur n'envoyait que la borne basse : l'API répondait HTTP 400 à
+  *chaque* requête, et la source n'a donc jamais rien remonté avant le
+  29 juillet 2026 au soir. Le bug avait survécu parce que les tests ne
+  vérifiaient que la conversion des offres reçues, jamais l'URL construite —
+  c'est corrigé, la requête est désormais testée.
+  L'API accepte une borne haute dans le futur : elle est posée à J+1, pour
+  qu'une horloge locale en retard ne fasse pas disparaître les offres du jour.
 
 ---
 
@@ -196,8 +281,9 @@ où quelqu'un d'autre crée un compte, ils deviennent obligatoires :
 
 ## 6. Pistes ouvertes, par ordre d'intérêt
 
-1. **Brancher France Travail** — la source la plus riche, débloquée par la
-   publication du dépôt.
+1. **Récupérer le suivi de candidatures depuis Dropbox** — les offres et les
+   flux sont reconstitués, mais les statuts, notes et lettres déjà rédigées de
+   l'autre poste ne se recollectent pas.
 2. **Vérifier la qualité des lettres** sur une offre réelle, une fois le quota
    Gemini reparti. Le prompt vient d'être durci contre les compétences
    inventées (§7).
@@ -206,11 +292,108 @@ où quelqu'un d'autre crée un compte, ils deviennent obligatoires :
 
 ---
 
-## 7. Journal des mises à jour
+## 8. Les onglets de villes
+
+La vue Offres s'ouvre sur cinq onglets : **Strasbourg · Nancy · Lyon · Paris ·
+Autre**. La partition est complète — rien n'est masqué, ce qui n'est rattaché à
+aucune ville prioritaire tombe dans « Autre ».
+
+Le rattachement vit dans `src/zone.js`, en trois passes du plus sûr au plus
+large : nom de commune, puis zone limitrophe déclarée dans `profile.json`, puis
+département. Un nom explicite l'emporte donc toujours sur une simple
+coïncidence de département.
+
+Trois points qui ont leur raison d'être :
+
+- **Il est calculé à la lecture, pas stocké.** Les offres déjà en base se rangent
+  dans leur onglet sans attendre une collecte, et corriger une zone limitrophe
+  dans `profile.json` prend effet au rechargement de la page.
+- **Les onglets viennent du profil.** Ajouter une ville à `villesPrioritaires`
+  crée son onglet ; il n'y a pas de liste de villes dans le code de l'interface.
+- **Les compteurs tiennent compte des filtres en cours.** « Nancy 3 » veut dire
+  « 3 offres à voir ici avec ce que tu cherches en ce moment » — pas 3 offres
+  dont aucune ne s'afficherait.
+
+Dans chaque onglet, le classement par pertinence est inchangé : groupe
+(prioritaire → possible → à vérifier → à écarter), puis score décroissant, les
+épinglées toujours en tête. L'onglet choisi est conservé d'une session à
+l'autre ; à la première visite, c'est le mieux fourni qui s'ouvre.
+
+---
+
+## 9. Le nettoyage des offres hors profil
+
+```bash
+npm run nettoyer                 # liste ce qui partirait, ne supprime rien
+npm run nettoyer -- --appliquer  # supprime pour de bon
+npm run nettoyer -- --ecartees   # ignore les verdicts, ne garde que le groupe 3
+```
+
+Deux motifs de retrait, du plus sûr au plus discutable :
+
+1. **groupe 3** — le classement déterministe les a écartées (motif éliminatoire,
+   ou score sous le seuil) ;
+2. **verdict négatif** — l'analyse du contenu commence par un refus alors que
+   les mots-clés les avaient bien notées. C'est le cas intéressant : une offre
+   à 14 points que Gemini résume par « passe ton chemin ». Le verdict fait
+   autorité, les cartes le disaient déjà à l'écran.
+
+**Une offre portant la moindre trace de travail n'est jamais supprimée** :
+statut autre que « À postuler », date d'envoi, relance, note, épingle, lettre,
+ou saisie à la main. C'est la même garantie que la purge automatique, et elles
+partagent désormais la même condition SQL — deux copies auraient fini par
+diverger, et la copie oubliée aurait effacé une candidature suivie.
+Verrouillé par `test/db-hors-profil.test.js`.
+
+La simulation est le comportement par défaut : une suppression est
+irrécupérable, elle ne doit pas être ce que fait une commande lancée par erreur.
+
+---
+
+## 10. Les 30 flux RSS, reconstitués
+
+`profile.json` avait perdu ses flux. Ils ont été refaits le 29 juillet 2026 au
+soir d'après la recette de [REPRISE.md §12.2](REPRISE.md), et **chacun a été
+appelé avant d'être écrit** — 30 répondent, 472 entrées au total.
+
+Le découpage, inchangé, tient au fait qu'**un flux ne rend que ses 20 entrées
+les plus récentes** :
+
+- **20 flux par département** — 5 filières × Bas-Rhin (236), Meurthe-et-Moselle
+  (298), Rhône (336), Paris (284). Ils portent une `zone`, qui situe les offres
+  dont l'entrée n'a pas d'adresse.
+- **9 flux par région** — 3 filières × Grand Est (196), Auvergne-Rhône-Alpes
+  (198), Île-de-France (208), pour rattraper les départements limitrophes.
+  **Pas de `zone` sur ceux-là** : « Grand Est » ne correspond à aucune
+  `zonesProches` du profil, l'annoncer ne situerait rien. Leurs entrées sont
+  situées par leur propre adresse.
+- **1 flux employeur** — Carrières TotalEnergies.
+
+Les 5 filières et leurs identifiants : affaires juridiques (3504), aménagement
+et développement durable du territoire (3506), environnement (3514),
+agriculture (3505), direction et pilotage des politiques publiques (3512).
+Le catalogue complet des filtres est en commentaire dans `profile.json`.
+
+Rendement mesuré à blanc juste après :
+
+```
+268 offres distinctes · 257 retenues
+🟢 136 prioritaires · 🟡 85 possibles · ⚪ 20 à vérifier · 🔴 16 à écarter
+Paris 84 · Lyon 60 · Autre 57 · Strasbourg 31 · Nancy 25
+```
+
+136 prioritaires : exactement le chiffre relevé lors du premier essai à 31 flux.
+
+---
+
+## 11. Journal des mises à jour
 
 | Date | Ce qui a changé |
 |---|---|
-| **29 juil. 2026** | Budget d'analyses par collecte, pour ne plus vider le quota Gemini réservé aux lettres ; chantier multi-comptes suspendu |
+| **29 juil. 2026 (soir)** | **Mise en ligne préparée** : mot de passe, garde-fou anti-exposition, collecte intégrée au serveur, conteneur et volume Fly — voir [MISE-EN-LIGNE.md](MISE-EN-LIGNE.md) |
+| **29 juil. 2026 (soir)** | **30 flux RSS reconstitués** (§10) et base repeuplée à 258 offres ; tâche planifiée recréée et éprouvée ; découverte du second poste sous Dropbox ; Emploi-Environnement retiré (404) |
+| **29 juil. 2026 (soir)** | **France Travail branché** — et correction du bug qui faisait échouer 100 % de ses requêtes (bornes de date dépendantes, §4) ; copie locale remise au niveau de GitHub ; onglets de villes (§8) ; nettoyage hors profil (§9) ; interface désencombrée et échelle élargie ; correction d'un `fete is not defined` qui cassait la touche Échap, et de `celebrer` jamais importé |
+| 29 juil. 2026 | Budget d'analyses par collecte, pour ne plus vider le quota Gemini réservé aux lettres ; chantier multi-comptes suspendu |
 | 29 juil. 2026 | Socle multi-comptes : schéma Postgres + RLS + suppression en cascade ; architecture Supabase/Cloudflare arrêtée |
 | 29 juil. 2026 | Titre d'offre cliquable vers l'annonce ; garde-fous anti-invention dans les lettres (plus d'« expertise agronomique ») ; création de ce document |
 | 29 juil. 2026 | Dépôt publié sur GitHub, historique purgé ; collecte automatique toutes les 6 h ; 31 flux ; première vraie collecte (264 offres) ; correction du bug qui perdait la moisson en cas de panne d'analyse |
