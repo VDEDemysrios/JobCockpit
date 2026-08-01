@@ -45,6 +45,8 @@ export const API = {
   ajouterOffre:  (offre)       => appeler('/api/offers', { method: 'POST', body: offre }),
   collerOffre:   (texte)       => appeler('/api/offers/paste', { method: 'POST', body: { texte } }),
   supprimerOffre:(id)          => appeler(`/api/offers/${id}`, { method: 'DELETE' }),
+  rejetees:      ()            => appeler('/api/offers/rejetees'),
+  oublierRejets: ()            => appeler('/api/offers/rejetees/oublier', { method: 'POST', body: {} }),
   rafraichir:    ()            => appeler('/api/refresh', { method: 'POST' }),
   migrer:        (donnees)     => appeler('/api/migrate', { method: 'POST', body: donnees }),
 

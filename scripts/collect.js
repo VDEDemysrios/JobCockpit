@@ -10,7 +10,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   ouvrirBase, upsertOffre, ecrireMeta, transaction, purgerOffresPerimees, enregistrerAnalyse,
-  offresHorsProfil, supprimerOffres,
+  offresHorsProfil, supprimerOffres, idsRejetes, purgerSansReponse,
 } from '../src/db.js';
 import { collecterDepuisSources } from '../src/sources/index.js';
 import { scorer } from '../src/scoring.js';
@@ -78,7 +78,16 @@ export async function collecter({
 
   const retenues = [];
 
+  // Ce que Benjamin a écarté pour de bon ne doit pas revenir. L'identifiant
+  // étant un hash stable du contenu, une offre supprimée reviendrait à
+  // l'identique tant que la source la publie — et supprimer ne servirait
+  // strictement à rien.
+  const rejetees = idsRejetes(db);
+  let ignorees = 0;
+
   for (const offre of offres) {
+    if (rejetees.has(offre.id)) { ignorees++; continue; }
+
     // 4. Filtre de fraîcheur (certaines sources ne savent pas filtrer côté API).
     if (offre.dateOffre && offre.dateOffre < depuisDate) continue;
 
@@ -101,6 +110,7 @@ export async function collecter({
   }
 
   console.log(`  ${retenues.length} offre(s) retenue(s) après filtres`);
+  if (ignorees > 0) console.log(`  🚫 ${ignorees} offre(s) déjà écartée(s) par toi, ignorée(s)`);
 
   // 7. Écriture en base — AVANT l'analyse, en transaction, et UNIQUEMENT
   //    dans `offers`.
@@ -192,11 +202,18 @@ export async function collecter({
   let horsProfil = 0;
   if (profil.nettoyageAutomatique) {
     const aEnlever = offresHorsProfil(db);
-    horsProfil = supprimerOffres(db, aEnlever.map(o => o.id));
+    horsProfil = supprimerOffres(db, aEnlever.map(o => o.id), 'hors-profil');
     if (horsProfil > 0) {
       const ecartees = aEnlever.filter(o => o.motif === 'ecartee').length;
       console.log(`  🧹 ${horsProfil} offre(s) hors profil enlevée(s) — ${ecartees} écartées au score, ${horsProfil - ecartees} refusées par l'analyse`);
     }
+  }
+
+  // Offres restées « À postuler » trop longtemps. Réglé par `sansReponseJours`
+  // dans profile.json ; absent, rien ne se passe.
+  const sansReponse = purgerSansReponse(db, Number(profil.sansReponseJours ?? 0));
+  if (sansReponse > 0) {
+    console.log(`  🧹 ${sansReponse} offre(s) sans suite depuis ${profil.sansReponseJours} jours, écartée(s)`);
   }
 
   // 9. Journal.
@@ -217,6 +234,8 @@ export async function collecter({
     analysees,
     purgees,
     horsProfil,
+    sansReponse,
+    ignorees,
     sourcesOk,
     sourcesEnEchec,
     sourcesIgnorees,

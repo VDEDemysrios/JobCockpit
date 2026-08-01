@@ -66,6 +66,23 @@ CREATE TABLE IF NOT EXISTS meta (
   valeur TEXT
 );
 
+-- Offres écartées pour de bon.
+--
+-- SANS CETTE TABLE, SUPPRIMER NE SERT À RIEN. L'identifiant d'une offre est
+-- un hash de son contenu, stable par construction : une offre supprimée que
+-- la source publie toujours revient à l'identique à la collecte suivante.
+-- C'est exactement ce qui s'est produit le 1er août 2026 — 415 offres
+-- nettoyées, 276 revenues six heures plus tard.
+--
+-- La collecte consulte cette liste et saute ce qui s'y trouve. On garde le
+-- motif pour pouvoir revenir en arrière en connaissance de cause.
+CREATE TABLE IF NOT EXISTS rejetees (
+  offer_id  TEXT PRIMARY KEY,
+  motif     TEXT,              -- manuel | sans-reponse | hors-profil
+  titre     TEXT,              -- pour relire la liste sans deviner
+  rejete_le TEXT
+);
+
 -- Jours où Benjamin a fait quelque chose. Alimente la carte d'activité.
 CREATE TABLE IF NOT EXISTS activite (
   jour    TEXT PRIMARY KEY,   -- AAAA-MM-JJ
@@ -288,17 +305,77 @@ const SANS_TRACE = `
     )
   )`;
 
-/** Supprime les offres désignées, et le suivi vide qui leur reste attaché. */
-export function supprimerOffres(db, ids) {
+/**
+ * Supprime les offres désignées, et le suivi vide qui leur reste attaché.
+ *
+ * `motif` inscrit l'offre dans `rejetees`, ce qui l'empêche de revenir à la
+ * collecte suivante. Sans motif, la suppression est simplement définitive
+ * pour cette base — utile pour une offre saisie à la main, qu'aucune source
+ * ne republiera.
+ *
+ * @param {string} [motif] manuel | sans-reponse | hors-profil
+ */
+export function supprimerOffres(db, ids, motif = null) {
   return transaction(db, () => {
+    const lireTitre         = db.prepare('SELECT titre FROM offers WHERE id = ?');
+    const rejeter           = db.prepare(`INSERT INTO rejetees (offer_id, motif, titre, rejete_le)
+                                          VALUES (?, ?, ?, ?)
+                                          ON CONFLICT(offer_id) DO UPDATE SET motif = excluded.motif`);
     const supprimerOffre    = db.prepare('DELETE FROM offers   WHERE id = ?');
     const supprimerTracking = db.prepare('DELETE FROM tracking WHERE offer_id = ?');
+    const supprimerLettre   = db.prepare('DELETE FROM letters  WHERE offer_id = ?');
+    const maintenant = new Date().toISOString();
+
     for (const id of ids) {
+      if (motif) rejeter.run(id, motif, lireTitre.get(id)?.titre ?? null, maintenant);
+      supprimerLettre.run(id);
       supprimerTracking.run(id);
       supprimerOffre.run(id);
     }
     return ids.length;
   });
+}
+
+/** Identifiants des offres écartées pour de bon, à sauter à la collecte. */
+export function idsRejetes(db) {
+  return new Set(db.prepare('SELECT offer_id FROM rejetees').all().map(r => r.offer_id));
+}
+
+/** Remet en circulation les offres écartées, toutes ou par motif. */
+export function oublierRejets(db, motif = null) {
+  const requete = motif
+    ? db.prepare('DELETE FROM rejetees WHERE motif = ?')
+    : db.prepare('DELETE FROM rejetees');
+  const avant = db.prepare('SELECT COUNT(*) n FROM rejetees').get().n;
+  motif ? requete.run(motif) : requete.run();
+  return avant - db.prepare('SELECT COUNT(*) n FROM rejetees').get().n;
+}
+
+/**
+ * Écarte les offres restées « À postuler » plus de `jours` jours.
+ *
+ * Une offre qu'on n'a pas ouverte en deux semaines ne sera pas ouverte : elle
+ * encombre la liste et fait paraître le travail plus lourd qu'il n'est.
+ * L'ancienneté se compte depuis `first_seen` — le jour où elle est apparue
+ * sous les yeux de Benjamin, pas sa date de publication.
+ *
+ * Elles sont inscrites dans `rejetees` : sans cela, la source les republiant
+ * toujours, elles reviendraient six heures plus tard.
+ *
+ * @returns {number} nombre d'offres écartées
+ */
+export function purgerSansReponse(db, jours) {
+  if (!jours || jours <= 0) return 0;
+  const limite = new Date(Date.now() - jours * 86400000).toISOString();
+
+  const dormantes = db.prepare(`
+    SELECT o.id FROM offers o
+    LEFT JOIN tracking t ON t.offer_id = o.id
+    LEFT JOIN letters  l ON l.offer_id = o.id
+    WHERE o.first_seen < @limite AND ${SANS_TRACE}
+  `).all({ limite }).map(r => r.id);
+
+  return supprimerOffres(db, dormantes, 'sans-reponse');
 }
 
 /**

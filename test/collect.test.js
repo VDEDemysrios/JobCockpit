@@ -308,19 +308,93 @@ test('avec nettoyageAutomatique, le groupe 3 part en fin de collecte', async () 
 // c'est le plus dangereux, puisqu'il s'exécute sans que personne ne regarde.
 test('le nettoyage automatique ne touche jamais une offre suivie', async () => {
   const db = ouvrirBase(':memory:');
-  const profil = { ...PROFIL, nettoyageAutomatique: true };
   const sources = [sourceFactice([OFFRE_ECARTEE])];
 
-  await collecter({ db, profil, sources: [sourceFactice([OFFRE_ECARTEE])], cv: '', analyser: false });
-  assert.equal(db.prepare('SELECT COUNT(*) n FROM offers').get().n, 0, 'première passe : elle part');
-
-  // On la fait revenir, puis on l'annote comme le ferait Benjamin.
+  // Première passe sans nettoyage : l'offre entre en base.
   await collecter({ db, profil: PROFIL, sources, cv: '', analyser: false });
   const id = db.prepare('SELECT id FROM offers').get().id;
+
+  // Benjamin l'annote — c'est ce geste qui doit la sauver.
   db.prepare('INSERT INTO tracking (offer_id, notes) VALUES (?, ?)').run(id, 'appelé le recruteur');
 
-  const r = await collecter({ db, profil, sources, cv: '', analyser: false });
+  const r = await collecter({
+    db, profil: { ...PROFIL, nettoyageAutomatique: true }, sources, cv: '', analyser: false,
+  });
+
   assert.equal(r.horsProfil, 0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM offers').get().n, 1,
     'une note suffit à protéger une offre, même du nettoyage automatique');
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM rejetees').get().n, 0,
+    'et elle ne doit pas non plus être inscrite parmi les offres écartées');
+});
+
+// --------------------------------------------------- offres écartées pour de bon
+
+// La raison d'être de la table `rejetees`. L'identifiant est un hash stable
+// du contenu : sans mémoire des rejets, une offre supprimée revient à
+// l'identique dès que la source la republie — et supprimer ne sert à rien.
+test('une offre écartée ne revient pas à la collecte suivante', async () => {
+  const { supprimerOffres } = await import('../src/db.js');
+  const db = ouvrirBase(':memory:');
+  const sources = [sourceFactice([OFFRE_NANCY])];
+
+  await collecter({ db, profil: PROFIL, sources, cv: '', analyser: false });
+  const id = db.prepare('SELECT id FROM offers').get().id;
+
+  supprimerOffres(db, [id], 'manuel');
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM offers').get().n, 0);
+
+  // La source publie toujours la même offre.
+  const r = await collecter({ db, profil: PROFIL, sources, cv: '', analyser: false });
+  assert.equal(r.ignorees, 1);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM offers').get().n, 0,
+    'elle doit rester écartée');
+});
+
+test('oublier les rejets remet les offres en circulation', async () => {
+  const { supprimerOffres, oublierRejets } = await import('../src/db.js');
+  const db = ouvrirBase(':memory:');
+  const sources = [sourceFactice([OFFRE_NANCY])];
+
+  await collecter({ db, profil: PROFIL, sources, cv: '', analyser: false });
+  supprimerOffres(db, [db.prepare('SELECT id FROM offers').get().id], 'manuel');
+
+  assert.equal(oublierRejets(db), 1);
+  await collecter({ db, profil: PROFIL, sources, cv: '', analyser: false });
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM offers').get().n, 1);
+});
+
+// --------------------------------------------- offres restées sans réponse
+
+test('les offres sans suite depuis N jours sont écartées, les autres non', async () => {
+  const db = ouvrirBase(':memory:');
+  const sources = [sourceFactice([OFFRE_NANCY, { ...OFFRE_NANCY, externalId: 'f2', titre: 'Juriste agrivoltaïque bis' }])];
+
+  await collecter({ db, profil: PROFIL, sources, cv: '', analyser: false });
+  const ids = db.prepare('SELECT id FROM offers ORDER BY titre').all().map(o => o.id);
+
+  // On vieillit la première de 20 jours, et on annote la seconde.
+  const vieux = new Date(Date.now() - 20 * 86400000).toISOString();
+  db.prepare('UPDATE offers SET first_seen = ? WHERE id = ?').run(vieux, ids[0]);
+  db.prepare('UPDATE offers SET first_seen = ? WHERE id = ?').run(vieux, ids[1]);
+  db.prepare('INSERT INTO tracking (offer_id, notes) VALUES (?, ?)').run(ids[1], 'à rappeler');
+
+  const r = await collecter({
+    db, profil: { ...PROFIL, sansReponseJours: 14 }, sources, cv: '', analyser: false,
+  });
+
+  assert.equal(r.sansReponse, 1, 'seule celle sans la moindre trace part');
+  const restantes = db.prepare('SELECT id FROM offers').all().map(o => o.id);
+  assert.deepEqual(restantes, [ids[1]], 'une note protège, même de la purge par ancienneté');
+});
+
+test('sans réglage sansReponseJours, aucune offre n\'est écartée par ancienneté', async () => {
+  const db = ouvrirBase(':memory:');
+  const sources = [sourceFactice([OFFRE_NANCY])];
+  await collecter({ db, profil: PROFIL, sources, cv: '', analyser: false });
+  db.prepare('UPDATE offers SET first_seen = ?').run(new Date(Date.now() - 90 * 86400000).toISOString());
+
+  const r = await collecter({ db, profil: PROFIL, sources, cv: '', analyser: false });
+  assert.equal(r.sansReponse, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM offers').get().n, 1);
 });

@@ -10,7 +10,7 @@ import { normaliser } from './hash.js';
 import { villeDeRattachement } from './zone.js';
 import {
   lireMeta, ecrireMeta, upsertOffre, transaction, noterActivite,
-  journaliser, SANS_ACTIVITE,
+  journaliser, SANS_ACTIVITE, supprimerOffres, oublierRejets,
 } from './db.js';
 import { calculerStats, isoLocal } from './stats.js';
 import { offreId } from './hash.js';
@@ -334,23 +334,41 @@ export function creerRoutes({ db, collecter, sources, profil }) {
     res.json({ ok: true, id });
   });
 
+  /**
+   * Supprime une offre, collectée ou non.
+   *
+   * Une offre COLLECTÉE est en plus inscrite dans `rejetees`. Sans cela, la
+   * suppression serait une illusion : l'identifiant est un hash stable du
+   * contenu, et la source la republiant toujours, elle reviendrait à
+   * l'identique à la collecte suivante — c'est ce qui rendait le geste
+   * inutile, et pourquoi il était interdit jusqu'ici.
+   *
+   * Une offre saisie à la main n'a besoin d'aucun rejet : aucune source ne
+   * la republiera.
+   */
   routes.delete('/offers/:id', (req, res) => {
-    const offre = db.prepare('SELECT is_manual FROM offers WHERE id = ?').get(req.params.id);
+    const offre = db.prepare('SELECT is_manual, titre FROM offers WHERE id = ?').get(req.params.id);
     if (!offre) return res.status(404).json({ ok: false, error: 'Offre introuvable.' });
-    if (!offre.is_manual) {
-      return res.status(400).json({
-        ok: false,
-        error: 'Seules les offres ajoutées à la main peuvent être supprimées. Les offres collectées disparaissent d\'elles-mêmes après 30 jours.',
-      });
-    }
 
-    transaction(db, () => {
-      db.prepare('DELETE FROM letters  WHERE offer_id = ?').run(req.params.id);
-      db.prepare('DELETE FROM tracking WHERE offer_id = ?').run(req.params.id);
-      db.prepare('DELETE FROM offers   WHERE id = ?').run(req.params.id);
-    });
+    supprimerOffres(db, [req.params.id], offre.is_manual ? null : 'manuel');
+    journaliser(db, 'ecarte', { offerId: req.params.id, meta: { titre: offre.titre }, sansActivite: true });
 
-    res.json({ ok: true });
+    res.json({ ok: true, definitif: !offre.is_manual });
+  });
+
+  /** Remet en circulation ce qui a été écarté — le filet de sécurité. */
+  routes.post('/offers/rejetees/oublier', (req, res) => {
+    const motif = req.body?.motif ?? null;
+    const oubliees = oublierRejets(db, motif);
+    res.json({ ok: true, oubliees });
+  });
+
+  /** Ce qui a été écarté, pour pouvoir le relire. */
+  routes.get('/offers/rejetees', (req, res) => {
+    const lignes = db.prepare(
+      'SELECT offer_id, motif, titre, rejete_le FROM rejetees ORDER BY rejete_le DESC LIMIT 500'
+    ).all();
+    res.json({ ok: true, rejetees: lignes });
   });
 
   // --- Collecte à la demande -----------------------------------------------

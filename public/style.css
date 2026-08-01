@@ -612,6 +612,14 @@ select:focus,.search:focus,input:focus,textarea:focus{outline:none;border-color:
 .fresh.old{background:var(--g0b);color:var(--g0)}
 .link{color:var(--accent);font-size:12.5px;font-weight:var(--w-medium);cursor:pointer;}
 
+/* Écarter est irréversible sans passer par les Options : le bouton reste
+   discret jusqu'au survol, pour ne pas être cliqué par mégarde en dépliant
+   une carte. */
+.ecarter{color:var(--faint);font-size:13px;line-height:1;cursor:pointer;padding:2px 5px;
+  border-radius:var(--r1);opacity:.45;transition:opacity .15s,color .15s,background .15s;}
+.card:hover .ecarter{opacity:1;}
+.ecarter:hover{color:var(--g3);background:var(--g3b);}
+
 .detail{display:none;border-top:1px solid var(--line);background:var(--bg);}
 .card.open .detail{display:block;animation:fadeUp .25s;}
 .sec{padding:var(--e4) var(--e5);border-bottom:1px solid var(--line);}

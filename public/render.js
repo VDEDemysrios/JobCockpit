@@ -289,7 +289,9 @@ export function rendreCarte(offre, actions) {
       <span class="status-pill" style="border-color:${STATUS_COL[s.status]};color:${STATUS_COL[s.status]}">${STATUS_EMOJI[s.status] ?? ''} ${s.status}${due ? ' ⏰' : ''}</span>
       <span class="badge ${g.key}">${g.emoji} ${g.label}</span>
       ${offre.lien ? `<a class="link" href="${echapper(offre.lien)}" target="_blank" rel="noopener" data-act="lien">Voir ↗</a>` : ''}
-      ${offre.isManual ? '<span class="link" style="color:var(--g3);cursor:pointer" data-act="suppr" title="Supprimer">✕</span>' : ''}
+      <span class="ecarter" data-act="suppr" title="${offre.isManual
+        ? 'Supprimer cette offre'
+        : 'Écarter définitivement — elle ne reviendra pas aux prochaines collectes'}">✕</span>
     </div></div>
     <div class="detail">${detail}</div>`;
 

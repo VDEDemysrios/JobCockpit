@@ -416,8 +416,17 @@ function brancherCarte(carte, offre) {
 
   carte.querySelector('[data-act="suppr"]')?.addEventListener('click', async e => {
     e.stopPropagation();
-    if (!confirm('Supprimer cette offre ?')) return;
-    const r = await essayer(() => API.supprimerOffre(offre.id), 'Offre supprimée');
+
+    // Écarter une offre collectée l'inscrit dans une liste que les collectes
+    // consultent : dire qu'elle ne reviendra pas est le seul moyen de rendre
+    // le geste compréhensible — et de ne pas le regretter.
+    const question = offre.isManual
+      ? `Supprimer « ${offre.titre} » ?`
+      : `Écarter « ${offre.titre} » définitivement ?\n\nElle ne reviendra pas aux prochaines collectes.`;
+    if (!confirm(question)) return;
+
+    const r = await essayer(() => API.supprimerOffre(offre.id),
+      offre.isManual ? 'Offre supprimée' : 'Offre écartée — elle ne reviendra plus');
     if (r) { await chargerDonnees(); rendreTout(); }
   });
 
@@ -771,6 +780,17 @@ function rendreOptions() {
   document.getElementById('optTheme').value = document.documentElement.dataset.theme;
   document.getElementById('goalInput').value = etat.meta?.objectifHebdo ?? 5;
 
+  // Le compte des offres écartées : sans lui, le bouton « Tout remettre »
+  // agirait à l'aveugle sur une liste dont on ignore la taille.
+  API.rejetees()
+    .then(r => {
+      const n = r.rejetees?.length ?? 0;
+      document.getElementById('optRejetNb').textContent = n
+        ? `Actuellement ${pluriel(n, 'offre')} écartée${n > 1 ? 's' : ''}.`
+        : 'Aucune pour le moment.';
+    })
+    .catch(() => { /* l'option reste utilisable sans le compte */ });
+
   document.getElementById('optSources').innerHTML = (etat.meta?.sources ?? [])
     .map(s => `<div class="src-row ${s.configuree ? 'on' : ''}">
       <span class="pastille"></span>
@@ -812,6 +832,15 @@ document.getElementById('optExport').addEventListener('click', () => {
   telecharger(new Blob([JSON.stringify(donnees, null, 2)], { type: 'application/json' }),
     `job-cockpit-${todayISO()}.json`);
   toast('Sauvegarde téléchargée');
+});
+
+document.getElementById('optOublierRejets').addEventListener('click', async () => {
+  if (!confirm('Remettre en circulation toutes les offres écartées ?\n\nElles reviendront à la prochaine collecte si les sources les publient encore.')) return;
+  const r = await essayer(() => API.oublierRejets());
+  if (r) {
+    toast(r.oubliees ? `${r.oubliees} offre(s) remise(s) en circulation` : 'Aucune offre écartée');
+    rendreOptions();
+  }
 });
 
 document.getElementById('optResetHisto').addEventListener('click', async () => {
