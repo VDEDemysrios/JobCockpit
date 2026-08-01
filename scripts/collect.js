@@ -8,11 +8,16 @@
 import 'dotenv/config';
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import {
   ouvrirBase, upsertOffre, ecrireMeta, transaction, purgerOffresPerimees, enregistrerAnalyse,
   offresHorsProfil, supprimerOffres, idsRejetes, purgerSansReponse,
 } from '../src/db.js';
 import { peutAnalyser, noterAppel, fermerAnalyse, etatQuota, ANALYSE } from '../src/quota.js';
+import { sauvegarder } from '../src/sauvegarde.js';
+
+/** Racine du projet — la sauvegarde y prend le profil, le CV et les clés. */
+const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..');
 import { collecterDepuisSources } from '../src/sources/index.js';
 import { scorer } from '../src/scoring.js';
 import { analyserOffre } from '../src/analyze.js';
@@ -240,6 +245,21 @@ export async function collecter({
   const sansReponse = purgerSansReponse(db, Number(profil.sansReponseJours ?? 0));
   if (sansReponse > 0) {
     console.log(`  🧹 ${sansReponse} offre(s) sans suite depuis ${profil.sansReponseJours} jours, écartée(s)`);
+  }
+
+  // Sauvegarde. En DERNIER, une fois la base dans son état définitif du tour.
+  //
+  // Ici plutôt que dans une tâche à part : une sauvegarde qu'il faut penser à
+  // déclencher n'est pas une sauvegarde. La collecte tourne déjà quatre fois
+  // par jour — elle est le bon moment.
+  //
+  // Elle ne peut pas faire échouer la collecte : `sauvegarder` ne lève jamais.
+  const sauvegarde = sauvegarder(db, { racine: RACINE, profil });
+  if (sauvegarde.ok) {
+    const mo = (sauvegarde.octets / 1048576).toFixed(1);
+    console.log(`  💾 Sauvegarde : ${sauvegarde.chemin} (${mo} Mo)${sauvegarde.supprimees ? `, ${sauvegarde.supprimees} ancienne(s) retirée(s)` : ''}`);
+  } else if (sauvegarde.erreur !== 'sauvegarde désactivée dans profile.json') {
+    console.warn(`  ⚠ Sauvegarde impossible : ${sauvegarde.erreur}`);
   }
 
   // 9. Journal.

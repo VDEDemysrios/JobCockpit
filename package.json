@@ -12,6 +12,7 @@
     "nettoyer": "node scripts/nettoyer.js",
     "reclasser": "node scripts/reclasser.js",
     "exe": "node scripts/construire-exe.mjs",
+    "sauvegardes": "node scripts/sauvegardes.js",
     "extract-cv": "node scripts/extract-cv.js",
     "normaliser": "node scripts/normaliser.js",
     "modeles": "node scripts/modeles.js",
