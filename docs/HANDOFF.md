@@ -147,6 +147,20 @@ qu'on étend.
   dans `profile.json`), pour en garder aux lettres — qui valent bien plus
   qu'un verdict sur une offre jamais lue. Les offres non analysées restent en
   base et passeront aux collectes suivantes, prioritaires d'abord.
+- **Avast désactive les tâches planifiées, et peut viser l'exécutable.**
+  Trois tâches créées le 1ᵉʳ août 2026 — `JobCockpit - collecte`,
+  `JobCockpit - serveur`, `Job Cockpit` — sont passées en *Disabled* peu après
+  avoir tourné. C'est l'optimiseur de démarrage d'Avast : il désactive ce qui
+  se lance à l'ouverture de session pour « accélérer le démarrage ». Le journal
+  du planificateur Windows étant désactivé sur cette machine, rien ne le
+  signalait. **Contourné** par un raccourci dans le dossier *Démarrage*, qui ne
+  dépend d'aucune stratégie de tâches.
+  Le second risque n'est pas encore survenu mais reste ouvert :
+  `JobCockpit.exe` n'est **pas signé** (l'injection invalide la signature de
+  node.exe), il est inédit, pèse 92 Mo et ouvre des centaines de connexions par
+  collecte — le portrait type de ce que CyberCapture met en quarantaine.
+  **À faire par Benjamin** : exclure le dossier de l'application dans Avast.
+  Aucun script du projet ne doit toucher aux réglages de l'antivirus.
 - **Copier `data.db` seul donne une base périmée.** SQLite tourne en mode WAL :
   les écritures récentes vivent dans `data.db-wal` tant qu'elles ne sont pas
   intégrées. Constaté le 1ᵉʳ août 2026 en éprouvant l'exécutable — la copie

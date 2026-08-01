@@ -174,6 +174,27 @@ METTRE À JOUR
 -------------
 Remplace JobCockpit.exe et le dossier public\\ par les nouveaux. Ne touche
 ni à data.db, ni à profile\\, ni à .env.
+
+⚠ SI TON ANTIVIRUS S'EN MÊLE
+----------------------------
+JobCockpit.exe est un moteur Node dans lequel le serveur a été injecté : il
+n'est donc pas signé, il est inédit, il pèse 92 Mo et il ouvre des centaines
+de connexions à chaque collecte. Pour un antivirus, ce portrait est
+exactement celui qu'il surveille — même quand tout est parfaitement normal.
+
+Deux réglages à vérifier, chez Avast comme chez les autres :
+
+  1. EXCLUSIONS. Ajoute le dossier de l'application. Sans ça, l'exécutable
+     peut être mis en quarantaine sans prévenir, et les collectes ralenties
+     par l'inspection de chaque requête.
+
+  2. OPTIMISEUR DE DÉMARRAGE. Certains antivirus désactivent d'eux-mêmes ce
+     qui se lance à l'ouverture de session, pour « accélérer le démarrage ».
+     C'est ce qui a désactivé trois tâches planifiées de suite pendant
+     l'installation. Mets Job Cockpit en exception, ou coupe la fonction.
+
+Ces réglages sont à faire par toi, dans ton antivirus : rien dans ce dossier
+ne peut — ni ne doit — les modifier à ta place.
 `, 'utf8');
 
 rmSync(TRAVAIL, { recursive: true, force: true });
