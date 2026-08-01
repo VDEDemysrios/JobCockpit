@@ -11,6 +11,7 @@
     "collect": "node scripts/collect.js",
     "nettoyer": "node scripts/nettoyer.js",
     "reclasser": "node scripts/reclasser.js",
+    "exe": "node scripts/construire-exe.mjs",
     "extract-cv": "node scripts/extract-cv.js",
     "normaliser": "node scripts/normaliser.js",
     "modeles": "node scripts/modeles.js",
@@ -23,5 +24,9 @@
     "express": "^5.2.1",
     "jszip": "^3.10.1",
     "mammoth": "^1.8.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1",
+    "postject": "^1.0.0-alpha.6"
   }
 }

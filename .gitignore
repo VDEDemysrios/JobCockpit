@@ -21,3 +21,6 @@ npm-debug.log*
 # calqués sur le CV. Le dépôt publie profile.example.json à la place.
 profile/profile.json
 profile/*.sauvegarde-*
+
+# Exécutable construit (92 Mo) — se reconstruit par « npm run exe »
+dist/

@@ -146,6 +146,13 @@ qu'on étend.
   dans `profile.json`), pour en garder aux lettres — qui valent bien plus
   qu'un verdict sur une offre jamais lue. Les offres non analysées restent en
   base et passeront aux collectes suivantes, prioritaires d'abord.
+- **Copier `data.db` seul donne une base périmée.** SQLite tourne en mode WAL :
+  les écritures récentes vivent dans `data.db-wal` tant qu'elles ne sont pas
+  intégrées. Constaté le 1ᵉʳ août 2026 en éprouvant l'exécutable — la copie
+  servait **881 offres au lieu de 279**, un état vieux de plusieurs heures, et
+  rien ne le signalait. Pour sauvegarder : **arrêter l'application d'abord**
+  (la fermeture propre intègre le WAL), ou copier les trois fichiers ensemble
+  — `data.db`, `data.db-wal`, `data.db-shm`.
 - **Les mots-clés se comportent à l'INVERSE selon la source.** France Travail
   exige tous les mots — « chargé de développement EnR » y renvoyait 0 offre.
   Jooble et Adzuna font de la correspondance floue — « chef de projet énergie »
