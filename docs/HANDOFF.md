@@ -65,8 +65,9 @@ Dépôt : <https://github.com/VDEDemysrios/JobCockpit>
 
 | Chantier | État |
 |---|---|
-| Collecte automatique toutes les 6 h | tâche Windows « JobCockpit - collecte », sans fenêtre. **Attention au piège de la batterie — voir §4.** La collecte n'a PAS besoin du serveur : elle écrit dans `data.db` par un chemin séparé. |
-| Serveur au démarrage | tâche « JobCockpit - serveur », lancée à l'ouverture de session, sans fenêtre. `localhost:3000` est toujours disponible, plus rien à lancer à la main. |
+| **L'application vit dans `Bureau\JobCockpit\Application`** | Depuis le 1ᵉʳ août 2026, c'est `JobCockpit.exe` qui tourne, pas le projet. Une seule tâche planifiée, « Job Cockpit », le lance à l'ouverture de session, sans fenêtre — avec `COLLECTE_AUTO=1`, il collecte lui-même toutes les 6 h. **Attention au piège de la batterie — voir §4.** |
+| Le dossier du projet | ne sert plus qu'à développer. Sa base a été mise de côté sous `data.db.remplacee-par-l-application-*` : sans ça, `npm run collect` aurait rempli une seconde base, et le suivi se serait scindé en deux — le piège dans lequel ce projet est déjà tombé. |
+| Mettre à jour l'application | `npm run exe` puis `npm run installer`. L'installation ne remplace QUE le programme : `data.db`, `.env` et `profile/` ne sont jamais écrasés. |
 | Sources | 31 flux RSS + Adzuna ; **264 offres en base**, 135 prioritaires |
 | Classement et zone | scoring déterministe réglable dans `profile.json` |
 | Analyse des offres | Gemini, **bridée par le quota gratuit** (§4) |
