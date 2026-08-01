@@ -10,6 +10,7 @@
     "start": "node src/server.js",
     "collect": "node scripts/collect.js",
     "nettoyer": "node scripts/nettoyer.js",
+    "reclasser": "node scripts/reclasser.js",
     "extract-cv": "node scripts/extract-cv.js",
     "normaliser": "node scripts/normaliser.js",
     "modeles": "node scripts/modeles.js",

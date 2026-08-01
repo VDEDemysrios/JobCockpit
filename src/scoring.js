@@ -14,13 +14,32 @@ export function scorer(offre, profil) {
 
   const description = offre.description || '';
   const texte = normaliser(`${offre.titre || ''} ${description}`);
+  const titre = normaliser(offre.titre || '');
 
   const detail = { positifs: [], negatifs: [], eliminatoires: [] };
   let score = 0;
 
   // 1. Motifs éliminatoires — priment sur tout le reste.
-  for (const regle of regles.eliminatoires) {
+  //
+  //    DEUX listes, et la distinction est essentielle.
+  //
+  //    `eliminatoires` cherche dans le titre ET la description. Réservé à ce
+  //    qui disqualifie où que ça apparaisse : « 8 ans d'expérience exigés ».
+  //
+  //    `eliminatoiresTitre` ne regarde QUE l'intitulé du poste. Une annonce
+  //    mentionne mille choses en passant — « alternance possible », « en lien
+  //    avec les RH » — et une règle large appliquée au texte entier écarte de
+  //    très bonnes offres. Mesuré sur la base réelle : « Chef·fe de projet
+  //    junior aménagement et énergie », notée 12, se faisait éliminer par le
+  //    mot « alternance » enfoui dans son annonce. Sur le seul intitulé, 46
+  //    offres hors sujet partent au lieu de 125, et celle-là survit.
+  for (const regle of regles.eliminatoires ?? []) {
     if (new RegExp(regle.motif, 'i').test(texte)) {
+      detail.eliminatoires.push({ motif: regle.motif, note: regle.note });
+    }
+  }
+  for (const regle of regles.eliminatoiresTitre ?? []) {
+    if (new RegExp(regle.motif, 'i').test(titre)) {
       detail.eliminatoires.push({ motif: regle.motif, note: regle.note });
     }
   }

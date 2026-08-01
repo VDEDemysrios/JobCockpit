@@ -32,6 +32,33 @@ test('« 2 ans d\'expérience » ne déclenche PAS le motif éliminatoire', () =
   assert.notEqual(r.groupe, 3);
 });
 
+// ------------------------------------------- motifs éliminatoires de TITRE
+
+const ANNONCE_ENR = 'Développement de projets photovoltaïques et éoliens, concertation avec les collectivités, autorisation environnementale et suivi réglementaire. Vous travaillerez en lien avec les ressources humaines pour le recrutement de votre équipe, et une alternance pourra être proposée.'.padEnd(300, ' .');
+
+test('un motif de titre écarte quand il est dans l\'intitulé', () => {
+  const r = scorer({ titre: 'Assistant de direction (H/F)', description: ANNONCE_ENR }, profil);
+  assert.equal(r.groupe, 3);
+  assert.ok(r.detail.eliminatoires.length > 0);
+});
+
+// La raison d'être de cette seconde liste. Le même motif appliqué au texte
+// entier écartait « Chef·fe de projet junior aménagement et énergie », notée
+// 12, parce que son annonce mentionnait « alternance » et « ressources
+// humaines » en passant.
+test('les mêmes mots dans la DESCRIPTION n\'écartent rien', () => {
+  const r = scorer({ titre: 'Chef de projet énergies renouvelables (H/F)', description: ANNONCE_ENR }, profil);
+  assert.notEqual(r.groupe, 3, 'une bonne offre ne doit pas tomber sur un mot de sa description');
+  assert.ok(r.score >= 6, `score attendu élevé, obtenu ${r.score}`);
+});
+
+test('un profil sans eliminatoiresTitre continue de fonctionner', () => {
+  const sansListe = JSON.parse(JSON.stringify(profil));
+  delete sansListe.scoring.eliminatoiresTitre;
+  const r = scorer({ titre: 'Assistant de direction', description: ANNONCE_ENR }, sansListe);
+  assert.notEqual(r.groupe, 3, 'la liste est optionnelle');
+});
+
 // Test de calibrage : le scoring doit reproduire le jugement déjà porté.
 test('les 11 offres de référence sont correctement classées', () => {
   const resultats = offres.map(o => ({
