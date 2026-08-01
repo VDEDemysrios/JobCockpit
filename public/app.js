@@ -62,7 +62,17 @@ const etat = {
   statut: 'all',
   periode: '30',
   ouvertes: new Set(),   // cartes dépliées, à rouvrir après un rafraîchissement
+  limite: 50,            // cartes affichées ; le reste vient à la demande
 };
+
+/**
+ * Nombre de cartes rendues d'un coup.
+ *
+ * Après l'élargissement des intitulés, un onglet peut contenir 366 offres :
+ * 25 000 nœuds et 78 000 px de haut. La page se chargeait encore, mais elle
+ * ne se parcourait plus — et rien de tout cela n'était lu.
+ */
+const PAR_PAGE = 50;
 
 // ----------------------------------------------------------------- utilitaires
 
@@ -164,8 +174,20 @@ document.getElementById('nav').addEventListener('click', e => {
   if (b) changerVue(b.dataset.view);
 });
 
-document.getElementById('burger').addEventListener('click', () =>
-  document.getElementById('sidebar').classList.toggle('open'));
+const barreLaterale = document.getElementById('sidebar');
+
+document.getElementById('burger').addEventListener('click', (e) => {
+  e.stopPropagation();
+  barreLaterale.classList.toggle('open');
+});
+
+// Sur téléphone, la barre latérale devient un tiroir posé par-dessus la page.
+// Sans ces deux sorties, on ne peut le refermer qu'en changeant de vue — et
+// le voile sombre laisse croire que l'application est bloquée.
+document.addEventListener('click', (e) => {
+  if (!barreLaterale.classList.contains('open')) return;
+  if (!barreLaterale.contains(e.target)) barreLaterale.classList.remove('open');
+});
 
 function changerVue(vue) {
   if (!VUES.includes(vue)) return;
@@ -323,7 +345,7 @@ function choisirVille(ville) {
   localStorage.setItem('bp_ville', ville);
   document.querySelectorAll('#villes .ville')
     .forEach(b => b.classList.toggle('active', b.dataset.v === ville));
-  rendreOffres();
+  rendreOffresDepuisLeDebut();
 }
 
 function rendreOffres() {
@@ -401,18 +423,38 @@ function rendreOffres() {
   vide.textContent = dansLaVille.length
     ? `Aucune offre ${ouLibelle} avec ce filtre.`
     : `Aucune offre ${ouLibelle} pour l'instant. Regarde les autres onglets.`;
-  document.getElementById('count').textContent =
-    `${pluriel(liste.length, 'offre')} affichée${liste.length > 1 ? 's' : ''}`;
 
   const grille = document.getElementById('grid');
   grille.classList.toggle('mosaique', options.mosaique);
   grille.innerHTML = '';
-  liste.forEach((offre, i) => {
+
+  const affichees = liste.slice(0, etat.limite);
+  affichees.forEach((offre, i) => {
     const carte = rendreCarte(offre, { brancher: brancherCarte });
-    carte.style.animationDelay = Math.min(i * 0.025, 0.5) + 's';
+    // Le décalage ne porte que sur les premières : au-delà, la cascade
+    // deviendrait une attente.
+    carte.style.animationDelay = Math.min(i * 0.02, 0.4) + 's';
     if (etat.ouvertes.has(offre.id)) carte.classList.add('open');
     grille.appendChild(carte);
   });
+
+  const reste = liste.length - affichees.length;
+  document.getElementById('count').textContent = reste
+    ? `${affichees.length} sur ${pluriel(liste.length, 'offre')}`
+    : `${pluriel(liste.length, 'offre')} affichée${liste.length > 1 ? 's' : ''}`;
+
+  const suite = document.getElementById('plusOffres');
+  suite.style.display = reste ? '' : 'none';
+  if (reste) {
+    suite.textContent = `Voir ${Math.min(reste, PAR_PAGE)} offres de plus — ${reste} restantes`;
+  }
+}
+
+/** Toute modification de filtre repart du haut : sinon on hérite du palier
+ *  d'un onglet précédent, et la liste paraît tronquée sans raison. */
+function rendreOffresDepuisLeDebut() {
+  etat.limite = PAR_PAGE;
+  rendreOffres();
 }
 
 // ------------------------------------------------------- événements des cartes
@@ -683,7 +725,7 @@ document.getElementById('segGroupe').addEventListener('click', e => {
   if (!b) return;
   document.querySelectorAll('#segGroupe button').forEach(x => x.classList.toggle('active', x === b));
   etat.filtre = b.dataset.g;
-  rendreOffres();
+  rendreOffresDepuisLeDebut();
 });
 
 // Drapeaux secondaires : cumulables entre eux, et avec un groupe.
@@ -693,12 +735,22 @@ document.getElementById('chips').addEventListener('click', e => {
   c.classList.toggle('active');
   if (etat.drapeaux.has(c.dataset.f)) etat.drapeaux.delete(c.dataset.f);
   else etat.drapeaux.add(c.dataset.f);
-  rendreOffres();
+  rendreOffresDepuisLeDebut();
 });
 
-document.getElementById('search').addEventListener('input', e => { etat.recherche = e.target.value; rendreOffres(); });
-document.getElementById('sort').addEventListener('change', e => { etat.tri = e.target.value; rendreOffres(); });
-document.getElementById('statusFilter').addEventListener('change', e => { etat.statut = e.target.value; rendreOffres(); });
+document.getElementById('plusOffres').addEventListener('click', () => {
+  const avant = document.querySelectorAll('#grid .card').length;
+  etat.limite += PAR_PAGE;
+  rendreOffres();
+  // On revient sur la première carte ajoutée, pas en haut de page : le
+  // regard doit reprendre là où il s'était arrêté.
+  document.querySelectorAll('#grid .card')[avant]
+    ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+
+document.getElementById('search').addEventListener('input', e => { etat.recherche = e.target.value; rendreOffresDepuisLeDebut(); });
+document.getElementById('sort').addEventListener('change', e => { etat.tri = e.target.value; rendreOffresDepuisLeDebut(); });
+document.getElementById('statusFilter').addEventListener('change', e => { etat.statut = e.target.value; rendreOffresDepuisLeDebut(); });
 
 document.getElementById('toggleVue').addEventListener('click', e => {
   options.mosaique = !options.mosaique;
@@ -1027,6 +1079,7 @@ document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.altKey || e.metaKey) return;
 
   if (e.key === 'Escape') {
+    if (barreLaterale.classList.contains('open')) { barreLaterale.classList.remove('open'); return; }
     if (aide.classList.contains('show')) { fermerAide(); return; }
     if (saisie) { cible.blur(); return; }
     document.getElementById('form').classList.remove('show');

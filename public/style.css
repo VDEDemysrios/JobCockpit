@@ -624,6 +624,13 @@ select:focus,.search:focus,input:focus,textarea:focus{outline:none;border-color:
 .card:hover .ecarter{opacity:1;}
 .ecarter:hover{color:var(--g3);background:var(--g3b);}
 
+/* Charger la suite. Pleine largeur : c'est une action de fin de liste, elle
+   doit se trouver sans être cherchée. */
+.plus-offres{width:100%;justify-content:center;margin-top:var(--e4);
+  padding:var(--e3);font-size:14px;color:var(--muted);
+  background:transparent;border-style:dashed;box-shadow:none;}
+.plus-offres:hover{color:var(--accent);background:var(--panel);}
+
 .detail{display:none;border-top:1px solid var(--line);background:var(--bg);}
 .card.open .detail{display:block;animation:fadeUp .25s;}
 .sec{padding:var(--e4) var(--e5);border-bottom:1px solid var(--line);}
@@ -939,8 +946,98 @@ ul.mini li{margin-bottom:5px;}
 
 /* ─────────────────────── MOBILE ─────────────────────── */
 
+/* Cette section était vide : l'application n'avait jamais été regardée sur un
+   écran étroit. À 375 px, la page mesurait 621 px de large — la barre latérale
+   fixe et le bandeau de commande débordaient, et tout le contenu se lisait à
+   travers un défilement horizontal.
+   Le parti pris : la barre latérale devient un tiroir, le bandeau se replie
+   sur l'essentiel, et rien ne dépasse jamais. */
+
 .mobile-nav{display:none;}
 .mob-serie{margin-left:auto;font-size:12.5px;font-weight:var(--w-semi);}
+
+@media(max-width:900px){
+  /* Rien ne doit pouvoir élargir la page. */
+  html,body{max-width:100%;overflow-x:hidden;}
+
+  /* La barre latérale sort du flux et coulisse par-dessus le contenu. */
+  .app{display:block;}
+  .sidebar{position:fixed;top:0;left:0;height:100dvh;z-index:60;
+    transform:translateX(-100%);transition:transform .28s var(--ease-doux);
+    box-shadow:var(--sh4);}
+  .sidebar.open{transform:translateX(0);}
+
+  /* Le voile qui accompagne le tiroir : sans lui, on ne sait pas comment
+     refermer, et on clique au hasard dans la page. */
+  .sidebar.open::after{content:"";position:fixed;inset:0 0 0 var(--sbw);
+    background:rgba(0,0,0,.45);z-index:-1;}
+
+  .main{padding:var(--e4) var(--e4) var(--e10);}
+
+  /* Barre du haut : c'est elle qui ouvre le tiroir. */
+  .mobile-nav{display:flex;align-items:center;gap:var(--e3);
+    position:sticky;top:0;z-index:40;margin:calc(-1 * var(--e4)) calc(-1 * var(--e4)) var(--e4);
+    padding:var(--e3) var(--e4);background:var(--panel);
+    border-bottom:1px solid var(--line);backdrop-filter:blur(10px);}
+  .mobile-nav button{background:transparent;border:none;color:var(--ink);
+    cursor:pointer;display:flex;padding:var(--e1);}
+  .mobile-nav strong{font-size:15px;letter-spacing:-.3px;}
+
+  /* Bandeau de commande : la salutation est du confort, les actions non. */
+  .cmdbar{position:static;flex-direction:column;align-items:stretch;gap:var(--e3);
+    padding:var(--e4);}
+  .cmd-hello{min-width:0;}
+  .cmd-actions{display:grid;grid-template-columns:1fr 1fr;gap:var(--e2);}
+  .cmd-actions .btn{justify-content:center;}
+  #paletteBtn{grid-column:1 / -1;}
+
+  /* Une seule colonne partout : deux colonnes sur 375 px ne sont pas deux
+     colonnes, ce sont deux moitiés illisibles. */
+  .grille-2,.cols2,.cols3{grid-template-columns:1fr;gap:var(--e4);}
+  .stats{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));}
+  .grid.mosaique{grid-template-columns:1fr;}
+  .view-head{align-items:flex-start;}
+  .view-head h2{font-size:26px;}
+
+  /* Barre d'outils : la recherche d'abord, seule sur sa ligne. */
+  .toolbar{gap:var(--e2);}
+  .search{flex:1 1 100%;min-width:0;}
+  .toolbar select{flex:1 1 45%;min-width:0;}
+  .tb-espace{display:none;}
+  .toolbar .btn{flex:1 1 30%;justify-content:center;}
+
+  /* Cartes : les badges tiennent sous le titre plutôt qu'à sa droite. */
+  .head{padding:var(--e3);gap:var(--e2);}
+  .titlebox{flex:1 1 100%;min-width:0;}
+  .ptitle{font-size:15.5px;}
+  .tags{flex:1 1 100%;}
+  .sec{padding:var(--e3);}
+  .track-row{flex-direction:column;align-items:stretch;}
+  .track-field input,.track-field select{width:100%;}
+
+  /* Kanban : une colonne à la fois, qui défile latéralement. */
+  .kanban{display:flex;overflow-x:auto;gap:var(--e3);scroll-snap-type:x mandatory;}
+  .kcol{min-width:78vw;scroll-snap-align:start;}
+
+  /* Le calendrier d'assiduité a une largeur minimale de 520 px : c'est la
+     seule chose du projet qui ne peut pas rétrécir sans devenir illisible.
+     Elle défile donc DANS son panneau, au lieu d'élargir la page entière. */
+  #heat{overflow-x:auto;}
+
+  /* Options et surcouches. */
+  .opt-row{flex-direction:column;align-items:stretch;gap:var(--e2);}
+  .palette-box,.overlay-box{width:calc(100vw - var(--e5) * 2);max-width:none;}
+  .letter-area{min-height:220px;}
+}
+
+/* Très petits écrans : on retire ce qui n'aide pas à décider. */
+@media(max-width:420px){
+  .cmd-pills{display:none;}
+  .sidebar{width:min(84vw,var(--sbw));}
+  .sidebar.open::after{left:min(84vw,var(--sbw));}
+  .cmd-actions{grid-template-columns:1fr;}
+  .toolbar .btn{flex:1 1 100%;}
+}
 
 /* ═══════════════════════════════════════════════════════════════════════
    CHORÉGRAPHIE
