@@ -78,3 +78,46 @@ test('les 11 offres de référence sont correctement classées', () => {
   assert.equal(graves.length, 0, `Erreur à deux crans détectée :\n${rapport}`);
   assert.ok(exacts.length >= 9, `Seulement ${exacts.length}/11 exacts :\n${rapport}`);
 });
+
+// ------------------------------------------------------- ancrage sectoriel
+
+// Une offre peut atteindre 6 points sur la seule fonction : droit public (3)
+// + chef de projet (2) + collectivité (1). Sans un mot du secteur, elle ne
+// doit pas passer devant une offre qui parle vraiment d'énergie.
+test('sans motif de secteur, une offre plafonne à « possible »', () => {
+  const r = scorer({
+    titre: 'Chef de projet marchés publics',
+    description: 'Au sein de la direction, vous pilotez la commande publique en droit public pour le compte de la collectivité, avec rédaction de contrats et veille réglementaire.'.padEnd(300, ' .'),
+  }, profil);
+
+  assert.ok(r.score >= profil.scoring.seuils.prioritaire,
+    `le score doit dépasser le seuil prioritaire, obtenu ${r.score}`);
+  assert.equal(r.groupe, 2, 'mais rester « possible » faute d\'ancrage');
+  assert.equal(r.detail.sansSecteur, true, 'et le dire dans le détail');
+});
+
+test('un seul mot du secteur suffit à rendre le groupe 1 accessible', () => {
+  const r = scorer({
+    titre: 'Chef de projet énergies renouvelables',
+    description: 'Développement de projets photovoltaïques, concertation avec les collectivités et suivi des autorisations environnementales en droit public.'.padEnd(300, ' .'),
+  }, profil);
+
+  assert.equal(r.groupe, 1);
+  assert.ok(!r.detail.sansSecteur);
+});
+
+test('le socle n\'affecte ni les « possibles » ni les « à écarter »', () => {
+  const faible = scorer({
+    titre: 'Chef de projet marchés publics',
+    description: 'Pilotage de la commande publique pour la collectivité.'.padEnd(300, ' .'),
+  }, profil);
+  assert.notEqual(faible.groupe, 1);
+
+  const sansSocle = JSON.parse(JSON.stringify(profil));
+  sansSocle.scoring.socleSecteur = [];
+  const r = scorer({
+    titre: 'Chef de projet marchés publics',
+    description: 'Au sein de la direction, vous pilotez la commande publique en droit public pour le compte de la collectivité, avec rédaction de contrats et veille réglementaire.'.padEnd(300, ' .'),
+  }, sansSocle);
+  assert.equal(r.groupe, 1, 'liste vide = règle désactivée');
+});

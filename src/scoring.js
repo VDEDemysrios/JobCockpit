@@ -74,5 +74,27 @@ export function scorer(offre, profil) {
   else if (score >= seuils.aVerifier) groupe = 0;
   else groupe = 3;
 
+  // 5. Ancrage sectoriel.
+  //
+  //    Un score se gagne aussi bien sur la FONCTION (« chef de projet »,
+  //    « juriste », « veille réglementaire ») que sur le MÉTIER (énergie,
+  //    photovoltaïque, urbanisme). Rien n'empêchait donc une offre de devenir
+  //    prioritaire sans le moindre rapport avec le secteur : mesuré sur la
+  //    base réelle, 86 des 190 offres prioritaires l'étaient sur du seul
+  //    vocabulaire administratif — « Gestionnaire des marchés »,
+  //    « Chef du bureau de l'enseignement supérieur ».
+  //
+  //    Sans motif de secteur, une offre plafonne donc à « possible ». Elle
+  //    reste visible et candidate, elle cesse simplement de passer devant
+  //    une offre qui, elle, parle d'énergie. Liste vide = règle désactivée.
+  const socle = regles.socleSecteur ?? [];
+  if (groupe === 1 && socle.length > 0) {
+    const ancree = detail.positifs.some(p => socle.includes(p.motif));
+    if (!ancree) {
+      groupe = 2;
+      detail.sansSecteur = true;
+    }
+  }
+
   return { groupe, score, detail };
 }
