@@ -370,6 +370,10 @@ select:focus,.search:focus,input:focus,textarea:focus{outline:none;border-color:
   background:var(--bg2);color:var(--muted);border-radius:99px;padding:2px 8px;min-width:24px;
   text-align:center;transition:background .16s,color .16s;}
 .ville.active .vn{background:var(--accent-bg);color:var(--accent-ink);}
+/* Le compte des prioritaires. C'est lui qui répond à « où travailler ? » :
+   80 offres possibles pèsent moins que 12 prioritaires. */
+.ville .vp{font-size:11px;font-weight:var(--w-bold);font-variant-numeric:tabular-nums;
+  color:var(--g1);background:var(--g1b);border-radius:99px;padding:2px 7px;white-space:nowrap;}
 
 /* ── Filtres secondaires ──────────────────────────────────────────────── */
 .filtres{display:flex;flex-wrap:wrap;gap:var(--e3);align-items:center;margin-bottom:var(--e4);}
@@ -651,6 +655,11 @@ ul.mini li{margin-bottom:5px;}
 .motif{font-size:11px;padding:3px 9px;border-radius:99px;background:var(--g1b);color:var(--g1);
   font-weight:var(--w-medium);}
 .motif.neg{background:var(--g3b);color:var(--g3);}
+/* Score de prioritaire mais pas de secteur : l'écart entre le chiffre et la
+   pastille passerait pour une incohérence s'il n'était pas expliqué. */
+.plafond{margin-top:var(--e3);padding:var(--e3);background:var(--panel);
+  border:1px solid var(--line);border-left:3px solid var(--g2);border-radius:var(--r2);
+  font-size:12.5px;color:var(--ink-2);line-height:1.6;}
 
 .track-row{display:flex;flex-wrap:wrap;gap:var(--e3);align-items:flex-end;}
 .track-field{display:flex;flex-direction:column;gap:5px;}
@@ -1005,4 +1014,32 @@ ul.mini li{margin-bottom:5px;}
 .gr-anneau .arc,.gr-jauge .arc{animation-duration:1.35s;}
 .gr-anneau.atteint::after{content:"";position:absolute;inset:6%;border-radius:50%;
   pointer-events:none;animation:souffle 1.6s var(--ease-doux) .9s 2;}
+
+/* ── Onglets de villes : le trait suit, la liste se renouvelle ─────────── */
+/* Changer d'onglet remplace toute la liste d'un coup. Sans transition, on
+   ne sait pas si le contenu a changé ou si la page a sauté ; l'entrée en
+   cascade des cartes le raconte, mais seulement une fois qu'elles sont là. */
+@keyframes ongletEntre{from{opacity:0;transform:translateY(6px);}}
+.grid{animation:ongletEntre .32s var(--ease-doux);}
+
+/* Le soulignement de l'onglet actif se dessine depuis le centre, plutôt que
+   d'apparaître d'un bloc : c'est ce qui fait lire le geste comme un
+   déplacement et non comme un rechargement. */
+.ville{position:relative;}
+.ville::after{content:"";position:absolute;left:50%;right:50%;bottom:-1px;height:2px;
+  background:var(--accent);border-radius:2px;
+  transition:left .26s var(--ease-doux),right .26s var(--ease-doux);}
+.ville.active{border-bottom-color:transparent;}
+.ville.active::after{left:var(--e3);right:var(--e3);}
+
+/* Le compte des prioritaires attire l'œil à l'arrivée, une seule fois. */
+.ville .vp{animation:pop .3s var(--ease-elan) backwards;}
+
+/* ── Écarter une offre : la carte s'en va, elle ne disparaît pas ───────── */
+/* Une suppression instantanée laisse un doute : qu'est-ce qui vient de
+   partir ? Le glissement latéral montre laquelle, et dans quel sens. */
+@keyframes ecarte{to{opacity:0;transform:translateX(28px) scale(.97);
+  max-height:0;margin-bottom:0;}}
+.card.part{animation:ecarte .34s var(--ease-doux) forwards;overflow:hidden;
+  pointer-events:none;}
 

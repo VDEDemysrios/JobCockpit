@@ -186,11 +186,20 @@ export function rendreCarte(offre, actions) {
   const positifs = offre.scoreDetail?.positifs ?? [];
   const negatifs = [...(offre.scoreDetail?.negatifs ?? []), ...(offre.scoreDetail?.eliminatoires ?? [])];
   if (positifs.length || negatifs.length) {
+    // Une offre plafonnée faute d'ancrage sectoriel a un score de
+    // prioritaire mais reste « possible » : sans explication, l'écart entre
+    // le chiffre et la pastille passerait pour une incohérence.
+    const plafonnee = offre.scoreDetail?.sansSecteur
+      ? `<div class="plafond">📌 Score de prioritaire, mais <strong>aucun motif de secteur</strong> —
+           ni énergie, ni environnement, ni urbanisme. Classée « possible » pour ne pas passer
+           devant les offres de ton métier.</div>`
+      : '';
+
     detail += `<div class="sec"><div class="lbl fix">🔬 POURQUOI CE CLASSEMENT</div>
       <div class="motifs">
         ${positifs.map(m => `<span class="motif" title="${echapper(m.note ?? '')}">+${m.poids} ${echapper(m.note ?? m.motif)}</span>`).join('')}
         ${negatifs.map(m => `<span class="motif neg" title="${echapper(m.note ?? '')}">${m.poids ? m.poids : '⛔'} ${echapper(m.note ?? m.motif)}</span>`).join('')}
-      </div></div>`;
+      </div>${plafonnee}</div>`;
   }
 
   if (a) {

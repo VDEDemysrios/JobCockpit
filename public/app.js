@@ -311,10 +311,10 @@ function construireOnglets() {
   const libelle = (v) => (v === VILLE_AUTRE ? 'Autre' : v);
 
   document.getElementById('villes').innerHTML = villes.map(v => `
-    <button class="ville ${v === etat.ville ? 'active' : ''}" data-v="${echapper(v)}"
-            title="${v === VILLE_AUTRE ? 'Offres hors des villes prioritaires' : `Offres autour de ${echapper(v)}`}">
+    <button class="ville ${v === etat.ville ? 'active' : ''}" data-v="${echapper(v)}">
       <span class="vv">${echapper(libelle(v))}</span>
       <span class="vn" data-compte="${echapper(v)}">0</span>
+      <span class="vp"></span>
     </button>`).join('');
 }
 
@@ -347,12 +347,29 @@ function rendreOffres() {
   // Option « masquer les offres à écarter » — sans effet si on filtre justement dessus.
   if (options.masquerEcartees && etat.filtre !== '3') contexte = contexte.filter(o => o.groupe !== 3);
 
-  // Compteurs d'onglets.
+  // Compteurs d'onglets. On compte aussi les prioritaires : « où sont les
+  // bonnes offres » est la question qu'on se pose devant une rangée
+  // d'onglets, et un total seul n'y répond pas — 80 offres possibles pèsent
+  // moins que 12 prioritaires.
   const parVille = {};
-  villesOnglets().forEach(v => { parVille[v] = 0; });
-  contexte.forEach(o => { parVille[ongletDe(o)]++; });
-  document.querySelectorAll('#villes .vn').forEach(el => {
-    el.textContent = parVille[el.dataset.compte] ?? 0;
+  const prioParVille = {};
+  villesOnglets().forEach(v => { parVille[v] = 0; prioParVille[v] = 0; });
+  contexte.forEach(o => {
+    const v = ongletDe(o);
+    parVille[v]++;
+    if (o.groupe === 1) prioParVille[v]++;
+  });
+
+  document.querySelectorAll('#villes .ville').forEach(bouton => {
+    const v = bouton.dataset.v;
+    bouton.querySelector('.vn').textContent = parVille[v] ?? 0;
+    const prio = bouton.querySelector('.vp');
+    const n = prioParVille[v] ?? 0;
+    prio.textContent = n ? `${n} 🟢` : '';
+    prio.style.display = n ? '' : 'none';
+    bouton.title = n
+      ? `${pluriel(n, 'offre')} prioritaire${n > 1 ? 's' : ''} sur ${parVille[v]}`
+      : `${pluriel(parVille[v] ?? 0, 'offre')}, aucune prioritaire`;
   });
 
   // Le classement par groupe décrit la ville affichée, pas la France entière.
@@ -427,7 +444,15 @@ function brancherCarte(carte, offre) {
 
     const r = await essayer(() => API.supprimerOffre(offre.id),
       offre.isManual ? 'Offre supprimée' : 'Offre écartée — elle ne reviendra plus');
-    if (r) { await chargerDonnees(); rendreTout(); }
+    if (!r) return;
+
+    // La carte s'en va avant le rafraîchissement : montrer LAQUELLE part
+    // vaut mieux qu'une liste qui se réorganise sans prévenir. La durée est
+    // celle de l'animation ; si elle est coupée, le rendu suit aussitôt.
+    carte.classList.add('part');
+    await new Promise(ok => setTimeout(ok, options.animations ? 340 : 0));
+    await chargerDonnees();
+    rendreTout();
   });
 
   carte.querySelector('[data-act="postule"]')?.addEventListener('click', async (e) => {
