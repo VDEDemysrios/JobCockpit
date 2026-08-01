@@ -173,6 +173,22 @@
     ],
     "eliminatoiresTitre": [
       {
+        "motif": "alternance|alternant|apprenti|apprentissage|contrat de professionnalisation",
+        "note": "alternance — déjà quelques années d'expérience"
+      },
+      {
+        "motif": "\\bstage\\b|\\bstagiaire\\b",
+        "note": "stage — même raison"
+      },
+      {
+        "motif": "\\binterim",
+        "note": "intérim"
+      },
+      {
+        "motif": "\\bcommercial|\\bvente\\b|business developer|conseiller clientele",
+        "note": "fonction commerciale"
+      },
+      {
         "motif": "\\bassistant|\\bsecretaire|\\bgestionnaire administratif",
         "note": "poste d'assistanat — pas le niveau visé"
       },
