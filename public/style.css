@@ -31,11 +31,6 @@
   /* Graisses */
   --w-normal:400; --w-medium:500; --w-semi:600; --w-bold:700;
 
-  /* Métaux des médaillons — communs à tous les thèmes */
-  --m-bronze:linear-gradient(140deg,#e0ac6c,#a1622c 58%,#6f3f18);
-  --m-argent:linear-gradient(140deg,#eef2f8,#9aa4b6 58%,#65708a);
-  --m-or:linear-gradient(140deg,#ffe9a3,#d9a520 56%,#9a6f0c);
-  --m-platine:linear-gradient(140deg,#e6fbff,#8fd4e8 46%,#5b8fb0 78%,#3d6f8f);
 }
 
 /* ─────────────────────────── THÈMES ─────────────────────────── */
@@ -146,10 +141,6 @@ a:hover{text-decoration:underline;}
 @keyframes bounceIn{0%{transform:scale(.85);opacity:0;}60%{transform:scale(1.03);}100%{transform:scale(1);opacity:1;}}
 @keyframes shimmer{0%{background-position:-700px 0;}100%{background-position:700px 0;}}
 @keyframes tracer{from{stroke-dashoffset:1200;}to{stroke-dashoffset:0;}}
-@keyframes flotte{0%{opacity:0;transform:translateY(6px) scale(.9);}
-  22%{opacity:1;transform:translateY(-4px) scale(1.05);}
-  100%{opacity:0;transform:translateY(-44px) scale(1);}}
-@keyframes battement{0%,100%{transform:scale(1);}45%{transform:scale(1.14);}}
 @keyframes halo{0%,100%{opacity:.45;transform:scale(1);}50%{opacity:.85;transform:scale(1.09);}}
 @keyframes derive{0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
 @keyframes monte{from{transform:scaleY(0);opacity:0;}}
@@ -868,22 +859,12 @@ ul.mini li{margin-bottom:5px;}
 .toast.err{background:var(--hot);color:#fff;}
 .toast.win{background:var(--g1);color:#fff;}
 
-#gainZone{position:fixed;inset:0;pointer-events:none;z-index:120;}
-  text-shadow:0 2px 10px rgba(0,0,0,.25);animation:flotte 1.4s cubic-bezier(.22,1,.36,1) forwards;
-  font-variant-numeric:tabular-nums;}
-
 .overlay{position:fixed;inset:0;background:rgba(8,10,18,.56);backdrop-filter:blur(6px);
   z-index:150;display:none;align-items:center;justify-content:center;padding:var(--e5);}
 .overlay.show{display:flex;animation:fadeUp .2s;}
 .overlay-box{background:var(--panel);border:1px solid var(--line);border-radius:var(--r5);
   padding:var(--e8);max-width:440px;width:100%;box-shadow:var(--sh4);animation:bounceIn .3s;}
-  background:radial-gradient(closest-side,color-mix(in srgb,var(--accent) 32%,transparent),transparent);
-  animation:halo 2.6s ease-in-out infinite;}
 .overlay-box h3{margin:0 0 var(--e4);font-size:16px;font-weight:var(--w-bold);letter-spacing:-.3px;}
-  font-weight:var(--w-bold);margin-top:var(--e4);position:relative;}
-  align-items:center;justify-content:center;font-size:44px;box-shadow:var(--sh3);position:relative;
-  background:var(--m-or);animation:battement 1.5s ease-in-out 2;}
-  position:relative;}
 
 .palette-box{background:var(--panel);border:1px solid var(--line-fort);border-radius:var(--r4);
   max-width:620px;width:100%;box-shadow:var(--sh4);overflow:hidden;animation:bounceIn .22s;
