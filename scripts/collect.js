@@ -148,13 +148,26 @@ export async function collecter({
     // peut-être jamais. On plafonne donc l'analyse pour lui en garder.
     const budget = Number(profil.analysesParCollecte ?? ANALYSES_PAR_COLLECTE);
 
-    const aAnalyser = retenues
-      .filter(o => o.groupe !== 3 && !dejaAnalysees.has(o.id))
-      .sort((a, b) => RANG[a.groupe] - RANG[b.groupe])
+    // ORDRE DE PASSAGE. Le groupe ne suffit pas à départager : avec des
+    // centaines d'offres pour 25 analyses, une prioritaire à Mamoudzou
+    // passait avant une prioritaire à Strasbourg, uniquement parce qu'elle
+    // arrivait plus tôt dans la liste. Le quota partait dans des offres que
+    // Benjamin n'ouvrira jamais.
+    //
+    // On départage donc, dans l'ordre : le groupe, puis la ZONE — une offre
+    // hors des villes prioritaires attend son tour — puis le score.
+    const candidates = retenues.filter(o => o.groupe !== 3 && !dejaAnalysees.has(o.id));
+
+    const aAnalyser = candidates
+      .sort((a, b) =>
+        RANG[a.groupe] - RANG[b.groupe]
+        || (a.horsZone ? 1 : 0) - (b.horsZone ? 1 : 0)
+        || (b.score ?? 0) - (a.score ?? 0))
       .slice(0, budget);
 
-    if (retenues.filter(o => o.groupe !== 3 && !dejaAnalysees.has(o.id)).length > budget) {
-      console.log(`  ⏳ ${budget} analyses ce tour-ci ; le reste attendra la prochaine collecte.`);
+    if (candidates.length > budget) {
+      const dansLaZone = aAnalyser.filter(o => !o.horsZone).length;
+      console.log(`  ⏳ ${budget} analyses ce tour-ci sur ${candidates.length} en attente — ${dansLaZone} dans tes villes.`);
     }
 
     // S'acharner après plusieurs refus d'affilée ne fait que rallonger la

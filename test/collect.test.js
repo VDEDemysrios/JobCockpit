@@ -398,3 +398,56 @@ test('sans réglage sansReponseJours, aucune offre n\'est écartée par ancienne
   assert.equal(r.sansReponse, 0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM offers').get().n, 1);
 });
+
+// ------------------------------------------------- ordre de passage à l'analyse
+
+// Avec des centaines d'offres pour 25 analyses, l'ordre EST la fonctionnalité :
+// une prioritaire hors zone passait avant une prioritaire de Strasbourg, sur
+// le seul hasard de l'ordre d'arrivée.
+test('l\'analyse traite d\'abord les prioritaires en zone, les mieux notées', async () => {
+  // Poids granulaires : il faut pouvoir fabriquer deux prioritaires de scores
+  // DIFFÉRENTS, sinon le tri par score ne peut pas être observé.
+  const profil = {
+    ...PROFIL,
+    analysesParCollecte: 3,
+    scoring: {
+      positifs: [
+        { motif: 'agrivolta', poids: 6 },
+        { motif: 'juriste', poids: 2 },
+        { motif: 'solaire', poids: 1 },
+      ],
+      negatifs: [],
+      eliminatoires: [],
+      seuils: { prioritaire: 6, possible: 3, aVerifier: 1, descriptionMiniCaracteres: 50 },
+    },
+  };
+
+  const db = ouvrirBase(':memory:');
+  const analysees = [];
+
+  const offre = (id, titre, ville, desc) => ({
+    externalId: id, titre, entreprise: 'ACME', ville,
+    description: desc.padEnd(120, ' .'), dateOffre: aujourdhui, lien: `https://x/${id}`,
+  });
+
+  await collecter({
+    db,
+    profil,
+    sources: [sourceFactice([
+      offre('a', 'Hors zone, notée 9', 'Bordeaux (33)', 'agrivoltaique juriste solaire'),
+      offre('b', 'En zone, possible',  'Nancy (54)',    'poste de juriste sans plus'),
+      offre('c', 'En zone, notée 8',   'Nancy (54)',    'agrivoltaique juriste'),
+      offre('d', 'En zone, notée 6',   'Nancy (54)',    'agrivoltaique seulement'),
+    ])],
+    cv: 'cv',
+    analyser: true,
+    analyserOffre: async (o) => { analysees.push(o.titre); return { verdict: 'ok' }; },
+  });
+
+  assert.equal(analysees.length, 3, 'le budget est respecté');
+  assert.deepEqual(analysees, [
+    'En zone, notée 8',
+    'En zone, notée 6',
+    'Hors zone, notée 9',
+  ], 'la zone prime sur le score, et « possible » attend son tour');
+});
