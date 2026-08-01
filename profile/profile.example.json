@@ -127,6 +127,22 @@
         "note": "habilitations non détenues"
       }
     ],
+    "_sansReponseJours": [
+      "À placer À LA RACINE du profil, pas dans « scoring » :",
+      "  \"sansReponseJours\": 14",
+      "",
+      "Enlève les offres restées « À postuler » plus de N jours. Une offre",
+      "qu'on n'a pas ouverte en deux semaines ne sera pas ouverte : elle",
+      "encombre la liste et fait paraître le travail plus lourd qu'il n'est.",
+      "",
+      "L'ancienneté se compte depuis `first_seen` — le jour où l'offre est",
+      "apparue ici, pas sa date de publication. Absent ou à 0, rien ne se",
+      "passe. Les mêmes protections s'appliquent qu'ailleurs.",
+      "",
+      "Les offres enlevées sont inscrites parmi les « écartées », sans quoi",
+      "la source les republiant, elles reviendraient à la collecte suivante."
+    ],
+
     "_nettoyageAutomatique": [
       "À placer À LA RACINE du profil, pas dans « scoring » :",
       "  \"nettoyageAutomatique\": true",

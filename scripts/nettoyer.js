@@ -64,8 +64,14 @@ export function principal(argv = process.argv.slice(2)) {
       return 0;
     }
 
-    const supprimees = supprimerOffres(db, hors.map(o => o.id));
-    console.log(`\n✅ ${supprimees} offre(s) supprimée(s). Il en reste ${restantes}.\n`);
+    // Le motif inscrit ces offres parmi les « écartées ». Sans lui, la source
+    // les republiant, elles reviendraient à la collecte suivante — c'est ce
+    // qui a rendu les premiers nettoyages inutiles : 415 offres enlevées,
+    // 276 revenues six heures plus tard.
+    const supprimees = supprimerOffres(db, hors.map(o => o.id), 'hors-profil');
+    console.log(`\n✅ ${supprimees} offre(s) écartée(s). Il en reste ${restantes}.`);
+    console.log('   Elles ne reviendront pas aux prochaines collectes.');
+    console.log('   Pour revenir en arrière : Options > Offres écartées > Tout remettre.\n');
     return supprimees;
   } finally {
     db.close();
