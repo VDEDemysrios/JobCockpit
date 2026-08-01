@@ -47,8 +47,11 @@ export const JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendre
 
 export const SOURCE_LABEL = {
   'france-travail': 'France Travail', adzuna: 'Adzuna', jooble: 'Jooble',
-  careerjet: 'Careerjet', flux: 'Flux RSS', indeed: 'Indeed',
+  flux: 'Flux RSS', indeed: 'Indeed',
   collage: 'collée', manuel: 'saisie', historique: 'archive', inconnue: 'inconnue',
+  // « careerjet » reste connu : des offres collectées avant son retrait
+  // portent encore cette source, et une étiquette vide vaut moins qu'un nom.
+  careerjet: 'Careerjet (retiré)',
 };
 
 /** Libellé des types d'événement du journal d'activité. */

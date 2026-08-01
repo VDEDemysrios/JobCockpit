@@ -85,7 +85,7 @@ Dépôt : <https://github.com/VDEDemysrios/JobCockpit>
 
 | Quoi | Pourquoi ça bloque | Ce qu'il faut faire |
 |---|---|---|
-| **Careerjet** | **le formulaire éditeur refuse l'URL du dépôt GitHub** — leur programme délivre une clé « par site web éditeur », c'est-à-dire un site qui affichera leurs offres à ses visiteurs. Job Cockpit est un outil privé : il n'entre pas dans ce cadre. | soit attendre la mise en ligne (§5) pour avoir une vraie URL publique, soit leur écrire en exposant l'usage personnel, soit s'en passer — voir §4 |
+| *(aucun pour l'instant)* | — | — |
 
 > **Jooble est branché** depuis le 29 juillet 2026 au soir. Clé obtenue sur
 > fr.jooble.org, plafond annoncé à 500 requêtes.
@@ -169,11 +169,14 @@ qu'on étend.
   HTTP 404 depuis le 29 juillet 2026 au soir ; il a été retiré des flux. La
   perte est faible : il tronquait ses descriptions à ~150 caractères et abîmait
   ses accents *à la source*. Utile pour repérer, jamais pour analyser.
-- **Careerjet n'a jamais été testé en vrai** — pas de clé, et le formulaire
-  éditeur refuse l'URL d'un dépôt GitHub. Son intérêt a par ailleurs beaucoup
-  baissé : sa valeur annoncée était de couvrir APEC, HelloWork, Meteojob et
-  Jobijoba — or **Jooble ratisse déjà largement les mêmes sites**. Ce n'est plus
-  une priorité.
+- **Careerjet a été RETIRÉ du projet** le 1ᵉʳ août 2026 — code, tests,
+  variables d'environnement et documentation. Leur programme délivre une clé
+  « par site web éditeur », c'est-à-dire un site qui rediffuse leurs offres à
+  ses visiteurs : Job Cockpit, outil privé qui ne publie rien, n'entre pas dans
+  ce cadre, et le formulaire refusait l'URL du dépôt. Sa valeur annoncée —
+  couvrir APEC, HelloWork, Meteojob, Jobijoba — est de toute façon **déjà
+  assurée par Jooble**. Ne pas le réintroduire sans que ces deux points aient
+  changé.
 - **Jooble annonce un plafond de 500 requêtes.** Une collecte l'interroge 25
   fois (5 intitulés × 4 villes + passe nationale), soit ~100 appels par jour à
   4 collectes. Si les 500 sont un total et non un quota journalier, la source

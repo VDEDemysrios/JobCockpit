@@ -71,7 +71,6 @@ configurées sont simplement ignorées.
 | **Adzuna** | [developer.adzuna.com](https://developer.adzuna.com) | `Application ID` + `Application Key` | Facile — 5 min |
 | **Google Gemini** | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | Une clé API | Facile — 2 min |
 | **France Travail** | [francetravail.io](https://francetravail.io) | `client_id` + `client_secret` | Moyen — 15 min |
-| **Careerjet** | [careerjet.com/partners/api](https://www.careerjet.com/partners/api) | Une clé API | Moyen — compte partenaire |
 | **Jooble** | [fr.jooble.org/api/about](https://fr.jooble.org/api/about) | Une clé API | Moyen — sur demande |
 | **Flux RSS** | *aucune inscription* | rien à créer | Facile — voir §6 |
 
@@ -90,11 +89,8 @@ configurées sont simplement ignorées.
   « Publisher » — la seule API qui permettait de lire ses offres — a été fermé
   en 2023, et ses conditions d'utilisation interdisent explicitement la lecture
   automatisée du site. `src/sources/indeed.js` existe comme emplacement inerte,
-  au cas où une API rouvrirait. En attendant, **Jooble et Careerjet couvrent
-  une large part des mêmes annonces**, légalement.
-- **Careerjet** est un méta-moteur : sa couverture française remonte des offres
-  de l'APEC, de HelloWork, de Meteojob, de Jobijoba et de milliers de sites
-  carrière. C'est le meilleur rapport « une clé / beaucoup de sites ».
+  au cas où une API rouvrirait. En attendant, **Jooble couvre une large part
+  des mêmes annonces**, légalement.
 - **Les flux RSS** ne demandent aucune clé : tu colles l'adresse d'un flux dans
   `profile/profile.json` et il est collecté comme les autres sources. C'est le
   moyen d'ajouter un site qui n'ouvre pas d'API (voir la section 6).
@@ -631,12 +627,12 @@ fragile, qui casse au moindre changement de leur site.
 Deux contournements légitimes existent, et le programme les couvre tous les
 deux :
 
-1. **Careerjet** est un méta-moteur qui indexe déjà l'APEC, HelloWork,
-   Meteojob, Jobijoba et des milliers de sites carrière. Une clé, une source,
-   la couverture de dizaines de sites.
-2. **Les flux RSS** (section 6) : l'APEC et beaucoup d'autres publient un flux
-   par recherche enregistrée. C'est public, prévu pour être lu par un
-   programme, et il suffit de coller l'adresse dans `profile.json`.
+1. **Jooble** est un méta-moteur qui indexe déjà l'APEC, HelloWork, Meteojob,
+   Jobijoba et des milliers de sites carrière. Une clé, une source, la
+   couverture de dizaines de sites.
+2. **Les flux RSS** (section 6) : beaucoup de sites publient un flux par
+   recherche enregistrée. C'est public, prévu pour être lu par un programme,
+   et il suffit de coller l'adresse dans `profile.json`.
 
 Un emplacement reste prêt dans `src/sources/indeed.js` si un accès légitime
 s'ouvrait un jour. En attendant, l'onglet **« Coller une annonce »** permet

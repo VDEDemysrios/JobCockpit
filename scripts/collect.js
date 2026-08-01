@@ -25,11 +25,10 @@ export { estDansZonePrioritaire } from '../src/zone.js';
 import franceTravail from '../src/sources/franceTravail.js';
 import adzuna from '../src/sources/adzuna.js';
 import jooble from '../src/sources/jooble.js';
-import careerjet from '../src/sources/careerjet.js';
 import flux from '../src/sources/rss.js';
 import indeed from '../src/sources/indeed.js';
 
-export const SOURCES = [franceTravail, adzuna, jooble, careerjet, flux, indeed];
+export const SOURCES = [franceTravail, adzuna, jooble, flux, indeed];
 
 /**
  * Nombre d'offres analysées par collecte, tant que `profile.json` n'en décide
