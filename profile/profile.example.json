@@ -83,6 +83,33 @@
     }
   ],
   "rayonKm": 30,
+
+  "_intitules": [
+    "COURTS, et peu nombreux. Deux pièges, opposés l'un à l'autre :",
+    "",
+    "1. France Travail exige TOUS les mots. « chargé de développement EnR »",
+    "   y renvoyait 0 offre là où « énergies renouvelables » en renvoyait 60.",
+    "   Chaque mot supplémentaire réduit le résultat, il ne l'affine pas.",
+    "",
+    "2. Jooble et Adzuna font au contraire de la correspondance FLOUE : un mot",
+    "   générique y ramène tout le voisinage. « chef de projet énergie » leur",
+    "   fait remonter « Chef de projet MOE bâtiment » et « Ingénieur Chef de",
+    "   Projet Fluides ».",
+    "",
+    "D'où la seule méthode fiable : mesurer le TAUX DE SURVIE de chaque",
+    "mot-clé — la part de ses offres qui passe les filtres au lieu d'être",
+    "supprimée — et le mesurer SUR TOUTES LES SOURCES. Un mot jugé sur une",
+    "seule trompe : « foncier » gardait 40 % sur France Travail, mais 6 % sur",
+    "Jooble et 16 % sur Adzuna.",
+    "",
+    "En passant de 10 mots-clés choisis à l'intuition à 7 choisis sur ce",
+    "critère : suppressions 837 → 509, et davantage d'offres prioritaires.",
+    "",
+    "Garder la liste courte a aussi un coût direct : chaque mot-clé est",
+    "interrogé pour chaque ville ET en national, sur chaque source. Un mot de",
+    "plus, c'est 5 requêtes de plus par source et par collecte — et Jooble",
+    "plafonne à 500 requêtes."
+  ],
   "intitules": [
     "intitulé de poste 1",
     "intitulé de poste 2",

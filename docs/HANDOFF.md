@@ -146,6 +146,16 @@ qu'on étend.
   dans `profile.json`), pour en garder aux lettres — qui valent bien plus
   qu'un verdict sur une offre jamais lue. Les offres non analysées restent en
   base et passeront aux collectes suivantes, prioritaires d'abord.
+- **Les mots-clés se comportent à l'INVERSE selon la source.** France Travail
+  exige tous les mots — « chargé de développement EnR » y renvoyait 0 offre.
+  Jooble et Adzuna font de la correspondance floue — « chef de projet énergie »
+  leur fait remonter « Chef de projet MOE bâtiment ». Un mot-clé jugé sur une
+  seule source trompe : « foncier » gardait 40 % de ses offres sur France
+  Travail, mais **6 % sur Jooble**. Toute modification des `intitules` doit être
+  mesurée sur les trois, en taux de survie — la part des offres qui passe les
+  filtres au lieu d'être supprimée. Mesuré ainsi le 1ᵉʳ août 2026 : 7 mots-clés
+  bien choisis suppriment 509 offres là où 10 choisis à l'intuition en
+  supprimaient 837, pour davantage de prioritaires.
 - **Le piège de la batterie, sur les tâches planifiées.** Windows applique par
   défaut « ne pas démarrer sur batterie » et « arrêter si on passe sur
   batterie ». Sur un portable, la collecte est donc **refusée en silence** dès
