@@ -12,6 +12,7 @@ import {
   ouvrirBase, upsertOffre, ecrireMeta, transaction, purgerOffresPerimees, enregistrerAnalyse,
   offresHorsProfil, supprimerOffres, idsRejetes, purgerSansReponse,
 } from '../src/db.js';
+import { peutAnalyser, noterAppel, fermerAnalyse, etatQuota, ANALYSE } from '../src/quota.js';
 import { collecterDepuisSources } from '../src/sources/index.js';
 import { scorer } from '../src/scoring.js';
 import { analyserOffre } from '../src/analyze.js';
@@ -175,6 +176,14 @@ export async function collecter({
     let echecsConsecutifs = 0;
 
     for (const offre of aAnalyser) {
+      // LA RÉSERVE. Vérifiée avant CHAQUE appel, pas une fois pour toutes :
+      // une lettre rédigée pendant la collecte consomme du quota elle aussi.
+      const feuVert = peutAnalyser(db, profil);
+      if (!feuVert.ok) {
+        console.log(`  🛑 Analyse arrêtée — ${feuVert.raison}`);
+        break;
+      }
+
       let resultat = null;
       try {
         resultat = await analyse(offre, cv);
@@ -183,13 +192,18 @@ export async function collecter({
       }
 
       if (resultat) {
+        noterAppel(db, ANALYSE);
         enregistrerAnalyse(db, offre.id, resultat);
         analysees++;
         echecsConsecutifs = 0;
         console.log(`  ✓ analysée : ${offre.titre}`);
       } else if (++echecsConsecutifs >= ECHECS_AVANT_ABANDON) {
-        console.warn(`  ⏸ Analyse interrompue après ${ECHECS_AVANT_ABANDON} échecs d'affilée.`);
-        console.warn('    Les offres sont bien enregistrées ; la prochaine collecte reprendra.');
+        // Cinq refus d'affilée : le plafond du jour est atteint, quel que
+        // soit le compte qu'on tenait. On ferme l'analyse pour la journée,
+        // ce qui préserve les modèles encore disponibles pour les lettres.
+        fermerAnalyse(db);
+        console.warn(`  ⏸ Analyse fermée pour aujourd'hui après ${ECHECS_AVANT_ABANDON} refus d'affilée.`);
+        console.warn('    Le quota restant est gardé pour les lettres de motivation.');
         break;
       }
     }
@@ -248,6 +262,7 @@ export async function collecter({
     horsProfil,
     sansReponse,
     ignorees,
+    quota: etatQuota(db, profil),
     sourcesOk,
     sourcesEnEchec,
     sourcesIgnorees,

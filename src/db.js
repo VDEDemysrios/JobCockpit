@@ -66,6 +66,19 @@ CREATE TABLE IF NOT EXISTS meta (
   valeur TEXT
 );
 
+-- Appels partis chez Gemini, par jour et par usage.
+--
+-- Google ne dit pas combien il reste de quota : la seule façon de garder de
+-- quoi rédiger une lettre est de tenir le compte soi-même, et d'arrêter
+-- l'analyse avant d'avoir tout dépensé. Le détail par usage permet de régler
+-- la réserve en connaissance de cause plutôt qu'au jugé.
+CREATE TABLE IF NOT EXISTS quota_gemini (
+  jour   TEXT,               -- AAAA-MM-JJ, en heure locale
+  usage  TEXT,               -- analyse | lettre | analyse-fermee
+  appels INTEGER DEFAULT 0,
+  PRIMARY KEY (jour, usage)
+);
+
 -- Offres écartées pour de bon.
 --
 -- SANS CETTE TABLE, SUPPRIMER NE SERT À RIEN. L'identifiant d'une offre est

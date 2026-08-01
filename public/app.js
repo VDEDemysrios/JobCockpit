@@ -878,12 +878,53 @@ function rendreOptions() {
     })
     .catch(() => { /* l'option reste utilisable sans le compte */ });
 
+  rendreQuota();
+
   document.getElementById('optSources').innerHTML = (etat.meta?.sources ?? [])
     .map(s => `<div class="src-row ${s.configuree ? 'on' : ''}">
       <span class="pastille"></span>
       <span>${SOURCE_LABEL[s.nom] ?? s.nom}</span>
       <span class="etat">${s.configuree ? 'active' : 'non configurée'}</span>
     </div>`).join('') || '<div class="gr-vide">Aucune source déclarée.</div>';
+}
+
+/**
+ * Barre de consommation du quota du jour.
+ *
+ * Trois segments, dans l'ordre où le quota se dépense : ce qui est parti en
+ * analyses, ce qui est parti en lettres, et la réserve intouchable. Voir la
+ * réserve rétrécir — ou tenir — est ce qui permet de décider s'il faut
+ * rédiger maintenant ou attendre demain.
+ */
+function rendreQuota() {
+  const q = etat.meta?.quota;
+  const zone = document.getElementById('quotaBarre');
+  const cote = document.getElementById('quotaJour');
+  if (!q) { zone.innerHTML = '<div class="gr-vide">Quota inconnu.</div>'; cote.textContent = ''; return; }
+
+  const pc = (n) => Math.round(1000 * n / q.quotaJournalier) / 10;
+  const libre = Math.max(0, q.quotaJournalier - q.total - q.reserveLettres);
+
+  cote.textContent = `${q.total} / ${q.quotaJournalier} appels`;
+
+  zone.innerHTML = `
+    <div class="quota-barre">
+      <span class="qs analyses" style="width:${pc(q.analyses)}%" title="${pluriel(q.analyses, 'analyse')}"></span>
+      <span class="qs lettres"  style="width:${pc(q.lettres)}%"  title="${pluriel(q.lettres, 'lettre')}"></span>
+      <span class="qs libre"    style="width:${pc(libre)}%"      title="disponible pour l'analyse"></span>
+      <span class="qs reserve"  style="width:${pc(q.reserveLettres)}%" title="réservé aux lettres"></span>
+    </div>
+    <div class="quota-legende">
+      <span><i class="analyses"></i> ${q.analyses} analyses</span>
+      <span><i class="lettres"></i> ${q.lettres} lettres</span>
+      <span><i class="libre"></i> ${libre} encore analysables</span>
+      <span><i class="reserve"></i> ${q.reserveLettres} réservés aux lettres</span>
+    </div>
+    ${q.analyseFermee
+      ? '<div class="quota-alerte">🛑 Google a refusé une analyse aujourd\'hui. L\'analyse est fermée jusqu\'à demain — tout ce qui reste est gardé pour les lettres.</div>'
+      : q.restantLettres === 0
+        ? '<div class="quota-alerte">🛑 Quota épuisé, lettres comprises. Il se renouvelle demain.</div>'
+        : `<div class="quota-ok">✓ ${pluriel(q.restantLettres, 'lettre')} encore rédigeable${q.restantLettres > 1 ? 's' : ''} aujourd'hui.</div>`}`;
 }
 
 function brancherOption(id, cle, lire, message) {

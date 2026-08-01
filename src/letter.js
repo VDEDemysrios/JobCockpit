@@ -6,12 +6,38 @@ import { demander, estConfigure } from './gemini.js';
 
 /** Construit le prompt de rédaction. */
 export function construirePrompt(offre, analyse, cv) {
+  // L'analyse a déjà fait le travail de lecture : ce que l'employeur EXIGE,
+  // ce qu'il souhaite, ce qui n'est que décoratif, et où le candidat tient ou
+  // ne tient pas. La lui redonner en entier évite au modèle de refaire ce
+  // tri — mal, et différemment de ce que la fiche affiche à l'écran.
+  //
+  // Ne transmettre que « prouvable / non prouvable » revenait à jeter la
+  // hiérarchie des exigences, qui est précisément ce sur quoi les trois
+  // paragraphes centraux doivent s'appuyer.
+  const liste = (v) => (v ?? []).join(' ; ') || '—';
   const rappelAnalyse = analyse ? `
-# ANALYSE DÉJÀ RÉALISÉE DE CETTE OFFRE
-Ce que le candidat peut prouver : ${(analyse.prouvable ?? []).join(' ; ') || '—'}
-Ce qu'il ne peut pas prouver : ${(analyse.nonprouvable ?? []).join(' ; ') || '—'}
-Ce qui est contournable : ${(analyse.compensable ?? []).join(' ; ') || '—'}
-Mots-clés à replacer : ${(analyse.kw ?? []).map(k => k[0]).join(', ') || '—'}
+# ANALYSE DÉJÀ RÉALISÉE DE CETTE OFFRE — utilise-la, ne la refais pas
+
+Ce que l'employeur EXIGE : ${liste(analyse.exige)}
+Ce qu'il souhaite sans l'exiger : ${liste(analyse.souhaite)}
+Ce qui n'est que décoratif (ne pas y consacrer de paragraphe) : ${liste(analyse.decoratif)}
+
+Ce que le candidat peut PROUVER : ${liste(analyse.prouvable)}
+Ce qu'il ne peut PAS prouver : ${liste(analyse.nonprouvable)}
+Ce qui est CONTOURNABLE, et comment : ${liste(analyse.compensable)}
+
+Mots-clés de l'offre absents du CV, à replacer avec prudence :
+${(analyse.kw ?? []).map(k => `  - ${k[0]} (revendicable : ${k[1]}) — ${k[2]}`).join('\n') || '  —'}
+${analyse.verdict ? `\nVerdict porté sur cette candidature : ${analyse.verdict}` : ''}
+
+CE QUE TU EN FAIS :
+- les TROIS paragraphes centraux traitent les exigences de la liste « EXIGE »,
+  en priorité celles qui figurent aussi dans « PROUVABLE » ;
+- ce qui est « NON PROUVABLE » ne doit JAMAIS être affirmé — ni contourné par
+  une formule vague qui laisserait croire le contraire ;
+- ce qui est « CONTOURNABLE » s'aborde par le contournement indiqué, sans
+  s'excuser ni inventer ;
+- ce qui est « décoratif » ne mérite pas une ligne : l'espace est compté.
 ` : '';
 
   return `Tu rédiges une lettre de motivation en français, pour une candidature réelle.

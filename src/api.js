@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { normaliser } from './hash.js';
 import { villeDeRattachement } from './zone.js';
+import { peutRediger, noterAppel, etatQuota, LETTRE } from './quota.js';
 import {
   lireMeta, ecrireMeta, upsertOffre, transaction, noterActivite,
   journaliser, SANS_ACTIVITE, supprimerOffres, oublierRejets,
@@ -135,6 +136,10 @@ export function creerRoutes({ db, collecter, sources, profil }) {
       // dans l'interface : c'est déjà lui qui nomme les lettres Word.
       candidat: profil.candidat?.nom ?? '',
       objectifHebdo: Number(lireMeta(db, 'objectif_hebdo') ?? OBJECTIF_DEFAUT),
+      // Le quota conditionne ce qui est faisable dans la journée : le savoir
+      // AVANT de cliquer « Rédiger la lettre » évite de le découvrir par un
+      // échec.
+      quota: etatQuota(db, profil),
     });
   });
 
@@ -497,8 +502,39 @@ export function creerRoutes({ db, collecter, sources, profil }) {
       return res.status(400).json({ ok: false, error: 'CV absent. Lancer : npm run extract-cv -- "chemin/vers/CV.docx"' });
     }
 
-    const analyse = offre.analysis_json ? JSON.parse(offre.analysis_json) : null;
+    // La rédaction a accès à TOUT le quota, réserve comprise : c'est ce que
+    // la réserve protège. On vérifie quand même qu'il en reste.
+    const feuVert = peutRediger(db, profil);
+    if (!feuVert.ok) {
+      return res.status(503).json({ ok: false, error: feuVert.raison });
+    }
+
+    // UNE LETTRE SANS ANALYSE EST UNE LETTRE À L'AVEUGLE.
+    //
+    // Le prompt s'appuie sur ce que le candidat peut prouver, ce qu'il ne
+    // peut pas, et ce qui est contournable. Sans analyse, il rédige sur la
+    // seule annonce et retombe dans le passe-partout — précisément ce que
+    // toute la structure du prompt cherche à éviter.
+    //
+    // On l'analyse donc à la demande. Cet appel est prélevé sur la réserve,
+    // ce qui est son usage exact : il sert cette lettre-ci.
+    let analyse = offre.analysis_json ? JSON.parse(offre.analysis_json) : null;
+    if (!analyse) {
+      try {
+        analyse = await analyserOffre(offre, texteCv);
+        if (analyse) {
+          noterAppel(db, LETTRE);
+          db.prepare('UPDATE offers SET analysis_json = ?, analysis_at = ? WHERE id = ?')
+            .run(JSON.stringify(analyse), new Date().toISOString(), req.params.id);
+        }
+      } catch {
+        // Analyse impossible : on rédige quand même sur la seule annonce,
+        // plutôt que de refuser la lettre. Moins bonne, mais pas absente.
+      }
+    }
+
     const contenu = await genererLettre(offre, analyse, texteCv);
+    if (contenu) noterAppel(db, LETTRE);
 
     if (!contenu) {
       return res.status(503).json({

@@ -615,6 +615,28 @@ select:focus,.search:focus,input:focus,textarea:focus{outline:none;border-color:
 .card:hover .ecarter{opacity:1;}
 .ecarter:hover{color:var(--g3);background:var(--g3b);}
 
+/* ── Quota Gemini ─────────────────────────────────────────────────────── */
+/* Les segments sont dans l'ordre où le quota se dépense, la réserve en bout :
+   la voir tenir ou rétrécir est ce qui permet de décider s'il faut rédiger
+   maintenant ou attendre demain. */
+.quota-barre{display:flex;height:14px;border-radius:99px;overflow:hidden;
+  background:var(--bg2);border:1px solid var(--line);}
+.quota-barre .qs{transition:width .4s var(--ease-doux);}
+.qs.analyses{background:var(--accent);}
+.qs.lettres{background:var(--g1);}
+.qs.libre{background:var(--line);}
+.qs.reserve{background:repeating-linear-gradient(45deg,var(--g2b),var(--g2b) 5px,var(--g2) 5px,var(--g2) 6px);}
+.quota-legende{display:flex;flex-wrap:wrap;gap:var(--e4);margin-top:var(--e3);
+  font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.quota-legende i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;}
+.quota-legende i.analyses{background:var(--accent);}
+.quota-legende i.lettres{background:var(--g1);}
+.quota-legende i.libre{background:var(--line-fort);}
+.quota-legende i.reserve{background:var(--g2);}
+.quota-alerte{margin-top:var(--e3);padding:var(--e2) var(--e3);border-radius:var(--r2);
+  background:var(--hotb);color:var(--hot);font-size:12.5px;font-weight:var(--w-medium);}
+.quota-ok{margin-top:var(--e3);font-size:12.5px;color:var(--g1);font-weight:var(--w-medium);}
+
 /* Charger la suite. Pleine largeur : c'est une action de fin de liste, elle
    doit se trouver sans être cherchée. */
 .plus-offres{width:100%;justify-content:center;margin-top:var(--e4);
