@@ -87,12 +87,19 @@ export function scorer(offre, profil) {
   //    Sans motif de secteur, une offre plafonne donc à « possible ». Elle
   //    reste visible et candidate, elle cesse simplement de passer devant
   //    une offre qui, elle, parle d'énergie. Liste vide = règle désactivée.
+  //    `socleObligatoire` durcit la règle : sans motif de secteur, l'offre
+  //    est ÉCARTÉE au lieu d'être rétrogradée. Le plafonnement seul laissait
+  //    256 offres sans le moindre rapport avec le métier peupler le groupe
+  //    « possible » — « Chargé de mission prévention de la radicalisation »,
+  //    « Secrétariat particulier de la présidente ». Elles restaient visibles
+  //    et il fallait les écarter une par une.
   const socle = regles.socleSecteur ?? [];
-  if (groupe === 1 && socle.length > 0) {
+  if (groupe !== 3 && socle.length > 0) {
     const ancree = detail.positifs.some(p => socle.includes(p.motif));
     if (!ancree) {
-      groupe = 2;
       detail.sansSecteur = true;
+      if (regles.socleObligatoire) groupe = 3;
+      else if (groupe === 1) groupe = 2;
     }
   }
 

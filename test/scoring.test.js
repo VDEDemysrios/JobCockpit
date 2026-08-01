@@ -85,12 +85,18 @@ test('les 11 offres de référence sont correctement classées', () => {
 // + chef de projet (2) + collectivité (1). Sans un mot du secteur, elle ne
 // doit pas passer devant une offre qui parle vraiment d'énergie.
 test('sans motif de secteur, une offre plafonne à « possible »', () => {
+  // Le profil courant durcit la règle (socleObligatoire). Ce test décrit le
+  // mode SOUPLE : on le fixe explicitement plutôt que de dépendre du réglage
+  // du moment, sinon il raconterait autre chose au prochain ajustement.
+  const souple = JSON.parse(JSON.stringify(profil));
+  souple.scoring.socleObligatoire = false;
+
   const r = scorer({
     titre: 'Chef de projet marchés publics',
     description: 'Au sein de la direction, vous pilotez la commande publique en droit public pour le compte de la collectivité, avec rédaction de contrats et veille réglementaire.'.padEnd(300, ' .'),
-  }, profil);
+  }, souple);
 
-  assert.ok(r.score >= profil.scoring.seuils.prioritaire,
+  assert.ok(r.score >= souple.scoring.seuils.prioritaire,
     `le score doit dépasser le seuil prioritaire, obtenu ${r.score}`);
   assert.equal(r.groupe, 2, 'mais rester « possible » faute d\'ancrage');
   assert.equal(r.detail.sansSecteur, true, 'et le dire dans le détail');
@@ -120,4 +126,31 @@ test('le socle n\'affecte ni les « possibles » ni les « à écarter »', () =
     description: 'Au sein de la direction, vous pilotez la commande publique en droit public pour le compte de la collectivité, avec rédaction de contrats et veille réglementaire.'.padEnd(300, ' .'),
   }, sansSocle);
   assert.equal(r.groupe, 1, 'liste vide = règle désactivée');
+});
+
+test('socleObligatoire écarte au lieu de rétrograder', () => {
+  const dur = JSON.parse(JSON.stringify(profil));
+  dur.scoring.socleObligatoire = true;
+
+  const offre = {
+    titre: 'Chef de projet marchés publics',
+    description: 'Au sein de la direction, vous pilotez la commande publique en droit public pour le compte de la collectivité, avec rédaction de contrats et veille réglementaire.'.padEnd(300, ' .'),
+  };
+
+  assert.equal(scorer(offre, dur).groupe, 3, 'sans secteur : écartée');
+
+  const souple = JSON.parse(JSON.stringify(profil));
+  souple.scoring.socleObligatoire = false;
+  assert.equal(scorer(offre, souple).groupe, 2, 'sans le durcissement : seulement rétrogradée');
+});
+
+test('socleObligatoire ne touche pas une offre ancrée dans le secteur', () => {
+  const dur = JSON.parse(JSON.stringify(profil));
+  dur.scoring.socleObligatoire = true;
+  const r = scorer({
+    titre: 'Chef de projet énergies renouvelables',
+    description: 'Développement de projets photovoltaïques, concertation avec les collectivités et autorisations environnementales.'.padEnd(300, ' .'),
+  }, dur);
+  assert.equal(r.groupe, 1);
+  assert.ok(!r.detail.sansSecteur);
 });
