@@ -127,10 +127,63 @@
         "note": "habilitations non détenues"
       }
     ],
+    "_nettoyageAutomatique": [
+      "À placer À LA RACINE du profil, pas dans « scoring » :",
+      "  \"nettoyageAutomatique\": true",
+      "",
+      "Enlève les offres hors profil à la fin de CHAQUE collecte, au lieu",
+      "d'attendre un « npm run nettoyer » manuel. Une collecte ratisse large",
+      "exprès : une seule passe peut remettre 300 offres à écarter dans une",
+      "base qu'on venait de nettoyer.",
+      "",
+      "Désactivé par défaut, et volontairement : une suppression est",
+      "irrécupérable, et l'activer sans le savoir viderait l'onglet",
+      "« 🔴 À écarter » de son contenu. Les protections restent entières —",
+      "statut, envoi, relance, note, épingle, lettre ou saisie manuelle",
+      "mettent une offre à l'abri."
+    ],
+
+    "_eliminatoiresTitre": [
+      "Motifs cherchés dans le SEUL INTITULÉ du poste, jamais dans la",
+      "description — et cette distinction n'est pas cosmétique.",
+      "Une annonce mentionne mille choses en passant (« alternance possible »,",
+      "« en lien avec les RH »). Appliqués au texte entier, ces motifs",
+      "écartaient de très bonnes offres : mesuré sur une base réelle,",
+      "125 offres partaient dont 78 en groupe 1 ou 2. Sur le seul intitulé,",
+      "46 partent et les bonnes survivent.",
+      "",
+      "Sers-t'en pour les MÉTIERS qui ne sont pas les tiens, pas pour des",
+      "mots-clés de contenu : ceux-là ont leur place dans « negatifs »."
+    ],
+    "eliminatoiresTitre": [
+      {
+        "motif": "\\bassistant|\\bsecretaire|\\bgestionnaire administratif",
+        "note": "poste d'assistanat — pas le niveau visé"
+      },
+      {
+        "motif": "ressources humaines|\\brh\\b|\\bpaie\\b",
+        "note": "filière RH, hors trajectoire"
+      },
+      {
+        "motif": "\\bavocat|\\bnotaire|\\bhuissier",
+        "note": "profession réglementée non détenue"
+      }
+    ],
+
+    "_seuils": [
+      "Score minimal pour chaque groupe. « aVerifier » mérite attention :",
+      "trop bas, un seul motif générique suffit à échapper au groupe 3, et la",
+      "liste se remplit de postes hors sujet. À 1, une base réelle gardait",
+      "147 offres inutiles ; à 3, elles partent sans qu'aucune offre des",
+      "groupes 1 ou 2 ne soit perdue.",
+      "",
+      "Après toute modification ici : npm run reclasser -- --appliquer",
+      "Sans quoi les offres déjà en base gardent leur ancien classement."
+    ],
     "seuils": {
       "prioritaire": 6,
       "possible": 3,
-      "aVerifier": 1,
+      "aVerifier": 3,
       "descriptionMiniCaracteres": 200
     }
   }

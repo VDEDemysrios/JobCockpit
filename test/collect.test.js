@@ -271,3 +271,56 @@ test('sans budget déclaré, une valeur par défaut raisonnable s\'applique', as
     `un plafond par défaut doit s'appliquer, ${appels} analyses faites sur 60`);
   db.close();
 });
+
+// ------------------------------------------- nettoyage hors profil en fin de collecte
+
+/** Une offre que le scoring classera en groupe 3 : le motif est éliminatoire. */
+const OFFRE_ECARTEE = {
+  externalId: 'f9', titre: 'Analyste M A', entreprise: 'ACME', ville: 'Nancy (54)',
+  description: 'Poste centré sur les opérations de m a et le conseil financier.'.padEnd(120, ' .'),
+  dateOffre: aujourdhui, lien: 'https://exemple.fr/9', contrat: 'CDI',
+};
+
+test('sans réglage, la collecte ne supprime rien : le groupe 3 reste consultable', async () => {
+  const db = ouvrirBase(':memory:');
+  const r = await collecter({
+    db, profil: PROFIL, sources: [sourceFactice([OFFRE_NANCY, OFFRE_ECARTEE])], cv: '', analyser: false,
+  });
+
+  assert.equal(r.horsProfil, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM offers WHERE groupe = 3').get().n, 1,
+    'désactivé par défaut : une suppression ne doit jamais être une surprise');
+});
+
+test('avec nettoyageAutomatique, le groupe 3 part en fin de collecte', async () => {
+  const db = ouvrirBase(':memory:');
+  const r = await collecter({
+    db, profil: { ...PROFIL, nettoyageAutomatique: true },
+    sources: [sourceFactice([OFFRE_NANCY, OFFRE_ECARTEE])], cv: '', analyser: false,
+  });
+
+  assert.equal(r.horsProfil, 1);
+  const restantes = db.prepare('SELECT titre FROM offers').all().map(o => o.titre);
+  assert.deepEqual(restantes, ['Juriste agrivoltaïque']);
+});
+
+// La garantie centrale du projet tient aussi dans ce chemin automatique :
+// c'est le plus dangereux, puisqu'il s'exécute sans que personne ne regarde.
+test('le nettoyage automatique ne touche jamais une offre suivie', async () => {
+  const db = ouvrirBase(':memory:');
+  const profil = { ...PROFIL, nettoyageAutomatique: true };
+  const sources = [sourceFactice([OFFRE_ECARTEE])];
+
+  await collecter({ db, profil, sources: [sourceFactice([OFFRE_ECARTEE])], cv: '', analyser: false });
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM offers').get().n, 0, 'première passe : elle part');
+
+  // On la fait revenir, puis on l'annote comme le ferait Benjamin.
+  await collecter({ db, profil: PROFIL, sources, cv: '', analyser: false });
+  const id = db.prepare('SELECT id FROM offers').get().id;
+  db.prepare('INSERT INTO tracking (offer_id, notes) VALUES (?, ?)').run(id, 'appelé le recruteur');
+
+  const r = await collecter({ db, profil, sources, cv: '', analyser: false });
+  assert.equal(r.horsProfil, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM offers').get().n, 1,
+    'une note suffit à protéger une offre, même du nettoyage automatique');
+});

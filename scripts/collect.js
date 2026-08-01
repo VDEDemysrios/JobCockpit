@@ -10,6 +10,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   ouvrirBase, upsertOffre, ecrireMeta, transaction, purgerOffresPerimees, enregistrerAnalyse,
+  offresHorsProfil, supprimerOffres,
 } from '../src/db.js';
 import { collecterDepuisSources } from '../src/sources/index.js';
 import { scorer } from '../src/scoring.js';
@@ -176,6 +177,28 @@ export async function collecter({
   const purgees = purgerOffresPerimees(db, 30);
   if (purgees > 0) console.log(`  🧹 ${purgees} offre(s) périmée(s) purgée(s)`);
 
+  // Nettoyage des offres hors profil, si le profil le demande.
+  //
+  // Une collecte ratisse large exprès, et en ramène donc beaucoup à écarter :
+  // une seule passe a remis 300 offres du groupe 3 dans une base qu'on venait
+  // de nettoyer. Sans ce balayage, `npm run nettoyer` devient une corvée
+  // manuelle à répéter indéfiniment.
+  //
+  // DÉSACTIVÉ PAR DÉFAUT : une suppression est irrécupérable, et l'activer
+  // sans le savoir viderait l'onglet « 🔴 À écarter » de son contenu. Les
+  // protections restent les mêmes que partout ailleurs — statut, envoi,
+  // relance, note, épingle, lettre ou saisie manuelle mettent une offre à
+  // l'abri.
+  let horsProfil = 0;
+  if (profil.nettoyageAutomatique) {
+    const aEnlever = offresHorsProfil(db);
+    horsProfil = supprimerOffres(db, aEnlever.map(o => o.id));
+    if (horsProfil > 0) {
+      const ecartees = aEnlever.filter(o => o.motif === 'ecartee').length;
+      console.log(`  🧹 ${horsProfil} offre(s) hors profil enlevée(s) — ${ecartees} écartées au score, ${horsProfil - ecartees} refusées par l'analyse`);
+    }
+  }
+
   // 9. Journal.
   //    « non-configure » se distingue de « ok » : sans clé d'API, une collecte
   //    ne remonte rien mais n'échoue pas non plus. Le dashboard doit dire
@@ -193,6 +216,7 @@ export async function collecter({
     nouvelles,
     analysees,
     purgees,
+    horsProfil,
     sourcesOk,
     sourcesEnEchec,
     sourcesIgnorees,

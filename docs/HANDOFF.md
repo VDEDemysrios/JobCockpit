@@ -348,6 +348,39 @@ Verrouillé par `test/db-hors-profil.test.js`.
 La simulation est le comportement par défaut : une suppression est
 irrécupérable, elle ne doit pas être ce que fait une commande lancée par erreur.
 
+### Le rendre automatique
+
+Une collecte ratisse large exprès. Constaté le 1ᵉʳ août 2026 : **une seule
+passe a remis 300 offres du groupe 3** dans une base qu'on venait de nettoyer.
+Sans balayage automatique, `npm run nettoyer` devient une corvée sans fin.
+
+Une ligne à la racine de `profile.json` :
+
+```json
+"nettoyageAutomatique": true
+```
+
+**Désactivé par défaut, et c'est délibéré** : l'activer sans le savoir viderait
+l'onglet « 🔴 À écarter » de son contenu. Les protections sont les mêmes que
+partout — verrouillé par trois tests dans `test/collect.test.js`, dont un qui
+vérifie qu'une simple note suffit à mettre une offre à l'abri du balayage
+automatique. C'est le chemin le plus dangereux du projet, puisqu'il s'exécute
+sans que personne ne regarde.
+
+### Reclasser ce qui est déjà en base
+
+Le classement est calculé à la collecte **puis stocké**. Modifier un seuil ou
+un motif ne change donc rien aux offres déjà ramenées — on ajuste les règles
+sans rien voir bouger. D'où :
+
+```bash
+npm run reclasser                 # montre ce qui bougerait
+npm run reclasser -- --appliquer
+```
+
+Il n'écrit que dans les colonnes de classement : ni statut, ni note, ni
+relance, ni lettre.
+
 ---
 
 ## 10. Les 30 flux RSS, reconstitués
