@@ -10,6 +10,7 @@ import {
 import { rendreDashboard, rendreCourbe, rendreStats, rendreIndicateurMaj } from './dashboard.js';
 import { rendreCv } from './cv.js';
 import { animerCompteurs } from './anim.js';
+import { imprimerSuivi } from './impression.js';
 
 const dansNJours = (n) => {
   const d = new Date(Date.now() + n * 86400000);
@@ -837,6 +838,15 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   const csv = lignes.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
   telecharger(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }), 'candidatures_benjamin_perrin.csv');
   toast('Export CSV téléchargé');
+});
+
+document.getElementById('pdfBtn').addEventListener('click', () => {
+  // L'export porte sur TOUT le suivi, pas sur l'onglet ni les filtres en
+  // cours : un récapitulatif amputé de trois villes ne serait pas un
+  // récapitulatif.
+  const r = imprimerSuivi(etat.offres, { nom: etat.meta?.candidat ?? '' });
+  if (r.ok) toast(`${pluriel(r.total, 'ligne')} — choisis « Enregistrer au format PDF »`);
+  else toast(r.message, 'err');
 });
 
 function telecharger(blob, nom) {

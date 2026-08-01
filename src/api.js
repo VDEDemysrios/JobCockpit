@@ -131,6 +131,9 @@ export function creerRoutes({ db, collecter, sources, profil }) {
       sources: sources.map(s => ({ nom: s.nom, configuree: s.estConfiguree(profil) })),
       villes: (profil.villesPrioritaires ?? []).map(v => v.nom),
       intitules: profil.intitules ?? [],
+      // Le nom en-tête des exports. Servi depuis le profil plutôt que codé
+      // dans l'interface : c'est déjà lui qui nomme les lettres Word.
+      candidat: profil.candidat?.nom ?? '',
       objectifHebdo: Number(lireMeta(db, 'objectif_hebdo') ?? OBJECTIF_DEFAUT),
     });
   });
