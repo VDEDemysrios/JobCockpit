@@ -89,12 +89,32 @@ const planificateur = demarrerPlanificateur({
   actif: process.env.COLLECTE_AUTO === '1',
 });
 
+// UN SERVEUR QUI N'ÉCOUTE PAS DOIT MOURIR.
+//
+// Le planificateur pose un `setInterval` : il suffit à maintenir le processus
+// en vie même quand `listen` a échoué. Constaté le 2 août 2026 — une seconde
+// instance lancée par mégarde n'avait pas pu prendre le port, mais restait
+// là, invisible, à collecter en double dans la même base. Le tableau de bord,
+// lui, était injoignable sans que rien ne l'explique.
 const serveur = app.listen(PORT, HOTE, () => {
   console.log('\n🚀 Job Cockpit démarré');
   console.log(`   Écoute       : ${HOTE}:${PORT}`);
   console.log(`   Mot de passe : ${auth.actif ? 'exigé' : 'aucun (accès local uniquement)'}`);
   if (!publique) console.log(`   Ouvre ton navigateur sur : http://localhost:${PORT}`);
   console.log('');
+});
+
+serveur.on('error', (erreur) => {
+  if (erreur.code === 'EADDRINUSE') {
+    console.error(`\n❌ Le port ${PORT} est déjà pris.`);
+    console.error('   Job Cockpit tourne probablement déjà : ouvre http://localhost:' + PORT);
+    console.error('   Cette instance s\'arrête pour ne pas collecter en double.\n');
+  } else {
+    console.error('\n❌ Le serveur n\'a pas pu démarrer :', erreur.message, '\n');
+  }
+  planificateur?.arreter();
+  db.close();
+  process.exit(1);
 });
 
 // Fermeture propre : sans cela, le fichier SQLite peut rester verrouillé.

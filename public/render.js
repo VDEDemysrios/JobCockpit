@@ -118,8 +118,11 @@ export function rendreFocus(offres, surClic) {
     return;
   }
 
-  // Au-delà d'une trentaine de lignes, la vue cesse d'être un « focus ».
-  const affichees = actions.slice(0, 30);
+  // Un « focus » montre le haut de la pile, pas la pile. À 30 lignes le
+  // panneau faisait 2 550 px — les deux tiers du tableau de bord, statistiques
+  // et graphiques repoussés hors de vue. Douze remplissent la zone bornée
+  // ci-dessous sans jamais la déborder ; le reste est à un clic, dans Offres.
+  const affichees = actions.slice(0, 12);
   zone.innerHTML = '';
   let groupeCourant = null;
 

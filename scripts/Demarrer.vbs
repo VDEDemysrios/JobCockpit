@@ -19,6 +19,17 @@ Set shell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 racine = fso.GetParentFolderName(WScript.ScriptFullName)
 
+' UNE SEULE INSTANCE.
+' Deux serveurs sur la même base, c'est deux collectes simultanées, deux fois
+' le quota Gemini dépensé, et des écritures entrelacées. Le second ne peut de
+' toute façon pas prendre le port — autant ne pas le lancer, plutôt que de le
+' laisser vivre sans écouter, ce qui rendait le tableau de bord injoignable
+' sans que rien ne l'explique.
+Set wmi = GetObject("winmgmts:\\.\root\cimv2")
+If wmi.ExecQuery("SELECT ProcessId FROM Win32_Process WHERE Name = 'JobCockpit.exe'").Count > 0 Then
+  WScript.Quit 0
+End If
+
 shell.CurrentDirectory = racine
 shell.Environment("PROCESS")("COLLECTE_AUTO") = "1"
 

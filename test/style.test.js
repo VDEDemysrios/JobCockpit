@@ -99,3 +99,26 @@ test('les règles vitales des surcouches sont présentes', () => {
     assert.match(css, motif, `règle manquante ou altérée : ${nom}`);
   }
 });
+
+/**
+ * LE CADRE NE DOIT JAMAIS SE METTRE À GRANDIR.
+ *
+ * Trois zones grandissent avec les données : la file du focus, les colonnes du
+ * Kanban, et la vue active. Sans plafond, elles poussent la page — c'est ce
+ * qui donnait un tableau de bord de 4 200 px et un Kanban « qui descend super
+ * bas ». Chacune doit donc défiler CHEZ ELLE.
+ *
+ * `min-height:0` est la moitié qu'on oublie : sans lui un enfant de flex
+ * refuse de rétrécir sous son contenu, et `overflow` ne sert à rien.
+ */
+test('les zones qui grandissent avec les données sont bornées', () => {
+  for (const [nom, motif] of [
+    ['html,body sans défilement', /html,\s*body\{[^}]*overflow:hidden/],
+    ['.main peut rétrécir',       /\.main\{[^}]*min-height:0/],
+    ['.view défile chez elle',    /\.view\{[^}]*min-height:0[^}]*overflow-y:auto/],
+    ['#focusList borné',          /#focusList\{[^}]*max-height:[^}]*overflow-y:auto/],
+    ['.kcol-liste défile',        /\.kcol-liste\{[^}]*overflow-y:auto/],
+  ]) {
+    assert.match(css, motif, `garde-fou de hauteur perdu : ${nom}`);
+  }
+});

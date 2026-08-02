@@ -190,19 +190,44 @@ document.addEventListener('click', (e) => {
   if (!barreLaterale.contains(e.target)) barreLaterale.classList.remove('open');
 });
 
+/**
+ * Vrai le temps d'un changement de vue.
+ *
+ * L'entrée en cascade doit se jouer quand on ARRIVE quelque part, pas à
+ * chaque fois qu'on coche un filtre. Sans ce drapeau, cocher « Épinglées »
+ * relançait l'animation des cinquante cartes : l'écran clignotait, et la
+ * liste mettait une demi-seconde à redevenir lisible.
+ */
+let arriveeSurLaVue = true;
+
 function changerVue(vue) {
   if (!VUES.includes(vue)) return;
   etat.vue = vue;
+  arriveeSurLaVue = true;
   document.querySelectorAll('.nav button').forEach(x => x.classList.toggle('active', x.dataset.view === vue));
   VUES.forEach(id => {
+    // `block` et non `flex` : la vue est un ÉLÉMENT de flex dans .main, mais
+    // son propre contenu s'empile normalement. La passer en flex mettrait
+    // tous ses panneaux côte à côte.
     document.getElementById('view-' + id).style.display = id === vue ? 'block' : 'none';
   });
   document.getElementById('sidebar').classList.remove('open');
 
-
   rendreTout();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // C'est la VUE qui défile désormais, plus la page : la remettre en haut
+  // demande de viser le bon élément.
+  document.getElementById('view-' + vue).scrollTop = 0;
+  document.querySelector('.main').classList.remove('defile');
+  arriveeSurLaVue = false;
 }
+
+// L'ombre sous le bandeau, qui dit qu'il y a du contenu au-dessus. Posée sur
+// `.main` plutôt que sur chaque vue : une seule règle, un seul écouteur.
+document.querySelector('.main').addEventListener('scroll', (e) => {
+  if (!e.target.classList?.contains('view')) return;
+  document.querySelector('.main').classList.toggle('defile', e.target.scrollTop > 4);
+}, true);
 
 function majBadgesNav() {
   const aPostuler = etat.offres.filter(o =>
@@ -429,12 +454,17 @@ function rendreOffres() {
   grille.classList.toggle('mosaique', options.mosaique);
   grille.innerHTML = '';
 
+  // L'entrée en cascade ne se joue qu'à l'ARRIVÉE sur la vue. Cocher un
+  // filtre reconstruit la liste : la rejouer alors faisait clignoter tout
+  // l'écran et retardait la lecture d'une demi-seconde, pour rien.
+  grille.classList.toggle('sans-entree', !arriveeSurLaVue);
+
   const affichees = liste.slice(0, etat.limite);
   affichees.forEach((offre, i) => {
     const carte = rendreCarte(offre, { brancher: brancherCarte });
-    // Le décalage ne porte que sur les premières : au-delà, la cascade
-    // deviendrait une attente.
-    carte.style.animationDelay = Math.min(i * 0.02, 0.4) + 's';
+    // Le décalage ne porte que sur les premières cartes : au-delà, la
+    // cascade cesse d'être un mouvement et devient une attente.
+    if (arriveeSurLaVue) carte.style.animationDelay = Math.min(i * 0.018, 0.3) + 's';
     if (etat.ouvertes.has(offre.id)) carte.classList.add('open');
     grille.appendChild(carte);
   });

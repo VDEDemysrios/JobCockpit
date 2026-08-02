@@ -162,10 +162,25 @@ a:hover{text-decoration:underline;}
 
 /* ─────────────────────── STRUCTURE ─────────────────────── */
 
-.app{display:flex;min-height:100vh;}
+/* ═══ LE CADRE ═══
+   L'application occupe l'écran et n'en sort pas. Seule la vue courante
+   défile, à l'intérieur de son cadre.
+
+   Avant, c'était la PAGE entière qui défilait : le tableau de bord mesurait
+   près de 5 écrans, la liste d'offres plus de 7. On perdait la barre latérale
+   et le bandeau de commande dès le premier coup de molette, et il fallait
+   remonter tout en haut pour changer de vue ou lancer une collecte.
+
+   `min-height:0` revient partout dans ce bloc, et il n'est jamais décoratif :
+   sans lui, un enfant de flex refuse de rétrécir sous la taille de son
+   contenu — il repousse son parent au lieu de défiler, et tout l'édifice
+   retombe dans le défaut qu'on corrige ici. */
+html,body{height:100%;overflow:hidden;}
+
+.app{display:flex;height:100dvh;overflow:hidden;}
 
 .sidebar{width:var(--sbw);background:var(--sbgrad);color:#fff;flex-shrink:0;
-  position:sticky;top:0;height:100vh;display:flex;flex-direction:column;
+  height:100%;display:flex;flex-direction:column;
   padding:var(--e5) var(--e3) var(--e4);z-index:30;overflow-y:auto;}
 .sidebar::-webkit-scrollbar{width:5px;}
 .sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);border-radius:3px;}
@@ -215,8 +230,41 @@ a:hover{text-decoration:underline;}
    quart de la surface vide. Ce sont les GRILLES qui occupent la place — elles
    ajoutent des colonnes toutes seules — et seules les zones de prose sont
    bridées plus bas, parce qu'une ligne de texte de 2 000 px est illisible. */
-.main{flex:1;min-width:0;padding:var(--e5) var(--e8) var(--e12);}
-.view{animation:fadeUp .3s cubic-bezier(.22,1,.36,1);}
+/* Le bandeau de commande ne défile plus : il est le haut du cadre. Le
+   rembourrage descend donc dans la vue, pour que la barre de défilement
+   longe le bord de la fenêtre plutôt que de flotter au milieu. */
+.main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;
+  overflow:hidden;padding:var(--e5) var(--e8) 0;}
+
+.view{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  padding-bottom:var(--e10);
+  /* La barre de défilement est ramenée au bord de la fenêtre, sans décaler
+     le contenu quand elle apparaît. */
+  margin-right:calc(-1 * var(--e8));padding-right:var(--e8);
+  scrollbar-gutter:stable;}
+
+/* Discrète au repos, visible sous le doigt. Une barre de défilement large
+   et grise dans une application soignée se remarque plus que le contenu. */
+.view::-webkit-scrollbar{width:10px;}
+.view::-webkit-scrollbar-track{background:transparent;}
+.view::-webkit-scrollbar-thumb{background:var(--line-fort);border-radius:99px;
+  border:3px solid transparent;background-clip:content-box;}
+.view::-webkit-scrollbar-thumb:hover{background:var(--faint);background-clip:content-box;}
+
+/* Une ombre apparaît sous le bandeau dès qu'on a défilé : sans elle, rien ne
+   distingue « je suis en haut » de « il y a du contenu au-dessus », et on
+   remonte pour vérifier. */
+.main{position:relative;}
+.main::before{content:"";position:absolute;left:0;right:0;top:0;height:14px;
+  pointer-events:none;z-index:10;opacity:0;transition:opacity .2s;
+  background:linear-gradient(to bottom,color-mix(in srgb,var(--ink) 12%,transparent),transparent);}
+.main.defile::before{opacity:1;}
+
+/* ── Navigation au clavier ─────────────────────────────────────────────── */
+/* `:focus-visible` ne se déclenche qu'au clavier : la souris ne laisse donc
+   aucun contour disgracieux, mais tabuler reste parfaitement lisible. */
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--r1);}
+.ville:focus-visible,.chip:focus-visible,.seg button:focus-visible{outline-offset:-2px;}
 
 /* Confort de lecture — la mesure typographique, pas la largeur de l'écran. */
 .verdict,.extrait,.note-panel,.goal-msg,.veille-banner .grow{max-width:105ch;}
@@ -230,11 +278,14 @@ a:hover{text-decoration:underline;}
 
 /* ─────────────────── BANDEAU DE COMMANDE ─────────────────── */
 
+/* Plus besoin de `sticky` : le bandeau est hors de la zone qui défile, donc
+   toujours là. Il ne se superpose plus au contenu, ce qui permet de retirer
+   le flou d'arrière-plan — coûteux à chaque image, pour masquer un problème
+   qui n'existe plus. */
 .cmdbar{display:flex;align-items:center;gap:var(--e4);flex-wrap:wrap;
-  padding:var(--e3) var(--e4);margin-bottom:var(--e5);
+  padding:var(--e3) var(--e4);margin-bottom:var(--e4);flex-shrink:0;
   background:var(--panel);border:1px solid var(--line);border-radius:var(--r4);
-  box-shadow:var(--sh1);position:sticky;top:var(--e2);z-index:25;
-  backdrop-filter:blur(10px);}
+  box-shadow:var(--sh1);}
 .cmd-hello{min-width:180px;}
 .cmd-hello .ch-t{font-size:15px;font-weight:var(--w-bold);letter-spacing:-.3px;}
 .cmd-hello .ch-s{font-size:12px;color:var(--muted);margin-top:1px;}
@@ -348,8 +399,13 @@ select:focus,.search:focus,input:focus,textarea:focus{outline:none;border-color:
 /* ── Onglets de villes ────────────────────────────────────────────────── */
 /* Rang de navigation, pas de filtre : d'où la taille, le soulignement plein
    et la position juste sous le titre de la vue. */
+/* Onglets et filtres restent en haut de la vue pendant qu'on parcourt les
+   offres : changer de ville ou de groupe après avoir descendu de trois cents
+   cartes ne doit pas obliger à tout remonter. */
 .villes{display:flex;gap:var(--e1);align-items:stretch;flex-wrap:wrap;
-  border-bottom:1px solid var(--line);margin-bottom:var(--e4);}
+  border-bottom:1px solid var(--line);margin-bottom:var(--e4);
+  position:sticky;top:0;z-index:20;background:var(--bg);
+  padding-top:var(--e1);}
 .ville{display:inline-flex;align-items:center;gap:var(--e2);background:transparent;
   border:none;border-bottom:2px solid transparent;margin-bottom:-1px;
   font-family:inherit;font-size:15.5px;font-weight:var(--w-medium);color:var(--muted);
@@ -702,6 +758,14 @@ ul.mini li{margin-bottom:5px;}
 
 /* ─────────────────────── FOCUS DU JOUR ─────────────────────── */
 
+/* Le focus est BORNÉ. Sans plafond il grandit avec la file d'attente : à 282
+   actions en attente il occupait 2 550 px, et les statistiques, les
+   graphiques et le suivi n'existaient plus qu'en théorie, trois écrans plus
+   bas. Une hauteur fixe garde le tableau de bord lisible quel que soit le
+   nombre d'offres — c'est la file qui défile, pas la vue. */
+#focusList{max-height:46vh;overflow-y:auto;overscroll-behavior:contain;
+  margin-right:calc(-1 * var(--e2));padding-right:var(--e2);scrollbar-gutter:stable;}
+
 .focus-card{display:flex;align-items:center;gap:var(--e4);background:var(--panel);
   border:1px solid var(--line);border-radius:var(--r3);padding:var(--e3) var(--e4);
   margin-bottom:var(--e2);animation:riseUp .35s backwards;
@@ -736,8 +800,10 @@ ul.mini li{margin-bottom:5px;}
    glissement — geste impossible en pratique.
    Chaque colonne défile donc à l'intérieur d'elle-même, et les cinq en-têtes
    restent toujours à l'écran. */
+/* La vue a désormais une hauteur propre : le Kanban la remplit, sans avoir à
+   deviner ce que mesure le reste de la page. */
 .kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--e3);
-  align-items:stretch;height:calc(100vh - 240px);min-height:420px;}
+  align-items:stretch;height:calc(100% - 90px);min-height:380px;}
 .kcol{background:var(--panel);border:1px solid var(--line);border-radius:var(--r4);
   padding:var(--e3);transition:background .15s,border-color .15s;
   display:flex;flex-direction:column;min-height:0;}
@@ -960,6 +1026,13 @@ ul.mini li{margin-bottom:5px;}
 [data-anim="off"] *,[data-anim="off"] *::before,[data-anim="off"] *::after{
   animation:none !important;transition:none !important;}
 
+/* Une liste reconstruite par un filtre n'entre pas : elle CHANGE. Rejouer
+   l'entrée de cinquante cartes à chaque case cochée faisait clignoter tout
+   l'écran et retardait la lecture d'une demi-seconde. Le mouvement est
+   réservé à l'arrivée sur la vue — c'est le seul moment où il raconte
+   quelque chose. */
+.grid.sans-entree .card{animation:none;}
+
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;
     transition-duration:.01ms !important;}
@@ -981,8 +1054,12 @@ ul.mini li{margin-bottom:5px;}
   /* Rien ne doit pouvoir élargir la page. */
   html,body{max-width:100%;overflow-x:hidden;}
 
-  /* La barre latérale sort du flux et coulisse par-dessus le contenu. */
-  .app{display:block;}
+  /* La barre latérale sort du flux et coulisse par-dessus le contenu.
+     Le cadre à hauteur d'écran est conservé : c'est lui qui permet à la barre
+     du haut de rester en place pendant qu'on parcourt les offres. */
+  .app{display:block;height:100dvh;}
+  .main{height:100%;padding:0 var(--e4);}
+  .view{padding-bottom:var(--e8);margin-right:calc(-1 * var(--e4));padding-right:var(--e4);}
   .sidebar{position:fixed;top:0;left:0;height:100dvh;z-index:60;
     transform:translateX(-100%);transition:transform .28s var(--ease-doux);
     box-shadow:var(--sh4);}
@@ -1085,7 +1162,13 @@ ul.mini li{margin-bottom:5px;}
   --ease-elan:cubic-bezier(.17,1.14,.33,1);   /* léger dépassement, puis calage */
 }
 
-@keyframes entree{from{opacity:0;transform:translateY(18px) scale(.985);filter:blur(3px);}}
+/* Ni flou, ni changement d'échelle.
+   Le flou force le navigateur à recomposer chaque image de l'animation : sur
+   une vue à douze panneaux, l'entrée saccadait — le mouvement censé donner
+   une impression de fluidité produisait l'inverse. Le léger rétrécissement,
+   lui, rendait le texte flou une fraction de seconde. Reste ce qui suffit :
+   une opacité et un déplacement, plus courts qu'avant. */
+@keyframes entree{from{opacity:0;transform:translateY(10px);}}
 @keyframes lueur{0%{offset-distance:0%;opacity:0;}
   12%{opacity:1;}82%{opacity:1;}100%{offset-distance:100%;opacity:0;}}
 @keyframes reflet{0%{transform:translateX(-120%) skewX(-18deg);}
@@ -1095,14 +1178,16 @@ ul.mini li{margin-bottom:5px;}
 @keyframes vaEtVient{0%,100%{transform:translateY(0);}50%{transform:translateY(-3px);}}
 
 /* ── Entrée en cascade des blocs d'une vue ───────────────────────────── */
-.view > *{animation:entree .58s var(--ease-doux) backwards;}
-.view > *:nth-child(1){animation-delay:.02s}
-.view > *:nth-child(2){animation-delay:.07s}
-.view > *:nth-child(3){animation-delay:.12s}
-.view > *:nth-child(4){animation-delay:.17s}
-.view > *:nth-child(5){animation-delay:.22s}
-.view > *:nth-child(6){animation-delay:.27s}
-.view > *:nth-child(n+7){animation-delay:.31s}
+/* Plus courte, et surtout plus resserrée : l'ancienne cascade s'étalait sur
+   890 ms avant que le dernier panneau soit lisible. Un tableau de bord qu'on
+   ouvre vingt fois par jour ne doit pas faire attendre son propre affichage. */
+.view > *{animation:entree .34s var(--ease-doux) backwards;}
+.view > *:nth-child(1){animation-delay:0s}
+.view > *:nth-child(2){animation-delay:.04s}
+.view > *:nth-child(3){animation-delay:.08s}
+.view > *:nth-child(4){animation-delay:.11s}
+.view > *:nth-child(5){animation-delay:.14s}
+.view > *:nth-child(n+6){animation-delay:.16s}
 
 /* ── Tuiles : entrée en cascade, reflet au survol ─────────────────────── */
 .stat{animation:entree .55s var(--ease-elan) backwards;}
