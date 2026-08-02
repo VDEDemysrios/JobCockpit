@@ -6,6 +6,7 @@ import {
   MOIS, MOIS_COURT, SOURCE_LABEL,
   todayISO, joursDepuis, ageOffre, etiquetteFraicheur, dateLisible, echapper, pluriel,
 } from './format.js';
+import { icone } from './icons.js';
 
 const liste = (a) => (a ?? []).map(x => `<li>${echapper(x)}</li>`).join('');
 
@@ -50,7 +51,7 @@ export function actionsDuJour(offres) {
   offres.filter(relanceDue).forEach(o => {
     const retard = joursDepuis(o.suivi.relance);
     actions.push({
-      rang: 0, classe: 'urgent', icone: '⏰', offre: o, groupe: 'Urgent',
+      rang: 0, classe: 'urgent', icone: icone('cloche', 13), offre: o, groupe: 'Urgent',
       titre: o.titre,
       sous: `${o.entreprise} · relance prévue ${retard === 0 ? "aujourd'hui" : `il y a ${retard} j`}`,
       quoi: 'Relancer',
@@ -60,7 +61,7 @@ export function actionsDuJour(offres) {
   // 2. Entretiens à préparer.
   offres.filter(o => o.suivi.status === 'Entretien').forEach(o => {
     actions.push({
-      rang: 1, classe: 'chaud', icone: '🤝', offre: o, groupe: 'Urgent',
+      rang: 1, classe: 'chaud', icone: icone('poignee', 13), offre: o, groupe: 'Urgent',
       titre: o.titre,
       sous: `${o.entreprise} · entretien en cours — prépare tes arguments`,
       quoi: 'Préparer',
@@ -74,7 +75,7 @@ export function actionsDuJour(offres) {
     .forEach(o => {
       const age = ageOffre(o.dateOffre);
       actions.push({
-        rang: 2, classe: 'ok', icone: '🟢', offre: o, groupe: 'Prioritaires à traiter',
+        rang: 2, classe: 'ok', icone: icone('cible', 13), offre: o, groupe: 'Prioritaires à traiter',
         titre: o.titre,
         sous: `${o.entreprise} · ${o.ville}${age !== null ? ` · publiée il y a ${age} j` : ''}`,
         quoi: o.aLettre ? 'Postuler' : 'Rédiger la lettre',
@@ -85,7 +86,7 @@ export function actionsDuJour(offres) {
   offres
     .filter(o => o.groupe === 2 && o.suivi.status === 'À postuler')
     .forEach(o => actions.push({
-      rang: 3, classe: '', icone: '🟡', offre: o, groupe: 'À étudier',
+      rang: 3, classe: '', icone: icone('loupe', 13), offre: o, groupe: 'À étudier',
       titre: o.titre, sous: `${o.entreprise} · ${o.ville}`, quoi: 'Étudier',
     }));
 
@@ -93,7 +94,7 @@ export function actionsDuJour(offres) {
   offres
     .filter(o => o.groupe === 0 && o.suivi.status === 'À postuler')
     .forEach(o => actions.push({
-      rang: 4, classe: '', icone: '⚪', offre: o, groupe: 'À vérifier',
+      rang: 4, classe: '', icone: icone('info', 13), offre: o, groupe: 'À vérifier',
       titre: o.titre, sous: `${o.entreprise} · analyse incomplète`, quoi: 'Vérifier',
     }));
 
@@ -198,7 +199,7 @@ export function rendreCarte(offre, actions) {
            devant les offres de ton métier.</div>`
       : '';
 
-    detail += `<div class="sec"><div class="lbl fix">🔬 POURQUOI CE CLASSEMENT</div>
+    detail += `<div class="sec"><div class="lbl fix">POURQUOI CE CLASSEMENT</div>
       <div class="motifs">
         ${positifs.map(m => `<span class="motif" title="${echapper(m.note ?? '')}">+${m.poids} ${echapper(m.note ?? m.motif)}</span>`).join('')}
         ${negatifs.map(m => `<span class="motif neg" title="${echapper(m.note ?? '')}">${m.poids ? m.poids : '⛔'} ${echapper(m.note ?? m.motif)}</span>`).join('')}
@@ -208,15 +209,15 @@ export function rendreCarte(offre, actions) {
   if (a) {
     if ((a.exige ?? []).length || (a.souhaite ?? []).length) {
       detail += `<div class="sec"><div class="cols3">
-        <div><div class="lbl req">⛔ EXIGÉ</div><ul class="mini">${liste(a.exige)}</ul></div>
-        <div><div class="lbl want">➕ SOUHAITÉ</div><ul class="mini">${liste(a.souhaite)}</ul></div>
-        <div><div class="lbl deco">💬 DÉCORATIF</div><ul class="mini">${liste(a.decoratif)}</ul></div></div></div>`;
+        <div><div class="lbl req">EXIGÉ</div><ul class="mini">${liste(a.exige)}</ul></div>
+        <div><div class="lbl want">SOUHAITÉ</div><ul class="mini">${liste(a.souhaite)}</ul></div>
+        <div><div class="lbl deco">DÉCORATIF</div><ul class="mini">${liste(a.decoratif)}</ul></div></div></div>`;
     }
     if ((a.prouvable ?? []).length || (a.nonprouvable ?? []).length) {
       detail += `<div class="sec"><div class="cols3">
-        <div><div class="lbl ok">✅ PROUVABLE</div><ul class="mini">${liste(a.prouvable)}</ul></div>
-        <div><div class="lbl no">❌ NON PROUVABLE</div><ul class="mini">${liste(a.nonprouvable)}</ul></div>
-        <div><div class="lbl fix">🔧 COMPENSABLE</div><ul class="mini">${liste(a.compensable)}</ul></div></div></div>`;
+        <div><div class="lbl ok">PROUVABLE</div><ul class="mini">${liste(a.prouvable)}</ul></div>
+        <div><div class="lbl no">NON PROUVABLE</div><ul class="mini">${liste(a.nonprouvable)}</ul></div>
+        <div><div class="lbl fix">COMPENSABLE</div><ul class="mini">${liste(a.compensable)}</ul></div></div></div>`;
     }
     if (a.verdict) {
       // Le score par mots-clés et le jugement de l'analyse peuvent diverger :
@@ -229,7 +230,7 @@ export function rendreCarte(offre, actions) {
       detail += `<div class="verdict ${g.vd}"><strong>⚖️ Verdict :</strong> ${echapper(a.verdict)}${desaccord}</div>`;
     }
     if ((a.kw ?? []).length) {
-      detail += `<div class="sec"><div class="lbl fix">🔑 MOTS-CLÉS ABSENTS DU CV</div>
+      detail += `<div class="sec"><div class="lbl fix">MOTS-CLÉS ABSENTS DU CV</div>
         <table class="kwtable"><tr><th>Mot-clé</th><th style="width:80px">Revendicable</th><th>Pourquoi</th></tr>
         ${a.kw.map(k => {
           const c = KWCOLOR[String(k[1]).toLowerCase()] ?? KWCOLOR.partiel;
@@ -237,7 +238,7 @@ export function rendreCarte(offre, actions) {
         }).join('')}</table></div>`;
     }
     if (a.fourchette) {
-      detail += `<div class="sec"><div class="lbl fix">💰 CADRAGE DES PRÉTENTIONS</div>
+      detail += `<div class="sec"><div class="lbl fix">CADRAGE DES PRÉTENTIONS</div>
         <div class="money"><strong>Fourchette : ${echapper(a.fourchette)}</strong><div style="color:var(--muted);font-size:12px;margin-top:4px">${echapper(a.fnote ?? '')}</div></div>
         <div class="cols2">
           <div><div class="lbl ok">3 FORMULATIONS</div><ul class="mini">${(a.formul ?? []).map(x => `<li style="font-style:italic;margin-bottom:6px">${echapper(x)}</li>`).join('')}</ul></div>
@@ -251,15 +252,15 @@ export function rendreCarte(offre, actions) {
   // Texte brut de l'annonce, replié : utile pour vérifier une exigence
   // sans quitter l'application ni rouvrir le site d'origine.
   if (offre.extrait) {
-    detail += `<div class="sec"><div class="lbl deco">📄 EXTRAIT DE L'ANNONCE
-      ${offre.salaireSource ? `<span style="margin-left:auto;color:var(--g1)">💶 ${echapper(offre.salaireSource)}</span>` : ''}</div>
+    detail += `<div class="sec"><div class="lbl deco">EXTRAIT DE L'ANNONCE
+      ${offre.salaireSource ? `<span style="margin-left:auto;color:var(--g1)">${echapper(offre.salaireSource)}</span>` : ''}</div>
       <div class="extrait">${echapper(offre.extrait)}</div></div>`;
   }
 
   // Suivi de candidature
   const postule = s.status !== 'À postuler';
-  detail += `<div class="sec"><div class="lbl fix">📌 SUIVI DE CANDIDATURE</div>
-    <div style="margin-bottom:10px"><span class="applied-toggle ${postule ? '' : 'off'}" data-act="postule">${postule ? '✅ Candidature envoyée' : '⬜ Pas encore postulé — +25 pt'}</span></div>
+  detail += `<div class="sec"><div class="lbl fix">SUIVI DE CANDIDATURE</div>
+    <div style="margin-bottom:10px"><span class="applied-toggle ${postule ? '' : 'off'}" data-act="postule">${postule ? icone('coche', 13) + ' Candidature envoyée' : 'Pas encore postulé — +25 pt'}</span></div>
     <div class="track-row">
       <div class="track-field"><label>Statut</label><select data-champ="status">${STATUSES.map(x => `<option ${x === s.status ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
       <div class="track-field"><label>Date d'envoi</label><input type="date" data-champ="sent" value="${s.sent}"></div>
@@ -270,10 +271,10 @@ export function rendreCarte(offre, actions) {
 
   // Lettre de motivation
   detail += `<div class="sec" data-lettre="${offre.id}">
-    <div class="lbl fix">✉️ LETTRE DE MOTIVATION</div>
+    <div class="lbl fix">${icone('plume', 13)} LETTRE DE MOTIVATION</div>
     <div class="letter-actions">
-      <button class="btn btn-primary" data-act="lettre">${offre.aLettre ? '✉️ Afficher la lettre' : '✉️ Rédiger la lettre'}${offre.aLettre ? '' : ' <span class="gain">+10 pt</span>'}</button>
-      ${offre.lettreEditee ? '<span class="badge badge-src">🎨 retouchée</span>' : ''}
+      <button class="btn btn-primary" data-act="lettre">${icone('plume', 14)} ${offre.aLettre ? 'Afficher la lettre' : 'Rédiger la lettre'}${offre.aLettre ? '' : ' <span class="gain">+10 pt</span>'}</button>
+      ${offre.lettreEditee ? '<span class="badge badge-src">retouchée</span>' : ''}
     </div>
     <div class="letter-zone"></div>
   </div>`;
@@ -295,11 +296,11 @@ export function rendreCarte(offre, actions) {
     <div class="tags">
       ${pastilleScore(offre)}
       ${fl ? `<span class="fresh ${fl[0]}">${fl[1]}</span>` : ''}
-      ${offre.horsZone ? '<span class="badge badge-zone">🌍 Hors zone</span>' : ''}
-      ${offre.aLettre ? '<span class="badge badge-src">🖋️</span>' : ''}
+      ${offre.horsZone ? '<span class="badge badge-zone">Hors zone</span>' : ''}
+      ${offre.aLettre ? `<span class="badge badge-src" title="Lettre rédigée">${icone('plume', 12)}</span>` : ''}
       ${badgesSources}
-      <span class="status-pill" style="border-color:${STATUS_COL[s.status]};color:${STATUS_COL[s.status]}">${STATUS_EMOJI[s.status] ?? ''} ${s.status}${due ? ' ⏰' : ''}</span>
-      <span class="badge ${g.key}">${g.emoji} ${g.label}</span>
+      <span class="status-pill" style="border-color:${STATUS_COL[s.status]};color:${STATUS_COL[s.status]}">${s.status}${due ? ' · en retard' : ''}</span>
+      <span class="badge ${g.key}"><i class="pt pt${offre.groupe}"></i> ${g.label}</span>
       ${offre.lien ? `<a class="link" href="${echapper(offre.lien)}" target="_blank" rel="noopener" data-act="lien">Voir ↗</a>` : ''}
       <span class="ecarter" data-act="suppr" title="${offre.isManual
         ? 'Supprimer cette offre'

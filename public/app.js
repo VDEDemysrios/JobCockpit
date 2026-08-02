@@ -3,7 +3,7 @@ import { API } from './api.js';
 import {
   GM, SOURCE_LABEL, MOIS, JOURS, todayISO, ageOffre, echapper, pluriel,
 } from './format.js';
-import { poserIcones } from './icons.js';
+import { poserIcones, icone } from './icons.js';
 import {
   rendreCarte, rendreKanban, rendreAgenda, relanceDue, rendreFocus, actionsDuJour, celebrer,
 } from './render.js';
@@ -413,7 +413,9 @@ function rendreOffres() {
     bouton.querySelector('.vn').textContent = parVille[v] ?? 0;
     const prio = bouton.querySelector('.vp');
     const n = prioParVille[v] ?? 0;
-    prio.textContent = n ? `${n} 🟢` : '';
+    // La couleur de `.vp` dit déjà « prioritaire » : le disque vert doublait
+    // l'information et se rendait différemment d'un système à l'autre.
+    prio.textContent = n ? `${n} prio` : '';
     prio.style.display = n ? '' : 'none';
     bouton.title = n
       ? `${pluriel(n, 'offre')} prioritaire${n > 1 ? 's' : ''} sur ${parVille[v]}`
@@ -607,7 +609,7 @@ async function ouvrirLettre(carte, offre, bouton) {
   if (zone.dataset.ouverte === '1') {
     zone.innerHTML = '';
     zone.dataset.ouverte = '';
-    bouton.textContent = offre.aLettre ? '✉️ Afficher la lettre' : '✉️ Rédiger la lettre';
+    bouton.innerHTML = icone('plume', 14) + (offre.aLettre ? ' Afficher la lettre' : ' Rédiger la lettre');
     return;
   }
 
@@ -627,7 +629,7 @@ async function ouvrirLettre(carte, offre, bouton) {
 
   offre.aLettre = true;
   bouton.disabled = false;
-  bouton.textContent = '✉️ Masquer la lettre';
+  bouton.innerHTML = icone('plume', 14) + ' Masquer la lettre';
   zone.dataset.ouverte = '1';
 
   zone.innerHTML = `
@@ -635,10 +637,10 @@ async function ouvrirLettre(carte, offre, bouton) {
     <div class="letter-hint">Modifie librement le texte : tes retouches sont enregistrées automatiquement.<br>
       <strong>Dossier complet</strong> = la lettre + ton CV, dans un seul fichier à joindre au mail.</div>
     <div class="letter-actions" style="margin-top:10px">
-      <a class="btn btn-primary" data-l="dossier" href="${API.urlDossier(offre.id)}">📎 Dossier complet</a>
-      <a class="btn" data-l="docx" href="${API.urlDocx(offre.id)}">⬇ Lettre seule</a>
-      <button class="btn" data-l="copier">📋 Copier</button>
-      <button class="btn" data-l="regen">🔄 Régénérer</button>
+      <a class="btn btn-primary" data-l="dossier" href="${API.urlDossier(offre.id)}">${icone('document', 14)} Dossier complet</a>
+      <a class="btn" data-l="docx" href="${API.urlDocx(offre.id)}">${icone('parchemin', 14)} Lettre seule</a>
+      <button class="btn" data-l="copier">${icone('liste', 14)} Copier</button>
+      <button class="btn" data-l="regen">${icone('rafraichir', 14)} Régénérer</button>
     </div>`;
 
   const zoneTexte = zone.querySelector('.letter-area');

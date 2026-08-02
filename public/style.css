@@ -1,123 +1,150 @@
 /* ═══════════════════════════════════════════════════════════════════════
    JOB COCKPIT — SYSTÈME DE DESIGN
 
-   Principes tenus dans tout ce fichier :
-   · Une couleur d'accent par thème. Le reste est neutre. La couleur signale,
-     elle ne décore pas — sauf dans la zone de jeu (niveaux, succès, quêtes),
-     où elle récompense, et où c'est assumé.
-   · Des ombres douces et superposées plutôt que des bordures marquées.
-   · Une échelle d'espacement stricte (multiples de 4) : rien « à peu près ».
+   C'EST UN INSTRUMENT, PAS UNE PLAQUETTE.
+   ---------------------------------------
+   La version précédente était une jolie page : grands rayons, ombres molles,
+   dégradé violet, espacement « écran 27 pouces », emoji dans les titres. Sur
+   1280×800 elle affichait TROIS offres à la fois — sur 282 à trier. On lisait
+   un document, section après section, là où il faut balayer un tableau.
+
+   Les règles qui remplacent ça :
+   · Les bordures dessinent, pas les ombres. Une ombre ne sert plus qu'à ce
+     qui FLOTTE réellement au-dessus du reste (surcouches, menus, toasts).
+   · Rayons courts. 6 px sur les contrôles, 8 sur les surfaces. Au-delà, une
+     interface prend un air de maquette et perd sa précision.
+   · Le neutre porte tout ; la couleur signale. Un seul accent, réservé à
+     l'action en cours et au focus. Les statuts gardent leurs couleurs parce
+     qu'elles PORTENT une information — pas pour décorer.
+   · Aucun dégradé de marque. Rien ne date plus vite.
+   · Densité : l'espacement est resserré d'environ un tiers. Le blanc sépare
+     encore, mais il ne meuble plus.
+   · Les emoji sont réservés au CONTENU ; le mobilier de l'interface est en
+     SVG — voir icons.js.
    · Des chiffres en chasse fixe pour qu'ils ne dansent pas quand ils changent.
-   · Les emoji sont réservés au CONTENU (succès, quêtes, niveaux, statuts) ;
-     le mobilier de l'interface reste en icônes SVG — voir icons.js.
    ═══════════════════════════════════════════════════════════════════════ */
 
 :root{
-  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
-  --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
-  --sbw:252px;
+  --font:'Inter var','Inter',-apple-system,BlinkMacSystemFont,'Segoe UI Variable Text',
+    'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,'SF Mono','Cascadia Mono',Menlo,Consolas,monospace;
+  --sbw:212px;
 
-  /* Espacement — multiples de 4 uniquement.
-     Échelle large : l'écran de travail est un 27 pouces, pas un tableau de
-     bord de voiture. Le blanc autour d'un bloc est ce qui le fait lire comme
-     un objet distinct ; le serrer faisait des vues qui se tenaient toutes
-     par la manche. */
-  --e1:4px; --e2:8px; --e3:14px; --e4:20px; --e5:28px;
-  --e6:36px; --e8:48px; --e10:60px; --e12:72px;
+  /* Espacement — multiples de 2, échelle resserrée.
+     L'ancienne échelle (4/8/14/20/28/36/48/60/72) partait du principe qu'un
+     bloc a besoin d'air pour se lire comme un objet. C'est vrai d'une page de
+     présentation ; c'est faux d'un poste de travail, où ce qu'on cherche est
+     de voir PLUS de lignes d'un coup d'œil. */
+  --e1:4px; --e2:6px; --e3:10px; --e4:14px; --e5:18px;
+  --e6:24px; --e8:30px; --e10:40px; --e12:52px;
 
-  /* Rayons */
-  --r1:8px; --r2:10px; --r3:14px; --r4:20px; --r5:26px; --r6:34px;
+  /* Rayons — courts et resserrés. Les grands rayons (26 px, 34 px) posés sur
+     des panneaux pleine largeur étaient le marqueur le plus visible. */
+  --r1:4px; --r2:6px; --r3:8px; --r4:10px; --r5:12px; --r6:14px;
 
   /* Graisses */
   --w-normal:400; --w-medium:500; --w-semi:600; --w-bold:700;
-
 }
 
 /* ─────────────────────────── THÈMES ─────────────────────────── */
 
+/* LES OMBRES, DANS LES QUATRE THÈMES.
+   sh1 et sh2 sont désormais presque nulles : ce sont les BORDURES qui
+   dessinent les surfaces posées à plat. sh3 et sh4 restent franches, parce
+   qu'elles habillent ce qui flotte pour de bon — menus, palette, modales — et
+   qu'à cet endroit l'ombre porte une information : « ceci est au-dessus ».   */
+
 [data-theme="vivid"]{
-  --bg:#f4f6fb; --bg2:#eef1f9; --panel:#ffffff; --card:#ffffff;
-  --ink:#101322; --ink-2:#3d4356; --muted:#6f7688; --faint:#9aa1b3;
-  --line:#e6e9f2; --line-fort:#d3d8e6;
-  --accent:#4f46e5; --accent2:#8b5cf6; --accent-bg:#eef0fe; --accent-ink:#3730a3;
-  --g1:#059669; --g1b:#e6f6f0; --g2:#b45309; --g2b:#fdf3e4;
-  --g3:#dc2626; --g3b:#fdedec; --g0:#7c8496; --g0b:#f1f3f7;
-  --hot:#dc2626; --hotb:#fdedec; --info:#0369a1; --infob:#e8f2fa;
-  --pink:#be185d; --pinkb:#fceef4;
-  --grad:linear-gradient(135deg,#4f46e5,#6d5ef0 50%,#a855f7);
-  --sbgrad:linear-gradient(168deg,#1e1b4b,#312e81 60%,#4c1d95);
-  --voile:rgba(255,255,255,.72);
-  --sh1:0 1px 2px rgba(16,24,40,.05);
-  --sh2:0 2px 4px -1px rgba(16,24,40,.06),0 4px 10px -2px rgba(16,24,40,.05);
-  --sh3:0 4px 8px -2px rgba(16,24,40,.07),0 12px 24px -6px rgba(16,24,40,.08);
-  --sh4:0 8px 12px -4px rgba(16,24,40,.06),0 24px 48px -12px rgba(16,24,40,.14);
-  --lueur:0 0 0 1px rgba(79,70,229,.14),0 8px 30px -8px rgba(79,70,229,.34);
+  --bg:#fafafa; --bg2:#f3f4f6; --panel:#ffffff; --card:#ffffff;
+  --ink:#111318; --ink-2:#3a3f4a; --muted:#676d78; --faint:#949aa4;
+  --line:#e5e7eb; --line-fort:#d1d5db;
+  --accent:#3355d1; --accent2:#5b7cf0; --accent-bg:#eef1fc; --accent-ink:#2a45ab;
+  --g1:#047857; --g1b:#e8f5f0; --g2:#a16207; --g2b:#fbf3e2;
+  --g3:#b91c1c; --g3b:#fceceb; --g0:#6b7280; --g0b:#f1f2f4;
+  --hot:#b91c1c; --hotb:#fceceb; --info:#0369a1; --infob:#e9f2f9;
+  --pink:#a21caf; --pinkb:#f9edfa;
+  --grad:#3355d1;
+  --sbgrad:#15171c;
+  --voile:rgba(255,255,255,.78);
+  --sh1:none;
+  --sh2:0 1px 2px rgba(17,19,24,.05);
+  --sh3:0 4px 12px -3px rgba(17,19,24,.12),0 2px 4px -2px rgba(17,19,24,.06);
+  --sh4:0 16px 40px -12px rgba(17,19,24,.24),0 4px 10px -4px rgba(17,19,24,.1);
+  --lueur:0 0 0 1px rgba(51,85,209,.4);
 }
 
 [data-theme="enr"]{
-  --bg:#f2f7f3; --bg2:#eaf2ec; --panel:#ffffff; --card:#ffffff;
-  --ink:#0d1f14; --ink-2:#33453a; --muted:#5f7268; --faint:#93a49a;
-  --line:#dfeae1; --line-fort:#c9dbcd;
-  --accent:#047857; --accent2:#65a30d; --accent-bg:#e6f5ef; --accent-ink:#065f46;
-  --g1:#047857; --g1b:#e6f5ef; --g2:#b45309; --g2b:#fdf3e4;
-  --g3:#c2410c; --g3b:#fdeee6; --g0:#6b7d72; --g0b:#eff3f0;
-  --hot:#c2410c; --hotb:#fdeee6; --info:#0e7490; --infob:#e2f4f7;
-  --pink:#4d7c0f; --pinkb:#f1f7e6;
-  --grad:linear-gradient(135deg,#065f46,#047857 48%,#65a30d);
-  --sbgrad:linear-gradient(168deg,#052e1f,#064e3b 58%,#14532d);
-  --voile:rgba(255,255,255,.72);
-  --sh1:0 1px 2px rgba(6,40,26,.05);
-  --sh2:0 2px 4px -1px rgba(6,40,26,.06),0 4px 10px -2px rgba(6,40,26,.05);
-  --sh3:0 4px 8px -2px rgba(6,40,26,.07),0 12px 24px -6px rgba(6,40,26,.08);
-  --sh4:0 8px 12px -4px rgba(6,40,26,.06),0 24px 48px -12px rgba(6,40,26,.14);
-  --lueur:0 0 0 1px rgba(4,120,87,.16),0 8px 30px -8px rgba(4,120,87,.32);
+  --bg:#f8faf8; --bg2:#eff3f0; --panel:#ffffff; --card:#ffffff;
+  --ink:#0f1712; --ink-2:#374139; --muted:#616b64; --faint:#929c96;
+  --line:#e2e8e4; --line-fort:#ccd6d0;
+  --accent:#0f7a52; --accent2:#4d8c1f; --accent-bg:#e9f4ef; --accent-ink:#0a5c3e;
+  --g1:#0f7a52; --g1b:#e9f4ef; --g2:#a16207; --g2b:#fbf3e2;
+  --g3:#b4400f; --g3b:#fbeee7; --g0:#6b7671; --g0b:#f0f2f1;
+  --hot:#b4400f; --hotb:#fbeee7; --info:#0e7490; --infob:#e5f2f5;
+  --pink:#4d7c0f; --pinkb:#f2f7e9;
+  --grad:#0f7a52;
+  --sbgrad:#101613;
+  --voile:rgba(255,255,255,.78);
+  --sh1:none;
+  --sh2:0 1px 2px rgba(15,23,18,.05);
+  --sh3:0 4px 12px -3px rgba(15,23,18,.12),0 2px 4px -2px rgba(15,23,18,.06);
+  --sh4:0 16px 40px -12px rgba(15,23,18,.24),0 4px 10px -4px rgba(15,23,18,.1);
+  --lueur:0 0 0 1px rgba(15,122,82,.42);
 }
 
 [data-theme="dark"]{
-  --bg:#0a0c12; --bg2:#0e1119; --panel:#12151d; --card:#161a23;
-  --ink:#eef0f6; --ink-2:#c3c8d6; --muted:#8b93a7; --faint:#646c80;
-  --line:#222836; --line-fort:#333b4d;
-  --accent:#818cf8; --accent2:#c084fc; --accent-bg:#1d1f42; --accent-ink:#c7cbfc;
-  --g1:#34d399; --g1b:#0d3129; --g2:#fbbf24; --g2b:#3a2c11;
-  --g3:#f87171; --g3b:#3a1c1c; --g0:#8b93a7; --g0b:#1f242f;
-  --hot:#f87171; --hotb:#3a1c1c; --info:#60a5fa; --infob:#152943;
-  --pink:#f472b6; --pinkb:#3a1a2b;
-  --grad:linear-gradient(135deg,#4f46e5,#7c72f0 50%,#c084fc);
-  --sbgrad:linear-gradient(168deg,#0b0d18,#1a1a3d 60%,#2b2470);
-  --voile:rgba(255,255,255,.04);
-  --sh1:0 1px 2px rgba(0,0,0,.4);
-  --sh2:0 2px 4px -1px rgba(0,0,0,.5),0 4px 10px -2px rgba(0,0,0,.4);
-  --sh3:0 4px 8px -2px rgba(0,0,0,.5),0 12px 24px -6px rgba(0,0,0,.55);
-  --sh4:0 8px 12px -4px rgba(0,0,0,.5),0 24px 48px -12px rgba(0,0,0,.7);
-  --lueur:0 0 0 1px rgba(129,140,248,.22),0 8px 34px -8px rgba(129,140,248,.4);
+  --bg:#0b0c0f; --bg2:#131519; --panel:#111317; --card:#16181d;
+  --ink:#eceef2; --ink-2:#c0c4cc; --muted:#8b909a; --faint:#666b75;
+  --line:#232630; --line-fort:#343841;
+  --accent:#7d93f5; --accent2:#a78bfa; --accent-bg:#1a1f33; --accent-ink:#b9c4fb;
+  --g1:#34d399; --g1b:#0f2c25; --g2:#fbbf24; --g2b:#2f2611;
+  --g3:#f87171; --g3b:#331b1b; --g0:#8b909a; --g0b:#1c1f26;
+  --hot:#f87171; --hotb:#331b1b; --info:#60a5fa; --infob:#14243b;
+  --pink:#f472b6; --pinkb:#331a27;
+  --grad:#7d93f5;
+  --sbgrad:#0e1013;
+  --voile:rgba(255,255,255,.05);
+  --sh1:none;
+  --sh2:0 1px 2px rgba(0,0,0,.5);
+  --sh3:0 4px 12px -3px rgba(0,0,0,.6),0 2px 4px -2px rgba(0,0,0,.4);
+  --sh4:0 16px 40px -12px rgba(0,0,0,.8),0 4px 10px -4px rgba(0,0,0,.5);
+  --lueur:0 0 0 1px rgba(125,147,245,.5);
 }
 
 /* Cockpit : le thème « poste de pilotage ». Fonds froids, accent ambre,
    pensé pour les longues sessions du soir. */
 [data-theme="cockpit"]{
-  --bg:#070d14; --bg2:#0a121c; --panel:#0e1822; --card:#111d29;
-  --ink:#e6f1f8; --ink-2:#b3c6d4; --muted:#7d95a6; --faint:#5a7185;
-  --line:#1b2b39; --line-fort:#2a3f52;
-  --accent:#f59e0b; --accent2:#38bdf8; --accent-bg:#2a1f0c; --accent-ink:#fcd34d;
-  --g1:#22d3ee; --g1b:#0a2d33; --g2:#f59e0b; --g2b:#2e2109;
-  --g3:#fb7185; --g3b:#331520; --g0:#7d95a6; --g0b:#152230;
-  --hot:#fb7185; --hotb:#331520; --info:#38bdf8; --infob:#0b2637;
-  --pink:#e879f9; --pinkb:#2b1533;
-  --grad:linear-gradient(135deg,#0e7490,#0891b2 45%,#f59e0b);
-  --sbgrad:linear-gradient(168deg,#05090f,#0a1a26 58%,#0e3a4a);
+  --bg:#080b10; --bg2:#0e131a; --panel:#0d1116; --card:#12171e;
+  --ink:#e4edf4; --ink-2:#b6c4cf; --muted:#7e8d99; --faint:#5c6975;
+  --line:#1c242d; --line-fort:#2b3540;
+  --accent:#f0a020; --accent2:#38bdf8; --accent-bg:#251b0b; --accent-ink:#f8cd6a;
+  --g1:#22d3ee; --g1b:#0a2830; --g2:#f0a020; --g2b:#2a1f0a;
+  --g3:#fb7185; --g3b:#301520; --g0:#7e8d99; --g0b:#171d25;
+  --hot:#fb7185; --hotb:#301520; --info:#38bdf8; --infob:#0c2233;
+  --pink:#e879f9; --pinkb:#281431;
+  --grad:#f0a020;
+  --sbgrad:#0a0d12;
   --voile:rgba(56,189,248,.05);
-  --sh1:0 1px 2px rgba(0,0,0,.5);
-  --sh2:0 2px 4px -1px rgba(0,0,0,.6),0 4px 10px -2px rgba(0,0,0,.5);
-  --sh3:0 4px 8px -2px rgba(0,0,0,.6),0 12px 24px -6px rgba(0,0,0,.6);
-  --sh4:0 8px 12px -4px rgba(0,0,0,.6),0 24px 48px -12px rgba(0,0,0,.8);
-  --lueur:0 0 0 1px rgba(245,158,11,.25),0 8px 34px -8px rgba(245,158,11,.42);
+  --sh1:none;
+  --sh2:0 1px 2px rgba(0,0,0,.6);
+  --sh3:0 4px 12px -3px rgba(0,0,0,.7),0 2px 4px -2px rgba(0,0,0,.5);
+  --sh4:0 16px 40px -12px rgba(0,0,0,.85),0 4px 10px -4px rgba(0,0,0,.6);
+  --lueur:0 0 0 1px rgba(240,160,32,.5);
 }
 
 /* ─────────────────────────── SOCLE ─────────────────────────── */
 
 *{box-sizing:border-box;}
+
+/* 15 px et un interlignage de 1,62 sont les réglages d'un ARTICLE : ils
+   servent la lecture suivie. Ici on ne lit pas, on balaye des lignes courtes
+   — un titre de poste, une entreprise, une ville. 13,5 px avec un
+   interlignage de 1,5 fait tenir un tiers de lignes en plus sans rien coûter
+   en confort, et le léger resserrement des lettres évite l'aspect « traitement
+   de texte » que donnent les polices système à leur chasse par défaut. */
 body{font-family:var(--font);background:var(--bg);color:var(--ink);margin:0;
-  line-height:1.62;-webkit-font-smoothing:antialiased;font-size:15px;}
+  line-height:1.5;-webkit-font-smoothing:antialiased;font-size:13.5px;
+  letter-spacing:-.006em;}
 a{color:var(--accent);text-decoration:none;}
 a:hover{text-decoration:underline;}
 
@@ -179,32 +206,41 @@ html,body{height:100%;overflow:hidden;}
 
 .app{display:flex;height:100dvh;overflow:hidden;}
 
+/* LE RAIL.
+   Plus de dégradé violet — c'est ce qui datait le plus, et un dégradé de
+   marque sur 250 px de haut n'apporte aucune information. Un aplat sombre et
+   neutre fait le même travail : séparer la navigation du plan de travail,
+   sans prétendre à autre chose. Il reste sombre dans TOUS les thèmes, y
+   compris les clairs : le rail est un cadre, pas une page. */
 .sidebar{width:var(--sbw);background:var(--sbgrad);color:#fff;flex-shrink:0;
   height:100%;display:flex;flex-direction:column;
-  padding:var(--e5) var(--e3) var(--e4);z-index:30;overflow-y:auto;}
-.sidebar::-webkit-scrollbar{width:5px;}
-.sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);border-radius:3px;}
-.sb-brand{font-size:16.5px;font-weight:var(--w-bold);display:flex;align-items:center;
-  gap:var(--e2);padding:0 var(--e2);letter-spacing:-.3px;}
-.sb-logo{font-size:19px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4));}
-.sb-sub{font-size:11.5px;opacity:.6;margin:2px 0 var(--e4);padding:0 var(--e2);letter-spacing:.1px;}
+  padding:var(--e4) var(--e2) var(--e3);z-index:30;overflow-y:auto;}
+.sidebar::-webkit-scrollbar{width:4px;}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:2px;}
+.sb-brand{font-size:13.5px;font-weight:var(--w-semi);display:flex;align-items:center;
+  gap:var(--e2);padding:0 var(--e2);letter-spacing:-.2px;}
+.sb-logo{display:inline-flex;color:rgba(255,255,255,.85);}
+.sb-sub{font-size:10.5px;opacity:.45;margin:1px 0 var(--e4);padding:0 var(--e2);letter-spacing:.1px;}
 
-.clock{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.09);
-  border-radius:var(--r3);padding:var(--e3);margin-bottom:var(--e3);}
-.clock .time{font-size:22px;font-weight:var(--w-semi);letter-spacing:.5px;}
-.clock .date{font-size:11px;opacity:.62;margin-top:1px;text-transform:capitalize;}
+/* L'horloge n'est plus un cadran. Elle occupait un encadré de 22 px de
+   chiffres pour dire ce que la barre des tâches dit déjà, à trois centimètres
+   de là. Réduite à une ligne discrète, elle informe sans réclamer. */
+.clock{padding:0 var(--e2);margin-bottom:var(--e4);display:flex;align-items:baseline;
+  gap:var(--e2);}
+.clock .time{font-size:12.5px;font-weight:var(--w-medium);letter-spacing:.2px;opacity:.85;}
+.clock .date{font-size:10.5px;opacity:.42;text-transform:capitalize;}
 
-.nav{display:flex;flex-direction:column;gap:2px;}
-.nav button{display:flex;align-items:center;gap:var(--e3);background:transparent;
-  border:none;color:rgba(255,255,255,.72);font-family:inherit;font-size:13.5px;
-  font-weight:var(--w-medium);padding:9px var(--e3);border-radius:var(--r2);
-  cursor:pointer;text-align:left;transition:background .15s,color .15s;position:relative;}
-.nav button:hover{background:rgba(255,255,255,.07);color:#fff;}
-.nav button.active{background:rgba(255,255,255,.13);color:#fff;font-weight:var(--w-semi);}
-.nav button.active::before{content:"";position:absolute;left:0;top:50%;transform:translateY(-50%);
-  width:3px;height:18px;background:#fff;border-radius:0 3px 3px 0;}
-.nav button .nvbadge{margin-left:auto;background:var(--hot);color:#fff;font-size:10.5px;
-  font-weight:var(--w-bold);border-radius:var(--r1);padding:1px 6px;min-width:19px;text-align:center;}
+.nav{display:flex;flex-direction:column;gap:1px;}
+.nav button{display:flex;align-items:center;gap:var(--e2);background:transparent;
+  border:none;color:rgba(255,255,255,.62);font-family:inherit;font-size:12.5px;
+  font-weight:var(--w-medium);padding:6px var(--e2);border-radius:var(--r2);
+  cursor:pointer;text-align:left;transition:background .13s,color .13s;position:relative;}
+.nav button:hover{background:rgba(255,255,255,.06);color:#fff;}
+.nav button.active{background:rgba(255,255,255,.1);color:#fff;font-weight:var(--w-medium);}
+/* Plus de barre blanche en bord gauche : le fond suffit à dire « ici ». Le
+   trait supplémentaire était un troisième signal pour la même information. */
+.nav button .nvbadge{margin-left:auto;background:var(--hot);color:#fff;font-size:10px;
+  font-weight:var(--w-semi);border-radius:var(--r1);padding:0 5px;min-width:17px;text-align:center;}
 
 .sbq-titre{font-size:9.5px;text-transform:uppercase;letter-spacing:1.2px;opacity:.5;
   font-weight:var(--w-bold);margin-bottom:var(--e2);padding-left:var(--e2);}
@@ -269,12 +305,18 @@ html,body{height:100%;overflow:hidden;}
 /* Confort de lecture — la mesure typographique, pas la largeur de l'écran. */
 .verdict,.extrait,.note-panel,.goal-msg,.veille-banner .grow{max-width:105ch;}
 .letter-area,.paste-area{max-width:100ch;}
-.view-head{display:flex;justify-content:space-between;align-items:flex-end;gap:var(--e4);
-  flex-wrap:wrap;margin-bottom:var(--e5);}
-.view-head h2{font-size:34px;margin:0;font-weight:var(--w-bold);letter-spacing:-1.1px;
-  line-height:1.15;display:flex;align-items:center;gap:var(--e3);}
-.view-head .vh-sub{color:var(--muted);font-size:14px;margin-top:6px;}
-.vh-side{color:var(--muted);font-size:13px;display:flex;align-items:center;gap:var(--e3);}
+/* LE TITRE DE VUE N'EST PAS UNE COUVERTURE.
+   34 px en gras, c'est le titre d'un document — et c'est très exactement ce
+   qui donnait l'impression d'un CV posé sur un site. Dans un outil, le nom de
+   la vue est un repère : on le lit une fois en arrivant, puis plus jamais. Il
+   redescend donc au rang de ce qu'il est, et rend la place aux données. */
+.view-head{display:flex;justify-content:space-between;align-items:baseline;gap:var(--e4);
+  flex-wrap:wrap;margin-bottom:var(--e3);}
+.view-head h2{font-size:17px;margin:0;font-weight:var(--w-semi);letter-spacing:-.3px;
+  line-height:1.3;display:flex;align-items:center;gap:var(--e2);}
+.view-head h2 .ic{color:var(--faint);}
+.view-head .vh-sub{color:var(--muted);font-size:12px;margin-top:2px;}
+.vh-side{color:var(--muted);font-size:12px;display:flex;align-items:center;gap:var(--e3);}
 
 /* ─────────────────── BANDEAU DE COMMANDE ─────────────────── */
 
@@ -282,16 +324,15 @@ html,body{height:100%;overflow:hidden;}
    toujours là. Il ne se superpose plus au contenu, ce qui permet de retirer
    le flou d'arrière-plan — coûteux à chaque image, pour masquer un problème
    qui n'existe plus. */
-.cmdbar{display:flex;align-items:center;gap:var(--e4);flex-wrap:wrap;
-  padding:var(--e3) var(--e4);margin-bottom:var(--e4);flex-shrink:0;
-  background:var(--panel);border:1px solid var(--line);border-radius:var(--r4);
-  box-shadow:var(--sh1);}
-.cmd-hello{min-width:180px;}
-.cmd-hello .ch-t{font-size:15px;font-weight:var(--w-bold);letter-spacing:-.3px;}
-.cmd-hello .ch-s{font-size:12px;color:var(--muted);margin-top:1px;}
+.cmdbar{display:flex;align-items:center;gap:var(--e3);flex-wrap:wrap;
+  padding:var(--e2) var(--e3);margin-bottom:var(--e3);flex-shrink:0;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r3);}
+.cmd-hello{min-width:150px;}
+.cmd-hello .ch-t{font-size:12.5px;font-weight:var(--w-semi);letter-spacing:-.15px;}
+.cmd-hello .ch-s{font-size:11px;color:var(--muted);margin-top:0;}
 .cmd-pills{display:flex;gap:var(--e2);flex-wrap:wrap;flex:1;}
-.cpill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:var(--w-semi);
-  padding:5px 11px;border-radius:99px;background:var(--bg2);border:1px solid var(--line);
+.cpill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:var(--w-medium);
+  padding:2px 8px;border-radius:var(--r1);background:var(--bg2);border:1px solid var(--line);
   color:var(--ink-2);white-space:nowrap;}
 .cpill b{font-variant-numeric:tabular-nums;}
 .cpill.chaud{background:var(--hotb);border-color:transparent;color:var(--hot);}
@@ -304,11 +345,11 @@ html,body{height:100%;overflow:hidden;}
 
 /* ─────────────────────── SURFACES ─────────────────────── */
 
-.panel-box{background:var(--panel);border:1px solid var(--line);border-radius:var(--r5);
-  padding:var(--e5);box-shadow:var(--sh1);margin-bottom:var(--e4);animation:fadeUp .35s;}
-.panel-box h3{margin:0 0 var(--e4);font-size:12px;font-weight:var(--w-semi);
+.panel-box{background:var(--panel);border:1px solid var(--line);border-radius:var(--r3);
+  padding:var(--e4);margin-bottom:var(--e3);animation:fadeUp .3s;}
+.panel-box h3{margin:0 0 var(--e3);font-size:11px;font-weight:var(--w-semi);
   display:flex;align-items:center;gap:var(--e2);text-transform:uppercase;
-  letter-spacing:1.1px;color:var(--muted);}
+  letter-spacing:.7px;color:var(--muted);}
 .panel-box h3 .ic{color:var(--accent);}
 .panel-box h3 .h3-side{margin-left:auto;text-transform:none;letter-spacing:0;
   font-weight:var(--w-medium);font-size:11.5px;color:var(--faint);}
@@ -324,30 +365,47 @@ html,body{height:100%;overflow:hidden;}
   font-size:11.5px;font-weight:var(--w-medium);padding:4px 10px;border-radius:var(--r1);cursor:pointer;
   transition:background .15s,color .15s;}
 .seg button:hover{color:var(--ink);}
-.seg button.active{background:var(--panel);color:var(--accent);font-weight:var(--w-semi);box-shadow:var(--sh1);}
+.seg button.active{background:var(--panel);color:var(--ink);font-weight:var(--w-semi);
+  box-shadow:var(--sh2);}
+
+/* Pastille de groupe — remplace les emoji 🟢🟡⚪🔴. Elle prend la couleur du
+   groupe telle que le thème la définit, donc elle reste juste dans les quatre
+   thèmes, ce qu'un emoji ne sait pas faire. */
+.pt{display:inline-block;width:7px;height:7px;border-radius:50%;vertical-align:0;}
+.pt1{background:var(--g1)}.pt2{background:var(--g2)}
+.pt0{background:var(--g0)}.pt3{background:var(--g3)}
 
 /* ─────────────────────── TUILES DE STATISTIQUE ─────────────────────── */
 
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(216px,1fr));
-  gap:var(--e3);margin-bottom:var(--e4);}
-.stats.compact{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:0;}
-.stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--r5);
-  padding:var(--e4);box-shadow:var(--sh1);position:relative;overflow:hidden;
-  animation:pop .35s backwards;transition:transform .18s,box-shadow .18s,border-color .18s;}
-.stat:hover{transform:translateY(-3px);box-shadow:var(--sh3);border-color:var(--line-fort);}
-.stat::after{content:"";position:absolute;left:0;right:0;top:0;height:2px;
-  background:var(--teinte,var(--accent));opacity:.85;}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));
+  gap:var(--e2);margin-bottom:var(--e3);}
+.stats.compact{grid-template-columns:repeat(auto-fit,minmax(126px,1fr));margin-bottom:0;}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--r3);
+  padding:var(--e3) var(--e4);position:relative;overflow:hidden;
+  animation:pop .3s backwards;transition:border-color .15s,background .15s;}
+/* Une tuile ne DÉCOLLE plus au survol. Six tuiles qui se soulèvent à chaque
+   passage de souris, c'est un tableau de bord qui frétille ; le changement de
+   bordure suffit à dire « survolé ». */
+.stat:hover{border-color:var(--line-fort);background:var(--bg2);}
+/* Le filet de teinte passe à gauche : en haut il redessinait un « couvercle »
+   de carte, en bord gauche il aligne les tuiles sur le reste de l'interface. */
+.stat::after{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;
+  background:var(--teinte,var(--accent));}
 .stat:nth-child(1){animation-delay:.02s}.stat:nth-child(2){animation-delay:.05s}
 .stat:nth-child(3){animation-delay:.08s}.stat:nth-child(4){animation-delay:.11s}
 .stat:nth-child(5){animation-delay:.14s}.stat:nth-child(6){animation-delay:.17s}
 .stat:nth-child(7){animation-delay:.2s}.stat:nth-child(8){animation-delay:.23s}
-.stat .em{position:absolute;right:var(--e3);top:var(--e3);font-size:19px;opacity:.9;}
-.stat .n{font-size:40px;font-weight:var(--w-bold);line-height:1.05;letter-spacing:-1.8px;
+/* L'emoji de tuile devient une pastille discrète en coin. À 19 px et pleine
+   opacité, six emoji colorés tiraient l'œil avant les chiffres qu'ils sont
+   censés annoter. */
+.stat .em{position:absolute;right:var(--e3);top:var(--e3);font-size:13px;opacity:.4;
+  filter:grayscale(1);}
+.stat .n{font-size:26px;font-weight:var(--w-semi);line-height:1.1;letter-spacing:-.8px;
   color:var(--teinte,var(--ink));}
-.stat .n .u{font-size:19px;font-weight:var(--w-semi);letter-spacing:0;}
-.stat .l{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.45;}
-.stat .delta{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:var(--w-semi);
-  margin-top:6px;padding:2px 7px;border-radius:99px;background:var(--g0b);color:var(--muted);}
+.stat .n .u{font-size:14px;font-weight:var(--w-medium);letter-spacing:0;}
+.stat .l{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.35;}
+.stat .delta{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:var(--w-semi);
+  margin-top:5px;padding:1px 6px;border-radius:var(--r1);background:var(--g0b);color:var(--muted);}
 .stat .delta.up{background:var(--g1b);color:var(--g1);}
 .stat .delta.down{background:var(--g3b);color:var(--g3);}
 .stat .spark-slot{margin-top:var(--e2);height:34px;}
@@ -355,8 +413,8 @@ html,body{height:100%;overflow:hidden;}
 /* ─────────────────────── BANDEAU DE MISE À JOUR ─────────────────────── */
 
 .veille-banner{display:flex;align-items:center;gap:var(--e3);background:var(--panel);
-  border:1px solid var(--line);border-radius:var(--r4);padding:var(--e3) var(--e4);
-  margin-bottom:var(--e4);font-size:13px;box-shadow:var(--sh1);flex-wrap:wrap;}
+  border:1px solid var(--line);border-radius:var(--r3);padding:var(--e2) var(--e3);
+  margin-bottom:var(--e3);font-size:12.5px;flex-wrap:wrap;}
 .veille-banner::before{content:"";width:3px;align-self:stretch;border-radius:3px;background:var(--g1);}
 .veille-banner.stale::before{background:var(--hot);}
 .veille-banner.warn::before{background:var(--g2);}
@@ -366,24 +424,32 @@ html,body{height:100%;overflow:hidden;}
 /* ─────────────────────── BOUTONS & CHAMPS ─────────────────────── */
 
 .btn,select,.search,.opt-num,input[type=date],input[type=number],input[type=text]{
-  font-family:inherit;font-size:13.5px;color:var(--ink);background:var(--panel);
-  border:1px solid var(--line-fort);border-radius:var(--r2);padding:8px var(--e3);
-  transition:border-color .15s,box-shadow .15s,background .15s,transform .12s;}
+  font-family:inherit;font-size:12.5px;color:var(--ink);background:var(--panel);
+  border:1px solid var(--line-fort);border-radius:var(--r2);padding:5px var(--e3);
+  transition:border-color .13s,background .13s,color .13s;}
 .btn{cursor:pointer;font-weight:var(--w-medium);display:inline-flex;align-items:center;
-  gap:7px;box-shadow:var(--sh1);white-space:nowrap;}
-.btn:hover{border-color:var(--accent);color:var(--accent);}
-.btn:active{transform:translateY(1px);}
-.btn[disabled]{opacity:.55;cursor:progress;}
-.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;
-  font-weight:var(--w-semi);box-shadow:var(--sh2);}
-.btn-primary:hover{background:var(--accent-ink);border-color:var(--accent-ink);color:#fff;
-  box-shadow:var(--lueur);}
-.btn .gain{font-size:10.5px;font-weight:var(--w-bold);background:rgba(255,255,255,.24);
-  padding:1px 6px;border-radius:99px;}
+  gap:6px;white-space:nowrap;}
+/* Le survol change le FOND, pas la couleur du texte. Un libellé qui vire au
+   bleu sous la souris se lit une fraction de seconde comme un lien. */
+.btn:hover{border-color:var(--line-fort);background:var(--bg2);}
+.btn[disabled]{opacity:.5;cursor:progress;}
+
+/* L'ACTION PRINCIPALE EST ENCRE, PAS COULEUR.
+   Un gros bouton indigo saturé est la signature des gabarits SaaS de 2021.
+   L'encre du thème donne le contraste maximal — donc la meilleure lisibilité
+   de la seule action qui compte — sans dépenser la couleur d'accent, qui
+   reste ainsi disponible pour ce qu'elle doit vraiment signaler : le focus,
+   la sélection, l'urgent. Et le couple ink/panel s'inverse tout seul dans les
+   thèmes sombres, sans une seule règle de plus. */
+.btn-primary{background:var(--ink);border-color:var(--ink);color:var(--panel);
+  font-weight:var(--w-semi);}
+.btn-primary:hover{background:var(--ink-2);border-color:var(--ink-2);color:var(--panel);}
+.btn .gain{font-size:10px;font-weight:var(--w-semi);background:var(--voile);
+  padding:1px 5px;border-radius:var(--r1);}
 .btn:not(.btn-primary) .gain{background:var(--accent-bg);color:var(--accent-ink);}
 select:focus,.search:focus,input:focus,textarea:focus{outline:none;border-color:var(--accent);
   box-shadow:0 0 0 3px var(--accent-bg);}
-.search{flex:1;min-width:210px;padding:9px var(--e4);}
+.search{flex:1;min-width:200px;padding:6px var(--e3);}
 
 .spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.32);
   border-top-color:#fff;border-radius:50%;animation:spin .65s linear infinite;}
@@ -413,28 +479,28 @@ select:focus,.search:focus,input:focus,textarea:focus{outline:none;border-color:
   transition:color .16s,border-color .16s,background .16s;border-radius:var(--r2) var(--r2) 0 0;}
 .ville:hover{color:var(--ink);background:var(--voile);}
 .ville.active{color:var(--ink);font-weight:var(--w-bold);border-bottom-color:var(--accent);}
-.ville .vn{font-size:11.5px;font-weight:var(--w-semi);font-variant-numeric:tabular-nums;
-  background:var(--bg2);color:var(--muted);border-radius:99px;padding:2px 8px;min-width:24px;
+.ville .vn{font-size:11px;font-weight:var(--w-semi);font-variant-numeric:tabular-nums;
+  background:var(--bg2);color:var(--muted);border-radius:var(--r1);padding:1px 5px;min-width:20px;
   text-align:center;transition:background .16s,color .16s;}
 .ville.active .vn{background:var(--accent-bg);color:var(--accent-ink);}
 /* Le compte des prioritaires. C'est lui qui répond à « où travailler ? » :
    80 offres possibles pèsent moins que 12 prioritaires. */
-.ville .vp{font-size:11px;font-weight:var(--w-bold);font-variant-numeric:tabular-nums;
-  color:var(--g1);background:var(--g1b);border-radius:99px;padding:2px 7px;white-space:nowrap;}
+.ville .vp{font-size:10.5px;font-weight:var(--w-semi);font-variant-numeric:tabular-nums;
+  color:var(--g1);background:var(--g1b);border-radius:var(--r1);padding:1px 5px;white-space:nowrap;}
 
 /* ── Filtres secondaires ──────────────────────────────────────────────── */
-.filtres{display:flex;flex-wrap:wrap;gap:var(--e3);align-items:center;margin-bottom:var(--e4);}
-.seg-groupe button{font-size:12.5px;padding:6px var(--e3);display:inline-flex;
-  align-items:center;gap:6px;}
-.seg-groupe button b{font-variant-numeric:tabular-nums;font-weight:var(--w-bold);
+.filtres{display:flex;flex-wrap:wrap;gap:var(--e2);align-items:center;margin-bottom:var(--e3);}
+.seg-groupe button{font-size:11.5px;padding:3px var(--e3);display:inline-flex;
+  align-items:center;gap:5px;}
+.seg-groupe button b{font-variant-numeric:tabular-nums;font-weight:var(--w-semi);
   color:var(--ink);}
 .seg-groupe button:not(.active) b{color:var(--faint);}
 
-.chips{display:flex;flex-wrap:wrap;gap:var(--e2);align-items:center;}
-.chip{padding:6px var(--e3);border-radius:99px;border:1px solid var(--line);
-  background:transparent;color:var(--muted);font-size:12.5px;font-weight:var(--w-medium);
-  cursor:pointer;user-select:none;transition:all .15s;display:inline-flex;align-items:center;gap:6px;}
-.chip:hover{border-color:var(--accent);color:var(--accent);}
+.chips{display:flex;flex-wrap:wrap;gap:var(--e1);align-items:center;}
+.chip{padding:3px var(--e3);border-radius:var(--r2);border:1px solid var(--line);
+  background:transparent;color:var(--muted);font-size:11.5px;font-weight:var(--w-medium);
+  cursor:pointer;user-select:none;transition:all .13s;display:inline-flex;align-items:center;gap:5px;}
+.chip:hover{border-color:var(--line-fort);color:var(--ink);background:var(--bg2);}
 .chip.active{background:var(--accent-bg);border-color:transparent;color:var(--accent-ink);
   font-weight:var(--w-semi);}
 
@@ -602,61 +668,72 @@ select:focus,.search:focus,input:focus,textarea:focus{outline:none;border-color:
 
 /* ─────────────────────── CARTES D'OFFRE ─────────────────────── */
 
-.grid{display:flex;flex-direction:column;gap:var(--e2);}
-.grid.mosaique{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));
-  gap:var(--e3);align-items:start;}
+/* LA LISTE EST UN TABLEAU, PAS UN EMPILEMENT DE CARTES.
+   Chaque offre faisait 141 px de haut : sur un 1280×800, TROIS tenaient à
+   l'écran — pour 282 à trier. Les lignes sont désormais jointives, séparées
+   par un filet plutôt que par un intervalle, et le rembourrage a fondu. On
+   parcourt la liste au lieu de la faire défiler. */
+.grid{display:flex;flex-direction:column;gap:0;border:1px solid var(--line);
+  border-radius:var(--r3);overflow:hidden;background:var(--card);}
+.grid.mosaique{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+  gap:var(--e2);align-items:start;border:none;background:transparent;overflow:visible;}
+.grid.mosaique .card{border:1px solid var(--line);border-radius:var(--r3);}
 .grid.mosaique .card.open{grid-column:1/-1;}
 
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r4);
-  overflow:hidden;box-shadow:var(--sh1);animation:fadeUp .3s backwards;
-  transition:box-shadow .18s,border-color .18s,transform .18s;position:relative;}
-.card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--g0);}
+.card{background:var(--card);border-bottom:1px solid var(--line);
+  animation:fadeUp .25s backwards;transition:background .13s;position:relative;}
+.grid>.card:last-child{border-bottom:none;}
+.card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--g0);}
 .card[data-g="1"]::before{background:var(--g1)}.card[data-g="2"]::before{background:var(--g2)}
 .card[data-g="3"]::before{background:var(--g3)}.card[data-g="0"]::before{background:var(--g0)}
-.card:hover{box-shadow:var(--sh3);border-color:var(--line-fort);transform:translateY(-1px);}
-.card.open{box-shadow:var(--sh3);border-color:var(--line-fort);}
-.card.pinned{border-color:var(--accent);box-shadow:var(--lueur);}
-.card.due{border-color:var(--hot);}
+.card:hover{background:var(--bg2);}
+.card.open{background:var(--bg2);}
+/* Épinglée et échéance dépassée : un liseré à gauche, pas un halo. Le halo
+   sur une ligne de tableau bavait sur ses voisines. */
+.card.pinned::before{background:var(--accent);width:3px;}
+.card.due::before{background:var(--hot);width:3px;}
 
-.head{display:flex;align-items:center;gap:var(--e3);padding:var(--e4) var(--e4) var(--e4) var(--e5);
-  cursor:pointer;flex-wrap:wrap;transition:background .15s;}
-.head:hover{background:var(--accent-bg);}
-.chevron{color:var(--faint);display:flex;transition:transform .22s;}
+.head{display:flex;align-items:center;gap:var(--e3);padding:var(--e2) var(--e3) var(--e2) var(--e4);
+  cursor:pointer;flex-wrap:wrap;}
+.chevron{color:var(--faint);display:flex;transition:transform .2s;}
 .card.open .chevron{transform:rotate(90deg);}
 .titlebox{flex:1;min-width:200px;}
-.ptitle{font-weight:var(--w-semi);font-size:16.5px;letter-spacing:-.35px;line-height:1.3;}
+.ptitle{font-weight:var(--w-medium);font-size:13.5px;letter-spacing:-.15px;line-height:1.35;}
 /* Le titre EST le lien vers l'annonce : c'est le premier réflexe, et
    « Voir ↗ » en bout de ligne de badges passait inaperçu. */
 .ptitle a{color:inherit;text-decoration:none;}
 .ptitle a:hover{color:var(--accent);text-decoration:underline;text-underline-offset:3px;}
-.ptitle .ext{font-size:11px;margin-left:5px;color:var(--faint);vertical-align:1px;}
+.ptitle .ext{font-size:10px;margin-left:4px;color:var(--faint);vertical-align:1px;}
 .ptitle a:hover .ext{color:var(--accent);}
-.pmeta{color:var(--muted);font-size:13px;margin-top:4px;}
-.cardprog{height:3px;background:var(--line);border-radius:3px;margin-top:8px;
-  overflow:hidden;max-width:230px;}
-.cardprog>span{display:block;height:100%;border-radius:3px;transition:width .5s;}
-.tags{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
-.pinbtn{cursor:pointer;color:var(--faint);display:flex;font-size:15px;line-height:1;
-  transition:color .18s,transform .18s;}
-.pinbtn:hover{transform:scale(1.2);}
+.pmeta{color:var(--muted);font-size:11.5px;margin-top:1px;}
+.cardprog{height:2px;background:var(--line);border-radius:2px;margin-top:5px;
+  overflow:hidden;max-width:180px;}
+.cardprog>span{display:block;height:100%;border-radius:2px;transition:width .5s;}
+.tags{display:flex;gap:5px;align-items:center;flex-wrap:wrap;}
+.pinbtn{cursor:pointer;color:var(--faint);display:flex;font-size:13px;line-height:1;
+  transition:color .15s;}
+.pinbtn:hover{color:var(--ink);}
 .pinbtn.on{color:var(--accent);}
 
-.scorepill{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:var(--w-bold);
-  padding:3px 8px;border-radius:99px;background:var(--bg2);color:var(--muted);
+/* Les pastilles perdent leur forme de gélule. Un rayon 99 px sur un élément de
+   20 px de haut fait « badge de notification » ; un rayon court le fait lire
+   comme une donnée, ce qu'il est. */
+.scorepill{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:var(--w-semi);
+  padding:1px 5px;border-radius:var(--r1);background:var(--bg2);color:var(--muted);
   font-variant-numeric:tabular-nums;border:1px solid var(--line);}
 .scorepill.fort{background:var(--g1b);color:var(--g1);border-color:transparent;}
 .scorepill.moyen{background:var(--g2b);color:var(--g2);border-color:transparent;}
 
-.badge{font-size:11px;font-weight:var(--w-semi);padding:3px 8px;border-radius:99px;
+.badge{font-size:10.5px;font-weight:var(--w-medium);padding:1px 6px;border-radius:var(--r1);
   white-space:nowrap;letter-spacing:.1px;}
 .b1{background:var(--g1b);color:var(--g1)}.b2{background:var(--g2b);color:var(--g2)}
 .b3{background:var(--g3b);color:var(--g3)}.b0{background:var(--g0b);color:var(--g0)}
 .badge-zone{background:var(--pinkb);color:var(--pink);}
 .badge-src{background:transparent;color:var(--faint);border:1px solid var(--line-fort);
   font-weight:var(--w-medium);}
-.status-pill{font-size:11px;padding:3px 9px;border-radius:99px;border:1px solid;
-  white-space:nowrap;font-weight:var(--w-semi);}
-.fresh{font-size:11px;padding:3px 8px;border-radius:99px;font-weight:var(--w-semi);white-space:nowrap;}
+.status-pill{font-size:10.5px;padding:1px 6px;border-radius:var(--r1);border:1px solid;
+  white-space:nowrap;font-weight:var(--w-medium);}
+.fresh{font-size:10.5px;padding:1px 5px;border-radius:var(--r1);font-weight:var(--w-medium);white-space:nowrap;}
 .fresh.new{background:var(--g1b);color:var(--g1)}
 .fresh.ok{background:var(--infob);color:var(--info)}
 .fresh.warn{background:var(--g2b);color:var(--g2)}
@@ -722,13 +799,13 @@ ul.mini li{margin-bottom:5px;}
 .kwtable th{text-align:left;color:var(--faint);font-weight:var(--w-semi);padding:0 6px 6px;
   font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;}
 .kwtable td{padding:8px 6px;border-top:1px solid var(--line);vertical-align:top;color:var(--ink-2);}
-.pill{padding:2px 8px;border-radius:99px;font-size:11px;font-weight:var(--w-semi);}
+.pill{padding:1px 6px;border-radius:var(--r1);font-size:10.5px;font-weight:var(--w-medium);}
 .money{background:var(--panel);border:1px solid var(--line);border-radius:var(--r2);
   padding:var(--e3);margin:var(--e2) 0 var(--e4);font-size:13px;}
 .extrait{font-size:12.5px;color:var(--ink-2);line-height:1.65;white-space:pre-wrap;
   max-height:210px;overflow:auto;padding-right:var(--e2);}
 .motifs{display:flex;flex-wrap:wrap;gap:6px;}
-.motif{font-size:11px;padding:3px 9px;border-radius:99px;background:var(--g1b);color:var(--g1);
+.motif{font-size:10.5px;padding:1px 6px;border-radius:var(--r1);background:var(--g1b);color:var(--g1);
   font-weight:var(--w-medium);}
 .motif.neg{background:var(--g3b);color:var(--g3);}
 /* Score de prioritaire mais pas de secteur : l'écart entre le chiffre et la
@@ -775,16 +852,16 @@ ul.mini li{margin-bottom:5px;}
 .focus-card.urgent::before{background:var(--hot);}
 .focus-card.chaud::before{background:var(--g2);}
 .focus-card.ok::before{background:var(--g1);}
-.focus-ic{width:36px;height:36px;flex-shrink:0;border-radius:var(--r2);display:flex;
-  align-items:center;justify-content:center;background:var(--bg2);font-size:17px;margin-left:var(--e1);}
+.focus-ic{width:22px;height:22px;flex-shrink:0;border-radius:var(--r1);display:flex;
+  align-items:center;justify-content:center;background:var(--bg2);font-size:11px;margin-left:var(--e1);}
 .focus-card.urgent .focus-ic{background:var(--hotb);}
 .focus-card.chaud .focus-ic{background:var(--g2b);}
 .focus-card.ok .focus-ic{background:var(--g1b);}
 .focus-body{flex:1;min-width:0;}
-.focus-body .ft{font-weight:var(--w-semi);font-size:13.5px;letter-spacing:-.2px;}
-.focus-body .fs{color:var(--muted);font-size:12px;margin-top:1px;}
-.focus-quoi{font-size:11.5px;font-weight:var(--w-semi);padding:5px var(--e3);
-  border-radius:99px;background:var(--accent-bg);color:var(--accent-ink);white-space:nowrap;}
+.focus-body .ft{font-weight:var(--w-medium);font-size:12.5px;letter-spacing:-.1px;}
+.focus-body .fs{color:var(--muted);font-size:11px;margin-top:0;}
+.focus-quoi{font-size:10.5px;font-weight:var(--w-medium);padding:2px var(--e2);
+  border-radius:var(--r1);background:var(--accent-bg);color:var(--accent-ink);white-space:nowrap;}
 .focus-vide{text-align:center;padding:var(--e10) var(--e5);animation:bounceIn .4s;}
 .focus-vide .em{font-size:44px;display:block;margin-bottom:var(--e3);}
 .focus-groupe{font-size:10.5px;font-weight:var(--w-bold);text-transform:uppercase;
@@ -804,12 +881,12 @@ ul.mini li{margin-bottom:5px;}
    deviner ce que mesure le reste de la page. */
 .kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--e3);
   align-items:stretch;height:calc(100% - 90px);min-height:380px;}
-.kcol{background:var(--panel);border:1px solid var(--line);border-radius:var(--r4);
-  padding:var(--e3);transition:background .15s,border-color .15s;
+.kcol{background:var(--panel);border:1px solid var(--line);border-radius:var(--r3);
+  padding:var(--e2);transition:background .15s,border-color .15s;
   display:flex;flex-direction:column;min-height:0;}
-.kcol h4{margin:0 0 var(--e3);font-size:11px;font-weight:var(--w-bold);display:flex;
-  align-items:center;justify-content:space-between;gap:6px;padding:7px 10px;border-radius:var(--r2);
-  text-transform:uppercase;letter-spacing:.6px;flex-shrink:0;}
+.kcol h4{margin:0 0 var(--e2);font-size:10px;font-weight:var(--w-semi);display:flex;
+  align-items:center;justify-content:space-between;gap:5px;padding:4px 7px;border-radius:var(--r1);
+  text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;}
 
 /* La zone qui défile. `min-height:0` est indispensable : sans lui, un enfant
    de flex refuse de rétrécir sous la taille de son contenu, et la colonne
@@ -819,16 +896,16 @@ ul.mini li{margin-bottom:5px;}
 .kcol-liste::-webkit-scrollbar{width:6px;}
 .kcol-liste::-webkit-scrollbar-thumb{background:var(--line-fort);border-radius:3px;}
 .kcol-liste::-webkit-scrollbar-track{background:transparent;}
-.kcol h4 span{background:rgba(0,0,0,.12);border-radius:99px;padding:0 7px;font-size:10.5px;}
+.kcol h4 span{background:rgba(0,0,0,.12);border-radius:var(--r1);padding:0 5px;font-size:10px;}
 .kcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r2);
-  padding:10px var(--e3);margin-bottom:var(--e2);font-size:12.5px;cursor:grab;
-  box-shadow:var(--sh1);animation:pop .25s backwards;border-left:3px solid var(--accent);
-  transition:box-shadow .15s,transform .15s;}
-.kcard:hover{box-shadow:var(--sh2);transform:translateY(-2px);}
+  padding:6px var(--e3);margin-bottom:var(--e1);font-size:11.5px;cursor:grab;
+  animation:pop .2s backwards;border-left:2px solid var(--accent);
+  transition:background .13s,border-color .13s;}
+.kcard:hover{background:var(--bg2);border-color:var(--line-fort);}
 .kcard:active{cursor:grabbing;}
 .kcard.drag{opacity:.4;}
-.kcard .kt{font-weight:var(--w-semi);margin-bottom:2px;line-height:1.35;}
-.kcard .km{color:var(--muted);font-size:11px;}
+.kcard .kt{font-weight:var(--w-medium);margin-bottom:1px;line-height:1.3;}
+.kcard .km{color:var(--muted);font-size:10.5px;}
 .kcard .kb{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap;}
 .kcard .kb i{font-style:normal;font-size:10.5px;}
 .kcol.dragover{background:var(--accent-bg);border-color:var(--accent);border-style:dashed;}
@@ -1007,21 +1084,22 @@ ul.mini li{margin-bottom:5px;}
 
 /* Les trois densités déplacent l'échelle entière d'un cran, elles ne bricolent
    pas quelques marges : c'est ce qui garde les proportions justes aux trois
-   réglages. « Normale » est déjà large — « Compacte » est là pour les petits
-   écrans et les longues listes. */
-[data-densite="compacte"]{--e3:10px;--e4:14px;--e5:18px;--e6:24px;--e8:32px;--e10:40px;--e12:48px;}
-[data-densite="compacte"] body{font-size:13.5px;}
-[data-densite="compacte"] .stat .n{font-size:31px;}
-[data-densite="compacte"] .view-head h2{font-size:27px;}
-[data-densite="compacte"] .ptitle{font-size:15px;}
-[data-densite="compacte"] .ville{font-size:14px;padding:var(--e2) var(--e3);}
+   réglages. Recalées sur la nouvelle base — « Normale » est maintenant déjà
+   dense, « Large » sert à qui veut respirer, « Compacte » aux longues
+   sessions de tri sur petit écran. */
+[data-densite="compacte"]{--e3:8px;--e4:11px;--e5:14px;--e6:18px;--e8:22px;--e10:30px;--e12:38px;}
+[data-densite="compacte"] body{font-size:12.5px;}
+[data-densite="compacte"] .stat .n{font-size:22px;}
+[data-densite="compacte"] .view-head h2{font-size:15px;}
+[data-densite="compacte"] .ptitle{font-size:12.5px;}
+[data-densite="compacte"] .ville{font-size:12px;padding:var(--e1) var(--e2);}
 
-[data-densite="large"]{--e3:18px;--e4:26px;--e5:36px;--e6:46px;--e8:60px;--e10:76px;--e12:92px;}
-[data-densite="large"] body{font-size:16px;}
-[data-densite="large"] .stat .n{font-size:46px;}
-[data-densite="large"] .view-head h2{font-size:40px;}
-[data-densite="large"] .ptitle{font-size:18px;}
-[data-densite="large"] .ville{font-size:17px;}
+[data-densite="large"]{--e3:14px;--e4:20px;--e5:26px;--e6:34px;--e8:42px;--e10:56px;--e12:70px;}
+[data-densite="large"] body{font-size:15px;}
+[data-densite="large"] .stat .n{font-size:32px;}
+[data-densite="large"] .view-head h2{font-size:21px;}
+[data-densite="large"] .ptitle{font-size:15px;}
+[data-densite="large"] .ville{font-size:14px;}
 
 [data-anim="off"] *,[data-anim="off"] *::before,[data-anim="off"] *::after{
   animation:none !important;transition:none !important;}

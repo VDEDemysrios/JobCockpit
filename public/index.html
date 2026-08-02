@@ -9,7 +9,7 @@
 <body>
 <div class="app">
   <aside class="sidebar" id="sidebar">
-    <div class="sb-brand"><span class="sb-logo">🚀</span><span>Job Cockpit</span></div>
+    <div class="sb-brand"><span class="sb-logo" data-ic="boussole" data-ic-taille="17"></span><span>Job Cockpit</span></div>
     <div class="sb-sub">Benjamin Perrin</div>
 
     <div class="clock"><div class="time" id="clockTime">--:--:--</div><div class="date" id="clockDate"></div></div>
@@ -24,10 +24,13 @@
     </nav>
 
     <div class="sb-theme" id="themeSwitch">
-      <button data-t="vivid">☀️ Clair</button>
-      <button data-t="enr">🌿 EnR</button>
-      <button data-t="dark">🌙 Nuit</button>
-      <button data-t="cockpit">🛰️ Cockpit</button>
+      <!-- Sans emoji : quatre libellés courts se lisent plus vite que quatre
+           pictogrammes qu'il faut décoder, et la pastille de thème actif dit
+           déjà lequel est en cours. -->
+      <button data-t="vivid">Clair</button>
+      <button data-t="enr">EnR</button>
+      <button data-t="dark">Nuit</button>
+      <button data-t="cockpit">Cockpit</button>
     </div>
     <div class="sb-foot">Collecte automatique · données locales.<br>Raccourcis : <span class="kbd">?</span> · Palette : <span class="kbd">Ctrl</span><span class="kbd">K</span></div>
   </aside>
@@ -57,7 +60,7 @@
 
     <!-- ══════════════ TABLEAU DE BORD ══════════════ -->
     <div class="view" id="view-dashboard">
-      <div class="view-head"><div><h2>📊 Tableau de bord</h2>
+      <div class="view-head"><div><h2><span data-ic="graphique" data-ic-taille="17"></span> Tableau de bord</h2>
         <div class="vh-sub" id="dashSub"></div></div>
         <div class="vh-side" id="focusRythme"></div></div>
 
@@ -165,7 +168,7 @@
 
     <!-- ══════════════ OFFRES ══════════════ -->
     <div class="view" id="view-offers" style="display:none">
-      <div class="view-head"><div><h2>🗂️ Toutes les offres</h2>
+      <div class="view-head"><div><h2><span data-ic="liste" data-ic-taille="17"></span> Toutes les offres</h2>
         <div class="vh-sub" id="offersSub"></div></div></div>
 
       <!-- Onglets de villes : la première question devant une liste d'offres
@@ -198,15 +201,19 @@
       <div class="filtres">
         <span class="seg seg-groupe" id="segGroupe">
           <button data-g="all" class="active">Toutes <b id="c-all">0</b></button>
-          <button data-g="1" title="Prioritaires">🟢 <b id="c-1">0</b></button>
-          <button data-g="2" title="Possibles">🟡 <b id="c-2">0</b></button>
-          <button data-g="0" title="À vérifier">⚪ <b id="c-0">0</b></button>
-          <button data-g="3" title="À écarter">🔴 <b id="c-3">0</b></button>
+          <!-- Des pastilles CSS, pas des emoji ronds : elles prennent la
+               couleur exacte du groupe dans le thème courant, au lieu de
+               quatre disques qui se rendent différemment sur chaque système
+               et ignorent la palette. -->
+          <button data-g="1" title="Prioritaires"><i class="pt pt1"></i> <b id="c-1">0</b></button>
+          <button data-g="2" title="Possibles"><i class="pt pt2"></i> <b id="c-2">0</b></button>
+          <button data-g="0" title="À vérifier"><i class="pt pt0"></i> <b id="c-0">0</b></button>
+          <button data-g="3" title="À écarter"><i class="pt pt3"></i> <b id="c-3">0</b></button>
         </span>
         <span class="chips" id="chips">
-          <span class="chip" data-f="pin">📌 Épinglées</span>
-          <span class="chip" data-f="lettre">🖋️ Avec lettre</span>
-          <span class="chip" data-f="frais">🔥 Fraîches</span>
+          <span class="chip" data-f="pin"><span data-ic="etoile" data-ic-taille="13"></span> Épinglées</span>
+          <span class="chip" data-f="lettre"><span data-ic="plume" data-ic-taille="13"></span> Avec lettre</span>
+          <span class="chip" data-f="frais"><span data-ic="eclair" data-ic-taille="13"></span> Fraîches</span>
         </span>
       </div>
 
@@ -244,7 +251,7 @@
 
     <!-- ══════════════ KANBAN ══════════════ -->
     <div class="view" id="view-kanban" style="display:none">
-      <div class="view-head"><div><h2>🧲 Kanban</h2>
+      <div class="view-head"><div><h2><span data-ic="colonnes" data-ic-taille="17"></span> Kanban</h2>
         <div class="vh-sub">Glisse une carte d'une colonne à l'autre pour changer son statut.</div></div>
         <div class="vh-side" id="kanbanSide"></div></div>
       <div class="kanban" id="kanban"></div>
@@ -252,7 +259,7 @@
 
     <!-- ══════════════ AGENDA ══════════════ -->
     <div class="view" id="view-agenda" style="display:none">
-      <div class="view-head"><div><h2>📅 Agenda des relances</h2>
+      <div class="view-head"><div><h2><span data-ic="calendrier" data-ic-taille="17"></span> Agenda des relances</h2>
         <div class="vh-sub" id="agendaSub"></div></div></div>
       <div class="panel-box">
         <h3><span data-ic="calendrier" data-ic-taille="14"></span> <span id="moisTitre">—</span>
@@ -265,14 +272,14 @@
 
     <!-- ══════════════ MON CV ══════════════ -->
     <div class="view" id="view-cv" style="display:none">
-      <div class="view-head"><div><h2>📄 Mon CV</h2>
+      <div class="view-head"><div><h2><span data-ic="parchemin" data-ic-taille="17"></span> Mon CV</h2>
         <div class="vh-sub" id="cvSub">Chargement…</div></div></div>
       <div id="cvContenu"></div>
     </div>
 
     <!-- ══════════════ OPTIONS ══════════════ -->
     <div class="view" id="view-options" style="display:none">
-      <div class="view-head"><div><h2>⚙️ Options</h2>
+      <div class="view-head"><div><h2><span data-ic="reglages" data-ic-taille="17"></span> Options</h2>
         <div class="vh-sub">Réglages d'affichage et de confort, conservés sur cet ordinateur.</div></div></div>
 
       <div class="panel-box">

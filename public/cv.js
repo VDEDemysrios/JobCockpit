@@ -22,6 +22,7 @@
 
 import { echapper, dateLisible, ilYA, pluriel } from './format.js';
 import { anneau } from './charts.js';
+import { icone } from './icons.js';
 
 export function rendreCv(cv) {
   const sous = document.getElementById('cvSub');
@@ -71,7 +72,7 @@ export function rendreCv(cv) {
               <span>${(cv.fichier.octets / 1024).toFixed(0)} ko${cv.fichier.modifieLe
                 ? ` · modifié ${ilYA(cv.fichier.modifieLe)}` : ''}</span>
             </div>
-            <a class="btn btn-primary" href="/api/cv/fichier">⬇ Ouvrir</a>
+            <a class="btn btn-primary" href="/api/cv/fichier">${icone('document', 14)} Ouvrir</a>
           </div>
           <p class="note-panel">C'est ce fichier, tel quel, que reçoit l'employeur : le bouton
             <strong>Dossier complet</strong> d'une lettre le joint automatiquement. Sa mise en page
