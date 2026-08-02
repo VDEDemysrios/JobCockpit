@@ -31,6 +31,37 @@ const DEFAUT = resolve(RACINE, '..', 'Application');
 
 const mo = (o) => `${(o / 1048576).toFixed(1)} Mo`;
 
+/**
+ * Arrête l'application si elle tourne.
+ * @returns {boolean} true si elle tournait — l'appelant la relancera.
+ */
+function arreterApplication() {
+  try {
+    const liste = execFileSync('tasklist', ['/FI', 'IMAGENAME eq JobCockpit.exe', '/NH'],
+      { encoding: 'latin1' });
+    if (!liste.includes('JobCockpit.exe')) return false;
+    execFileSync('taskkill', ['/IM', 'JobCockpit.exe', '/F'], { stdio: 'ignore' });
+    // Windows relâche le verrou avec un peu de retard : sans cette pause, la
+    // copie qui suit échoue encore une fois sur deux.
+    execFileSync(process.execPath, ['-e', 'setTimeout(()=>{},1500)']);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Relance l'application par son lanceur silencieux. */
+function relancerApplication(cible) {
+  const lanceur = join(cible, 'Demarrer.vbs');
+  if (!existsSync(lanceur)) return false;
+  try {
+    execFileSync('wscript.exe', [lanceur], { cwd: cible, stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function principal(argv = process.argv.slice(2)) {
   const cible = argv.find(a => !a.startsWith('--')) ?? DEFAUT;
   const premiere = !existsSync(join(cible, 'JobCockpit.exe'));
@@ -44,6 +75,12 @@ export function principal(argv = process.argv.slice(2)) {
   mkdirSync(cible, { recursive: true });
   console.log(`\n📦 ${premiere ? 'Installation' : 'Mise à jour'} — ${cible}\n`);
 
+  // Windows verrouille un exécutable en cours d'exécution : sans cet arrêt,
+  // toute mise à jour échouait sur « EBUSY: resource busy or locked ». On
+  // relance à la fin, pour que mettre à jour ne demande aucun geste de plus.
+  const tournait = arreterApplication();
+  if (tournait) console.log('   ⏹ application arrêtée le temps de la mise à jour');
+
   // 2. Le programme, toujours remplacé.
   copyFileSync(join(DIST, 'JobCockpit.exe'), join(cible, 'JobCockpit.exe'));
   rmSync(join(cible, 'public'), { recursive: true, force: true });
@@ -51,6 +88,16 @@ export function principal(argv = process.argv.slice(2)) {
   copyFileSync(join(DIST, 'LISEZ-MOI.txt'), join(cible, 'LISEZ-MOI.txt'));
   console.log(`   ✓ JobCockpit.exe  ${mo(statSync(join(cible, 'JobCockpit.exe')).size)}`);
   console.log('   ✓ public\\');
+
+  // Les lanceurs et l'icône font partie du programme, pas des données : ils
+  // sont donc remplacés à chaque mise à jour. Les oublier ici serait les
+  // perdre au premier `npm run installer` fait depuis une machine neuve.
+  for (const nom of ['Demarrer.vbs', 'Ouvrir.vbs']) {
+    copyFileSync(join(RACINE, 'scripts', nom), join(cible, nom));
+  }
+  const icone = join(RACINE, 'assets/job-cockpit.ico');
+  if (existsSync(icone)) copyFileSync(icone, join(cible, 'job-cockpit.ico'));
+  console.log('   ✓ lanceurs et icône');
 
   // 3. Les données, à la première installation SEULEMENT.
   let reprises = 0, protegees = 0, reprisesBase = false;
@@ -97,6 +144,10 @@ export function principal(argv = process.argv.slice(2)) {
   for (const suffixe of ['-wal', '-shm']) rmSync(join(cible, 'data.db' + suffixe), { force: true });
 
   if (protegees) console.log(`   ⊘ ${protegees} fichier(s) de données déjà présent(s) — non touché(s)`);
+
+  if (tournait && relancerApplication(cible)) {
+    console.log('   ▶ application relancée');
+  }
 
   console.log(`\n✅ ${premiere ? 'Installé' : 'Mis à jour'}.`);
   if (premiere && reprises) {

@@ -729,12 +729,30 @@ ul.mini li{margin-bottom:5px;}
 
 /* ─────────────────────── KANBAN & AGENDA ─────────────────────── */
 
-.kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--e3);align-items:start;}
+/* Le Kanban tient dans UN écran.
+   Avec 200 offres « À postuler », la première colonne mesurait plusieurs
+   mètres : les quatre autres devenaient invisibles, et glisser une carte de
+   la première à la dernière demandait de faire défiler la page pendant le
+   glissement — geste impossible en pratique.
+   Chaque colonne défile donc à l'intérieur d'elle-même, et les cinq en-têtes
+   restent toujours à l'écran. */
+.kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--e3);
+  align-items:stretch;height:calc(100vh - 240px);min-height:420px;}
 .kcol{background:var(--panel);border:1px solid var(--line);border-radius:var(--r4);
-  padding:var(--e3);min-height:200px;transition:background .15s,border-color .15s;}
+  padding:var(--e3);transition:background .15s,border-color .15s;
+  display:flex;flex-direction:column;min-height:0;}
 .kcol h4{margin:0 0 var(--e3);font-size:11px;font-weight:var(--w-bold);display:flex;
   align-items:center;justify-content:space-between;gap:6px;padding:7px 10px;border-radius:var(--r2);
-  text-transform:uppercase;letter-spacing:.6px;}
+  text-transform:uppercase;letter-spacing:.6px;flex-shrink:0;}
+
+/* La zone qui défile. `min-height:0` est indispensable : sans lui, un enfant
+   de flex refuse de rétrécir sous la taille de son contenu, et la colonne
+   repousse la page au lieu de défiler. */
+.kcol-liste{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  margin:0 calc(-1 * var(--e1));padding:0 var(--e1);}
+.kcol-liste::-webkit-scrollbar{width:6px;}
+.kcol-liste::-webkit-scrollbar-thumb{background:var(--line-fort);border-radius:3px;}
+.kcol-liste::-webkit-scrollbar-track{background:transparent;}
 .kcol h4 span{background:rgba(0,0,0,.12);border-radius:99px;padding:0 7px;font-size:10.5px;}
 .kcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r2);
   padding:10px var(--e3);margin-bottom:var(--e2);font-size:12.5px;cursor:grab;
@@ -1019,8 +1037,13 @@ ul.mini li{margin-bottom:5px;}
   .track-field input,.track-field select{width:100%;}
 
   /* Kanban : une colonne à la fois, qui défile latéralement. */
-  .kanban{display:flex;overflow-x:auto;gap:var(--e3);scroll-snap-type:x mandatory;}
+  /* Une colonne à la fois, qui défile latéralement. La hauteur d'écran fixée
+     plus haut n'a pas de sens ici : sur un téléphone, elle ne laisserait
+     voir que trois cartes. */
+  .kanban{display:flex;overflow-x:auto;gap:var(--e3);scroll-snap-type:x mandatory;
+    height:auto;min-height:0;align-items:flex-start;}
   .kcol{min-width:78vw;scroll-snap-align:start;}
+  .kcol-liste{overflow-y:visible;max-height:none;}
 
   /* Le calendrier d'assiduité a une largeur minimale de 520 px : c'est la
      seule chose du projet qui ne peut pas rétrécir sans devenir illisible.

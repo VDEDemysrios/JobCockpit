@@ -17,7 +17,8 @@
     "extract-cv": "node scripts/extract-cv.js",
     "normaliser": "node scripts/normaliser.js",
     "modeles": "node scripts/modeles.js",
-    "test": "node --test \"test/**/*.test.js\""
+    "test": "node --test \"test/**/*.test.js\"",
+    "icone": "node scripts/construire-icone.mjs"
   },
   "dependencies": {
     "@google/genai": "^1.0.0",

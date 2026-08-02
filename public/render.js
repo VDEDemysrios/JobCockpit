@@ -329,11 +329,18 @@ export function rendreKanban(offres, surDepot) {
     col.innerHTML = `<h4 style="background:${STATUS_BG[statut]};color:${STATUS_COL[statut]}">
       <span>${STATUS_EMOJI[statut]} ${statut}</span><span>${items.length}</span></h4>`;
 
+    // Les cartes vivent dans une zone qui défile, pas directement dans la
+    // colonne : sinon l'en-tête part avec elles, et on ne sait plus dans
+    // quelle colonne on est arrivé.
+    const liste = document.createElement('div');
+    liste.className = 'kcol-liste';
+    col.appendChild(liste);
+
     if (!items.length) {
       const v = document.createElement('div');
       v.className = 'kcol-vide';
       v.textContent = 'Glisse une carte ici';
-      col.appendChild(v);
+      liste.appendChild(v);
     }
 
     items.forEach(o => {
@@ -353,7 +360,7 @@ export function rendreKanban(offres, surDepot) {
         </div>`;
       c.addEventListener('dragstart', ev => { ev.dataTransfer.setData('id', o.id); c.classList.add('drag'); });
       c.addEventListener('dragend', () => c.classList.remove('drag'));
-      col.appendChild(c);
+      liste.appendChild(c);
     });
 
     col.addEventListener('dragover', ev => { ev.preventDefault(); col.classList.add('dragover'); });
