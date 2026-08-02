@@ -178,7 +178,15 @@ export function neutraliser() {
   // VACUUM INTO, pas un copier-coller : le WAL peut contenir des heures
   // d'écritures. Mettre de côté une copie tronquée ne serait pas « garder au
   // cas où », ce serait garder un leurre.
-  const misDeCote = join(RACINE, `data.db.remplacee-par-l-application-${Date.now()}`);
+  //
+  // ET SURTOUT : HORS DU DÉPÔT.
+  // Cette copie vivait à la racine du projet, donc sous surveillance de git.
+  // Son nom horodaté échappait au `.gitignore` de l'époque, et un
+  // `git add -A` l'a publiée sur un dépôt PUBLIC — 1,4 Mo de recherche
+  // d'emploi. Le `.gitignore` est corrigé, mais un fichier de données n'a
+  // de toute façon rien à faire dans un arbre versionné : on l'écrit un
+  // cran au-dessus, là où git ne regarde pas.
+  const misDeCote = resolve(RACINE, '..', `data.db.remplacee-par-l-application-${Date.now()}`);
   const db = new DatabaseSync(base, { readOnly: true });
   try {
     db.exec(`VACUUM INTO '${misDeCote.replace(/\\/g, '/').replace(/'/g, "''")}'`);

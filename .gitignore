@@ -1,10 +1,16 @@
 # Secrets — ne JAMAIS commiter
 .env
 
-# Base de données locale
-data.db
-data.db-shm
-data.db-wal
+# Base de données locale.
+#
+# L'ÉTOILE N'EST PAS UN CONFORT, C'EST LA CORRECTION D'UNE FUITE.
+# `neutraliser()` met l'ancienne base de côté sous un nom horodaté
+# (« data.db.remplacee-par-l-application-<ms> »). Les trois motifs exacts
+# qui étaient ici ne le reconnaissaient pas : un « git add -A » a poussé
+# 1,4 Mo de base — 279 offres, une lettre, le suivi de candidature — sur le
+# dépôt PUBLIC, et c'est resté en ligne plusieurs commits sans que rien ne
+# le signale. Tout ce qui commence par data.db est désormais couvert.
+data.db*
 
 # Données personnelles (CV, lettres)
 profile/cv.txt
