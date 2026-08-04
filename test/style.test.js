@@ -111,6 +111,37 @@ test('les règles vitales des surcouches sont présentes', () => {
  * `min-height:0` est la moitié qu'on oublie : sans lui un enfant de flex
  * refuse de rétrécir sous son contenu, et `overflow` ne sert à rien.
  */
+/**
+ * L'OUVERTURE DOIT S'EFFACER, PAS REVENIR.
+ *
+ * Les cases de l'intro sont animées vers `opacity:0`. Avec `backwards`, ce
+ * réglage ne survit pas à la fin de l'animation : les dix cases retrouvaient
+ * leur état de base — opaques, et décalées en bas à droite faute de
+ * `translate(-50%,-50%)` — et restaient plantées derrière le bloc-titre
+ * jusqu'au fondu. Mesuré : 10 cases encore visibles à 1,9 s.
+ *
+ * `both` garde la dernière image. Le mot est invisible dans le rendu tant
+ * qu'il est juste, et casse tout dès qu'il ne l'est plus : c'est exactement
+ * ce qu'un test doit tenir.
+ */
+test('les cases de l\'ouverture gardent leur état de fin', () => {
+  const regle = css.match(/\.intro-case\{[^}]*\}/s);
+  assert.ok(regle, 'la règle .intro-case a disparu');
+  assert.match(regle[0], /animation:introCase[^;]*\bboth\b/,
+    '.intro-case doit être en `both` — avec `backwards` les cases réapparaissent à la fin');
+  assert.match(regle[0], /transform:translate\(-50%,\s*-50%\)/,
+    '.intro-case a besoin de sa position de repos centrée');
+});
+
+test('le thème comics est défini et reste isolé', () => {
+  assert.match(css, /\[data-theme="comics"\]\{[^}]*--line:#14110d/,
+    'le thème comics doit poser une couleur d\'encre comme trait');
+  // La titraille change de police ; le corps de texte, jamais. Une liste de
+  // 282 offres en Impact serait illisible.
+  assert.doesNotMatch(css, /\[data-theme="comics"\]\s+body\{[^}]*font-family/,
+    'le thème comics ne doit pas changer la police du corps de texte');
+});
+
 test('les zones qui grandissent avec les données sont bornées', () => {
   for (const [nom, motif] of [
     ['html,body sans défilement', /html,\s*body\{[^}]*overflow:hidden/],

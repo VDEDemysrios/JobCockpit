@@ -4,6 +4,7 @@ import {
   GM, SOURCE_LABEL, MOIS, JOURS, todayISO, ageOffre, echapper, pluriel,
 } from './format.js';
 import { poserIcones, icone } from './icons.js';
+import { jouerIntro } from './intro.js';
 import {
   rendreCarte, rendreKanban, rendreAgenda, relanceDue, rendreFocus, actionsDuJour, celebrer,
 } from './render.js';
@@ -19,7 +20,7 @@ const dansNJours = (n) => {
 };
 
 const VUES = ['dashboard', 'offers', 'kanban', 'agenda', 'cv', 'options'];
-const THEMES = ['vivid', 'enr', 'dark', 'cockpit'];
+const THEMES = ['comics', 'vivid', 'enr', 'dark', 'cockpit'];
 
 /** Onglet fourre-tout : tout ce qui n'est rattaché à aucune ville prioritaire. */
 const VILLE_AUTRE = 'autre';
@@ -27,7 +28,7 @@ const VILLE_AUTRE = 'autre';
 // ------------------------------------------------------------------ options
 
 const OPTIONS_DEFAUT = {
-  densite: 'normale', animations: true,
+  densite: 'normale', animations: true, intro: true,
   relanceJours: 7, masquerEcartees: false, mosaique: false,
 };
 
@@ -112,7 +113,7 @@ function appliquerTheme(theme) {
   if (select) select.value = theme;
 }
 
-appliquerTheme(localStorage.getItem('bp_theme') || 'vivid');
+appliquerTheme(localStorage.getItem('bp_theme') || 'comics');
 
 document.getElementById('themeSwitch').addEventListener('click', e => {
   const b = e.target.closest('button');
@@ -894,6 +895,7 @@ function telecharger(blob, nom) {
 function rendreOptions() {
   document.getElementById('optDensite').value = options.densite;
   document.getElementById('optAnim').checked = options.animations;
+  document.getElementById('optIntro').checked = options.intro;
   document.getElementById('optRelance').value = options.relanceJours;
   document.getElementById('optMasquer').checked = options.masquerEcartees;
   document.getElementById('optTheme').value = document.documentElement.dataset.theme;
@@ -970,6 +972,8 @@ function brancherOption(id, cle, lire, message) {
 
 brancherOption('optDensite', 'densite', el => el.value, v => `Densité : ${v}`);
 brancherOption('optAnim', 'animations', el => el.checked, v => v ? 'Animations activées' : 'Animations désactivées');
+brancherOption('optIntro', 'intro', el => el.checked,
+  v => v ? 'L\'ouverture jouera au prochain lancement' : 'Ouverture désactivée');
 brancherOption('optMasquer', 'masquerEcartees', el => el.checked,
   v => v ? 'Les offres à écarter sont masquées' : 'Toutes les offres sont affichées');
 
@@ -1037,6 +1041,7 @@ const COMMANDES = [
   { emoji: '💾', titre: 'Exporter une sauvegarde', cat: 'Action', faire: () => document.getElementById('optExport').click() },
   { emoji: '📄', titre: 'Exporter en CSV', cat: 'Action', faire: () => document.getElementById('exportBtn').click() },
   { emoji: '🎨', titre: 'Changer de thème', cat: 'Action', faire: () => themeSuivant() },
+  { emoji: '🎬', titre: 'Rejouer l\'ouverture', cat: 'Action', faire: () => jouerIntro({ forcer: true }) },
   { emoji: '⌨️', titre: 'Afficher les raccourcis', cat: 'Action', faire: () => aide.classList.add('show') },
 ];
 
@@ -1255,6 +1260,11 @@ async function migrerSiNecessaire() {
 (async function demarrer() {
   poserIcones();
 
+  // L'ouverture part TOUT DE SUITE, sans `await` : elle joue pendant que les
+  // données arrivent, au lieu de s'ajouter au temps de chargement. Les deux
+  // durent à peu près pareil — l'application est prête quand le titre tombe.
+  const ouverture = options.intro ? jouerIntro() : Promise.resolve();
+
   try {
     await chargerDonnees();
   } catch (erreur) {
@@ -1272,9 +1282,12 @@ async function migrerSiNecessaire() {
     ? Math.floor((Date.now() - new Date(etat.meta.derniereCollecte).getTime()) / 86400000)
     : null;
 
+  // Le message de bienvenue attend la fin de l'ouverture : lancé pendant, il
+  // s'afficherait derrière l'écran noir et aurait disparu avant qu'on le voie.
+  await ouverture;
   setTimeout(() => {
-    if (jours === null) toast('Bienvenue 🚀 Clique sur « Collecter » pour lancer ta première collecte.');
+    if (jours === null) toast('Bienvenue — clique sur « Collecter » pour lancer ta première collecte.');
     else if (jours >= 3) toast(`Dernière collecte il y a ${jours} jours — pense à rafraîchir.`);
-    else toast('Bienvenue dans ton Job Cockpit 🚀');
-  }, 800);
+    else toast('Bienvenue dans ton Job Cockpit.');
+  }, 500);
 })();

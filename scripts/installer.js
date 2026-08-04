@@ -35,15 +35,40 @@ const mo = (o) => `${(o / 1048576).toFixed(1)} Mo`;
  * Arrête l'application si elle tourne.
  * @returns {boolean} true si elle tournait — l'appelant la relancera.
  */
+/** Vrai tant qu'un JobCockpit.exe figure dans la liste des processus. */
+function tourneEncore() {
+  try {
+    return execFileSync('tasklist', ['/FI', 'IMAGENAME eq JobCockpit.exe', '/NH'],
+      { encoding: 'latin1' }).includes('JobCockpit.exe');
+  } catch {
+    return false;
+  }
+}
+
 function arreterApplication() {
   try {
-    const liste = execFileSync('tasklist', ['/FI', 'IMAGENAME eq JobCockpit.exe', '/NH'],
-      { encoding: 'latin1' });
-    if (!liste.includes('JobCockpit.exe')) return false;
+    if (!tourneEncore()) return false;
     execFileSync('taskkill', ['/IM', 'JobCockpit.exe', '/F'], { stdio: 'ignore' });
-    // Windows relâche le verrou avec un peu de retard : sans cette pause, la
-    // copie qui suit échoue encore une fois sur deux.
-    execFileSync(process.execPath, ['-e', 'setTimeout(()=>{},1500)']);
+
+    // ON ATTEND LA DISPARITION RÉELLE, PAS UN DÉLAI AU JUGÉ.
+    //
+    // `taskkill` rend la main avant que le processus soit parti : il a
+    // seulement demandé sa mort. L'ancienne version dormait 1,5 s en
+    // espérant que ça suffise. Quand ça ne suffisait pas, le processus tenait
+    // encore le port 3000 à la relance : la nouvelle instance se heurtait à
+    // EADDRINUSE et refusait de démarrer — correctement — pendant que
+    // l'ancienne finissait de mourir. Il ne restait plus personne, et
+    // l'application était injoignable après une simple mise à jour.
+    //
+    // Constaté en direct : « démarré, écoute 127.0.0.1:3000 » suivi de
+    // « le port 3000 est déjà pris », et zéro instance à l'arrivée.
+    const limite = Date.now() + 10_000;
+    while (tourneEncore() && Date.now() < limite) {
+      execFileSync(process.execPath, ['-e', 'setTimeout(()=>{},200)']);
+    }
+    // Un dernier temps mort pour le verrou de fichier, que Windows relâche
+    // juste après la fin du processus.
+    execFileSync(process.execPath, ['-e', 'setTimeout(()=>{},600)']);
     return true;
   } catch {
     return false;

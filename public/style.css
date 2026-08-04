@@ -28,6 +28,10 @@
   --font:'Inter var','Inter',-apple-system,BlinkMacSystemFont,'Segoe UI Variable Text',
     'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
   --mono:ui-monospace,'SF Mono','Cascadia Mono',Menlo,Consolas,monospace;
+  /* Police de titraille. Identique au texte partout, sauf en thème comics :
+     c'est la seule façon de changer la voix des titres sans toucher à celle
+     du contenu, qui doit rester lisible sur 282 lignes. */
+  --font-titre:var(--font);
   --sbw:212px;
 
   /* Espacement — multiples de 2, échelle resserrée.
@@ -130,6 +134,31 @@
   --sh3:0 4px 12px -3px rgba(0,0,0,.7),0 2px 4px -2px rgba(0,0,0,.5);
   --sh4:0 16px 40px -12px rgba(0,0,0,.85),0 4px 10px -4px rgba(0,0,0,.6);
   --lueur:0 0 0 1px rgba(240,160,32,.5);
+}
+
+/* COMICS — le thème par défaut.
+   Papier crème, encre noire, aplats saturés, et surtout : ce sont les TRAITS
+   qui dessinent. `--line` vaut la couleur d'encre, pas un gris de séparation ;
+   les ombres deviennent des décalages durs, sans flou, comme une case
+   imprimée. Les surcharges de structure sont plus bas — un thème ne peut pas
+   changer une épaisseur de bordure avec les seules variables de couleur. */
+[data-theme="comics"]{
+  --bg:#f3e9d5; --bg2:#e7d9bd; --panel:#fffdf4; --card:#fffdf4;
+  --ink:#14110d; --ink-2:#332c22; --muted:#5e5446; --faint:#8b8070;
+  --line:#14110d; --line-fort:#14110d;
+  --accent:#d51f26; --accent2:#1b4fd8; --accent-bg:#ffdf7e; --accent-ink:#8d1015;
+  --g1:#0f7d3d; --g1b:#cfe8d3; --g2:#c96a06; --g2b:#ffe6bb;
+  --g3:#d51f26; --g3b:#ffd5d3; --g0:#5e5446; --g0b:#e5dcc9;
+  --hot:#d51f26; --hotb:#ffd5d3; --info:#1b4fd8; --infob:#d2defb;
+  --pink:#c2187f; --pinkb:#fbd8eb;
+  --grad:#d51f26;
+  --sbgrad:#14110d;
+  --voile:rgba(255,255,255,.55);
+  --sh1:none;
+  --sh2:2px 2px 0 #14110d;
+  --sh3:4px 4px 0 #14110d;
+  --sh4:7px 7px 0 #14110d;
+  --lueur:0 0 0 2px #d51f26;
 }
 
 /* ─────────────────────────── SOCLE ─────────────────────────── */
@@ -254,6 +283,10 @@ html,body{height:100%;overflow:hidden;}
 
 .sb-theme{display:grid;grid-template-columns:1fr 1fr;gap:3px;background:rgba(0,0,0,.24);
   border-radius:var(--r2);padding:3px;margin-top:var(--e3);}
+/* Cinq thèmes dans une grille de deux : le premier prend la ligne entière
+   plutôt que de laisser un trou en bas. C'est aussi le thème par défaut — il
+   se trouve donc mis en avant, ce qui tombe bien. */
+.sb-theme button:first-child{grid-column:1 / -1;}
 .sb-theme button{border:none;background:transparent;color:rgba(255,255,255,.66);
   font-size:11px;padding:6px 4px;border-radius:var(--r1);cursor:pointer;font-family:inherit;
   font-weight:var(--w-medium);transition:background .15s,color .15s;white-space:nowrap;}
@@ -1115,6 +1148,167 @@ ul.mini li{margin-bottom:5px;}
   *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;
     transition-duration:.01ms !important;}
 }
+
+/* ═══════════════════════ OUVERTURE ═══════════════════════
+
+   Le générique. Les cases arrivent du fond et passent au ras de l'objectif,
+   puis le bloc-titre se pose.
+
+   `perspective` est ce qui fait tout : sans elle, `translateZ` ne déplace
+   rien et les cases se contentent de grandir — on perd la traversée, qui est
+   l'effet lui-même.
+
+   L'écran est en `position:fixed` par-dessus tout, mais il ne bloque pas le
+   chargement : l'application se construit dessous pendant qu'il joue. */
+
+.intro{position:fixed;inset:0;z-index:9000;background:#0a0a0c;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;perspective:820px;perspective-origin:50% 50%;
+  cursor:pointer;user-select:none;}
+.intro-sortie{animation:introSortie .45s cubic-bezier(.4,0,1,1) forwards;}
+@keyframes introSortie{to{opacity:0;transform:scale(1.06);}}
+
+.intro-scene{position:absolute;inset:0;transform-style:preserve-3d;}
+
+.intro-case{position:absolute;left:50%;top:50%;
+  width:clamp(130px,19vw,260px);aspect-ratio:3/4;
+  border:5px solid #fffdf4;background:#d51f26;color:#fff;
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  padding:0 .4em;line-height:1;
+  font-family:Impact,Haettenschweiler,'Arial Narrow Bold','Segoe UI Black',sans-serif;
+  font-size:clamp(17px,2.3vw,32px);letter-spacing:1px;
+  /* Position de repos au centre : sans elle, une case privée d'animation
+     s'accrocherait en bas à droite de l'écran, `left/top:50%` n'étant pas
+     compensés. */
+  transform:translate(-50%,-50%);opacity:0;
+  /* `both`, et surtout pas `backwards` : à la fin de ses 1,5 s la case doit
+     RESTER effacée. Avec `backwards` elle retrouvait son état de base —
+     opaque et décalée — et les dix cases réapparaissaient derrière le
+     bloc-titre, figées, jusqu'au fondu final. */
+  animation:introCase 1.5s cubic-bezier(.55,0,.85,.25) both;}
+@keyframes introCase{
+  0%{opacity:0;transform:translate(-50%,-50%) translate3d(var(--dx),var(--dy),-1500px) rotate(var(--rot));}
+  14%{opacity:1;}
+  78%{opacity:1;}
+  100%{opacity:0;transform:translate(-50%,-50%) translate3d(calc(var(--dx) * .25),calc(var(--dy) * .25),700px) rotate(0deg);}
+}
+
+/* Le bloc-titre. Il arrive de trop loin et trop écarté, puis se resserre : le
+   resserrement des lettres fait davantage l'effet « générique » que le
+   changement d'échelle, qu'on remarque à peine. */
+.intro-logo{position:relative;z-index:5;display:flex;flex-direction:column;
+  align-items:center;gap:.02em;
+  background:#d51f26;color:#fff;padding:.16em .42em .2em;
+  border:5px solid #fffdf4;box-shadow:9px 9px 0 rgba(0,0,0,.55);
+  font-family:Impact,Haettenschweiler,'Arial Narrow Bold','Segoe UI Black',sans-serif;
+  font-size:clamp(27px,6.4vw,86px);line-height:.94;text-transform:uppercase;
+  opacity:0;animation:introLogo 1.05s 1.55s cubic-bezier(.16,1,.3,1) forwards;}
+.intro-logo span:last-child{letter-spacing:.04em;}
+@keyframes introLogo{
+  0%{opacity:0;transform:scale(2.4);letter-spacing:.36em;filter:blur(7px);}
+  50%{opacity:1;}
+  100%{opacity:1;transform:scale(1);letter-spacing:.02em;filter:blur(0);}
+}
+
+.intro-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;
+  animation:introFlash .55s 2.3s forwards;}
+@keyframes introFlash{0%{opacity:0;}30%{opacity:.92;}100%{opacity:0;}}
+
+.intro-passer{position:absolute;right:var(--e4);bottom:var(--e4);z-index:6;
+  background:transparent;border:1.5px solid rgba(255,255,255,.4);color:rgba(255,255,255,.75);
+  font-family:inherit;font-size:11.5px;font-weight:var(--w-medium);
+  padding:4px 12px;border-radius:var(--r2);cursor:pointer;
+  opacity:0;animation:introPasser .3s .7s forwards;}
+.intro-passer:hover{border-color:#fff;color:#fff;}
+@keyframes introPasser{to{opacity:1;}}
+
+/* ═══════════════════════ THÈME COMICS — LA STRUCTURE ═══════════════════════
+
+   Les variables de couleur ne suffisent pas : un comics tient à des
+   ÉPAISSEURS et à des ombres sans flou, que les tokens ne portent pas. D'où
+   ce bloc, volontairement isolé — tout ce qui est ici disparaît avec le
+   thème, et aucun autre thème n'en hérite.
+
+   Une contrainte tenue partout : la trame, les traits et les capitales
+   s'arrêtent au MOBILIER. Le texte des offres, lui, garde sa police et sa
+   taille — on trie encore 282 lignes, et une liste en Impact serait un
+   plaisir de dix secondes payé en heures de lecture.                        */
+
+[data-theme="comics"]{
+  --font-titre:Impact,Haettenschweiler,'Arial Narrow Bold','Franklin Gothic Bold',
+    'Segoe UI Black',sans-serif;
+}
+
+/* La trame Ben-Day : des points d'encre à 45°, comme sur du papier imprimé.
+   Fixée en `background-attachment` pour ne pas glisser au défilement — une
+   trame qui bouge avec le contenu se remarque, une trame fixe est du papier. */
+[data-theme="comics"] body{
+  background-image:radial-gradient(circle at 1px 1px,rgba(20,17,13,.13) 1px,transparent 0);
+  background-size:5px 5px;background-attachment:fixed;}
+
+/* Les titres prennent la voix du thème ; le corps de texte n'y touche pas. */
+[data-theme="comics"] .view-head h2,
+[data-theme="comics"] .panel-box h3,
+[data-theme="comics"] .kcol h4,
+[data-theme="comics"] .focus-groupe,
+[data-theme="comics"] .lbl,
+[data-theme="comics"] .stat .n,
+[data-theme="comics"] .cmd-hello .ch-t,
+[data-theme="comics"] .sb-brand{
+  font-family:var(--font-titre);letter-spacing:.5px;text-transform:uppercase;
+  -webkit-text-stroke:0;}
+[data-theme="comics"] .view-head h2{font-size:22px;letter-spacing:1px;}
+[data-theme="comics"] .stat .n{font-size:30px;letter-spacing:.5px;}
+
+/* Les surfaces sont CERNÉES. Deux pixels d'encre et une ombre décalée sans
+   flou : c'est ce décalage net, et lui seul, qui fait lire une case. */
+[data-theme="comics"] .panel-box,
+[data-theme="comics"] .grid,
+[data-theme="comics"] .stat,
+[data-theme="comics"] .cmdbar,
+[data-theme="comics"] .veille-banner,
+[data-theme="comics"] .kcol,
+[data-theme="comics"] .kcard,
+[data-theme="comics"] .btn,
+[data-theme="comics"] .chip,
+[data-theme="comics"] .seg,
+[data-theme="comics"] select,
+[data-theme="comics"] .search,
+[data-theme="comics"] input[type=date],
+[data-theme="comics"] input[type=number],
+[data-theme="comics"] input[type=text]{
+  border-width:2px;border-color:var(--ink);}
+[data-theme="comics"] .panel-box,
+[data-theme="comics"] .grid,
+[data-theme="comics"] .stat,
+[data-theme="comics"] .cmdbar,
+[data-theme="comics"] .kcol{box-shadow:var(--sh3);}
+[data-theme="comics"] .btn,
+[data-theme="comics"] .kcard{box-shadow:var(--sh2);}
+
+/* Un bouton de comics s'ENFONCE : il glisse dans son ombre au lieu de la
+   garder. Sans ce déplacement, l'ombre dure a l'air d'une erreur d'impression. */
+[data-theme="comics"] .btn:active{transform:translate(2px,2px);box-shadow:none;}
+[data-theme="comics"] .btn-primary{background:var(--accent);border-color:var(--ink);color:#fff;}
+[data-theme="comics"] .btn-primary:hover{background:#b81a20;border-color:var(--ink);color:#fff;}
+
+/* Le filet de groupe s'épaissit : à 2 px il se perdait dans la bordure noire. */
+[data-theme="comics"] .card::before{width:5px;}
+[data-theme="comics"] .card{border-bottom-width:2px;border-bottom-color:var(--ink);}
+[data-theme="comics"] .badge,
+[data-theme="comics"] .status-pill,
+[data-theme="comics"] .scorepill,
+[data-theme="comics"] .fresh,
+[data-theme="comics"] .pill,
+[data-theme="comics"] .motif{border:1.5px solid var(--ink);font-weight:var(--w-bold);}
+
+/* Le rail : encre noire, onglet actif en rouge cerné de blanc. */
+[data-theme="comics"] .nav button.active{background:var(--accent);color:#fff;
+  box-shadow:inset 0 0 0 2px #fff;}
+[data-theme="comics"] .sb-theme button.active{background:var(--accent);color:#fff;}
+
+/* Les onglets de villes deviennent des intercalaires cousus. */
+[data-theme="comics"] .ville.active{border-bottom-width:4px;border-bottom-color:var(--accent);}
 
 /* ─────────────────────── MOBILE ─────────────────────── */
 

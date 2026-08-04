@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="vivid" data-densite="normale" data-anim="on">
+<!-- Le thème est posé ici AVANT le premier rendu. app.js le remplace ensuite
+     par le choix mémorisé ; l'écrire dans le balisage évite le clignotement
+     d'un écran clair au chargement quand on a choisi un thème sombre. -->
+<html lang="fr" data-theme="comics" data-densite="normale" data-anim="on">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -27,6 +30,7 @@
       <!-- Sans emoji : quatre libellés courts se lisent plus vite que quatre
            pictogrammes qu'il faut décoder, et la pastille de thème actif dit
            déjà lequel est en cours. -->
+      <button data-t="comics">Comics</button>
       <button data-t="vivid">Clair</button>
       <button data-t="enr">EnR</button>
       <button data-t="dark">Nuit</button>
@@ -290,11 +294,15 @@
         </div>
         <div class="opt-row">
           <div><div class="t">Thème</div><div class="d">Raccourci clavier : <span class="kbd">T</span></div></div>
-          <select id="optTheme"><option value="vivid">Clair</option><option value="enr">EnR</option><option value="dark">Nuit</option><option value="cockpit">Cockpit</option></select>
+          <select id="optTheme"><option value="comics">Comics</option><option value="vivid">Clair</option><option value="enr">EnR</option><option value="dark">Nuit</option><option value="cockpit">Cockpit</option></select>
         </div>
         <div class="opt-row">
-          <div><div class="t">Animations</div><div class="d">Coupe tous les mouvements de l'interface si tu les trouves distrayants.</div></div>
+          <div><div class="t">Animations</div><div class="d">Coupe tous les mouvements de l'interface si tu les trouves distrayants — l'ouverture comprise.</div></div>
           <label class="switch"><input type="checkbox" id="optAnim" checked><span class="track"></span></label>
+        </div>
+        <div class="opt-row">
+          <div><div class="t">Ouverture animée</div><div class="d">Le générique au lancement. Il ne joue qu'une fois par ouverture, et se saute d'un clic ou d'une touche.</div></div>
+          <label class="switch"><input type="checkbox" id="optIntro" checked><span class="track"></span></label>
         </div>
       </div>
 
