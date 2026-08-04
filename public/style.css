@@ -1151,68 +1151,77 @@ ul.mini li{margin-bottom:5px;}
 
 /* ═══════════════════════ OUVERTURE ═══════════════════════
 
-   Le générique. Les cases arrivent du fond et passent au ras de l'objectif,
-   puis le bloc-titre se pose.
+   LE MOUVEMENT EST DANS LES LETTRES, PAS SUR L'ÉCRAN.
+   C'est toute la différence entre un générique et un carrousel. Le titre est
+   posé dès la première image ; ce sont les planches qui défilent DERRIÈRE,
+   visibles seulement à travers le découpage des glyphes.
 
-   `perspective` est ce qui fait tout : sans elle, `translateZ` ne déplace
-   rien et les cases se contentent de grandir — on perd la traversée, qui est
-   l'effet lui-même.
+   La première version faisait voler les cases à travers tout l'écran. Joli,
+   mais c'est un autre effet : sans la contrainte de la typographie, le
+   mouvement n'a plus de forme.
 
-   L'écran est en `position:fixed` par-dessus tout, mais il ne bloque pas le
-   chargement : l'application se construit dessous pendant qu'il joue. */
+   Le montage tient en deux couches superposées :
+     · `.intro-plein`   — le bloc de couleur, l'ombre portée, le cadre blanc.
+                          Il porte le titre et ne bouge pas.
+     · `.intro-decoupe` — par-dessus, le même texte en `background-clip:text`
+                          et `color:transparent` : la bande dessinée est peinte
+                          en fond, et n'apparaît QUE dans les lettres.
+   Une seule couche obligerait à choisir entre « ça défile » et « le titre est
+   là » ; il en faut deux pour avoir les deux.
+
+   La bande est un SVG en `data:` URI (voir intro.js) et non une pile de
+   <div> : `background-clip:text` ne découpe que le FOND de l'élément, jamais
+   ses enfants. Des éléments empilés derrière le titre passeraient par-dessus
+   au lieu d'être découpés. */
 
 .intro{position:fixed;inset:0;z-index:9000;background:#0a0a0c;
   display:flex;align-items:center;justify-content:center;
-  overflow:hidden;perspective:820px;perspective-origin:50% 50%;
-  cursor:pointer;user-select:none;}
+  overflow:hidden;cursor:pointer;user-select:none;}
 .intro-sortie{animation:introSortie .45s cubic-bezier(.4,0,1,1) forwards;}
 @keyframes introSortie{to{opacity:0;transform:scale(1.06);}}
 
-.intro-scene{position:absolute;inset:0;transform-style:preserve-3d;}
-
-.intro-case{position:absolute;left:50%;top:50%;
-  width:clamp(130px,19vw,260px);aspect-ratio:3/4;
-  border:5px solid #fffdf4;background:#d51f26;color:#fff;
-  display:flex;align-items:center;justify-content:center;text-align:center;
-  padding:0 .4em;line-height:1;
+.intro-titre{position:relative;z-index:5;
   font-family:Impact,Haettenschweiler,'Arial Narrow Bold','Segoe UI Black',sans-serif;
-  font-size:clamp(17px,2.3vw,32px);letter-spacing:1px;
-  /* Position de repos au centre : sans elle, une case privée d'animation
-     s'accrocherait en bas à droite de l'écran, `left/top:50%` n'étant pas
-     compensés. */
-  transform:translate(-50%,-50%);opacity:0;
-  /* `both`, et surtout pas `backwards` : à la fin de ses 1,5 s la case doit
-     RESTER effacée. Avec `backwards` elle retrouvait son état de base —
-     opaque et décalée — et les dix cases réapparaissaient derrière le
-     bloc-titre, figées, jusqu'au fondu final. */
-  animation:introCase 1.5s cubic-bezier(.55,0,.85,.25) both;}
-@keyframes introCase{
-  0%{opacity:0;transform:translate(-50%,-50%) translate3d(var(--dx),var(--dy),-1500px) rotate(var(--rot));}
-  14%{opacity:1;}
-  78%{opacity:1;}
-  100%{opacity:0;transform:translate(-50%,-50%) translate3d(calc(var(--dx) * .25),calc(var(--dy) * .25),700px) rotate(0deg);}
+  font-size:clamp(30px,7vw,96px);line-height:.92;text-transform:uppercase;
+  letter-spacing:.02em;
+  animation:introTitre 3s cubic-bezier(.2,.8,.3,1) both;}
+@keyframes introTitre{
+  0%{transform:scale(1.16);opacity:0;}
+  7%{opacity:1;}
+  86%{transform:scale(1);}
+  100%{transform:scale(1.02);opacity:1;}
 }
 
-/* Le bloc-titre. Il arrive de trop loin et trop écarté, puis se resserre : le
-   resserrement des lettres fait davantage l'effet « générique » que le
-   changement d'échelle, qu'on remarque à peine. */
-.intro-logo{position:relative;z-index:5;display:flex;flex-direction:column;
-  align-items:center;gap:.02em;
-  background:#d51f26;color:#fff;padding:.16em .42em .2em;
-  border:5px solid #fffdf4;box-shadow:9px 9px 0 rgba(0,0,0,.55);
-  font-family:Impact,Haettenschweiler,'Arial Narrow Bold','Segoe UI Black',sans-serif;
-  font-size:clamp(27px,6.4vw,86px);line-height:.94;text-transform:uppercase;
-  opacity:0;animation:introLogo 1.05s 1.55s cubic-bezier(.16,1,.3,1) forwards;}
-.intro-logo span:last-child{letter-spacing:.04em;}
-@keyframes introLogo{
-  0%{opacity:0;transform:scale(2.4);letter-spacing:.36em;filter:blur(7px);}
-  50%{opacity:1;}
-  100%{opacity:1;transform:scale(1);letter-spacing:.02em;filter:blur(0);}
+.intro-plein,.intro-decoupe{display:flex;flex-direction:column;align-items:center;
+  padding:.16em .42em .2em;}
+.intro-plein{background:#d51f26;color:#fff;border:5px solid #fffdf4;
+  box-shadow:10px 10px 0 rgba(0,0,0,.5);}
+
+/* La couche découpée se superpose EXACTEMENT au bloc plein. La bordure est
+   transparente plutôt qu'absente : sans elle, les 5 px de cadre décaleraient
+   le texte d'un cran et les deux titres se dédoubleraient. */
+.intro-decoupe{position:absolute;inset:0;border:5px solid transparent;
+  color:transparent;
+  -webkit-background-clip:text;background-clip:text;
+  background-repeat:repeat-y;background-size:100% auto;background-position:0 0;
+  animation:introDefile 3s cubic-bezier(.12,.6,.2,1) both,
+            introFondu .45s 2.55s forwards;}
+
+/* Le défilement, puis l'arrêt. Ce sont les 14 % finaux — la bande presque
+   immobile — qui donnent l'impression que le titre « se pose ». Sans eux, le
+   mouvement s'interrompt net et on voit la coupure. */
+@keyframes introDefile{
+  0%{background-position:0 0;}
+  86%{background-position:0 -1580px;}
+  100%{background-position:0 -1620px;}
 }
+/* Puis la couche découpée s'efface, découvrant le bloc plein : les lettres
+   redeviennent blanches sur rouge, et le générique se termine sur le logo. */
+@keyframes introFondu{to{opacity:0;}}
 
 .intro-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;
-  animation:introFlash .55s 2.3s forwards;}
-@keyframes introFlash{0%{opacity:0;}30%{opacity:.92;}100%{opacity:0;}}
+  animation:introFlash .6s 2.55s forwards;}
+@keyframes introFlash{0%{opacity:0;}32%{opacity:.94;}100%{opacity:0;}}
 
 .intro-passer{position:absolute;right:var(--e4);bottom:var(--e4);z-index:6;
   background:transparent;border:1.5px solid rgba(255,255,255,.4);color:rgba(255,255,255,.75);
@@ -1309,6 +1318,50 @@ ul.mini li{margin-bottom:5px;}
 
 /* Les onglets de villes deviennent des intercalaires cousus. */
 [data-theme="comics"] .ville.active{border-bottom-width:4px;border-bottom-color:var(--accent);}
+
+/* ── L'ONOMATOPÉE ──────────────────────────────────────────────────────────
+   L'étoile est un `clip-path` à 16 pointes plutôt qu'une image : elle suit la
+   taille du texte, prend la couleur du thème et ne pèse rien. `pointer-events`
+   à zéro est indispensable — elle passe au milieu de l'écran, et un éclat qui
+   avale un clic transformerait la récompense en obstacle. */
+.onoma{position:fixed;left:50%;top:44%;z-index:8000;pointer-events:none;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  width:clamp(190px,26vw,330px);aspect-ratio:1;
+  background:var(--teinte,#ffd21f);color:#14110d;text-align:center;
+  clip-path:polygon(50% 0,60% 17%,74% 6%,76% 24%,92% 19%,86% 35%,100% 39%,88% 50%,
+    100% 61%,86% 65%,92% 81%,76% 76%,74% 94%,60% 83%,50% 100%,40% 83%,26% 94%,
+    24% 76%,8% 81%,14% 65%,0 61%,12% 50%,0 39%,14% 35%,8% 19%,24% 24%,26% 6%,40% 17%);
+  animation:onomaEclat .95s cubic-bezier(.2,1.5,.4,1) forwards;}
+.onoma-mot{font-family:var(--font-titre);font-size:clamp(26px,4.4vw,52px);
+  line-height:.95;letter-spacing:1px;padding:0 .3em;
+  -webkit-text-stroke:2px #14110d;paint-order:stroke fill;color:#fffdf4;}
+.onoma-sous{font-family:var(--font-titre);font-size:clamp(11px,1.4vw,16px);
+  letter-spacing:.5px;margin-top:.3em;color:#14110d;}
+@keyframes onomaEclat{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.2) rotate(calc(var(--pivot) * 4));}
+  22%{opacity:1;transform:translate(-50%,-50%) scale(1.12) rotate(var(--pivot));}
+  35%{transform:translate(-50%,-50%) scale(.97) rotate(var(--pivot));}
+  70%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(var(--pivot));}
+  100%{opacity:0;transform:translate(-50%,-58%) scale(1.06) rotate(var(--pivot));}
+}
+
+/* ── LES BULLES ────────────────────────────────────────────────────────────
+   La salutation et les messages deviennent des bulles de dialogue. La queue
+   est un triangle en `::after` : deux bordures transparentes et une pleine,
+   doublée par un second triangle d'encre en dessous pour garder le trait noir
+   qui cerne tout le reste du thème. */
+[data-theme="comics"] .cmd-hello{position:relative;background:var(--panel);
+  border:2px solid var(--ink);border-radius:var(--r4);padding:var(--e2) var(--e3);
+  box-shadow:var(--sh2);margin-right:var(--e2);}
+[data-theme="comics"] .cmd-hello::before,
+[data-theme="comics"] .cmd-hello::after{content:"";position:absolute;
+  left:var(--e4);bottom:-13px;width:0;height:0;
+  border-left:11px solid transparent;border-right:5px solid transparent;}
+[data-theme="comics"] .cmd-hello::before{border-top:13px solid var(--ink);}
+[data-theme="comics"] .cmd-hello::after{bottom:-9px;border-top:11px solid var(--panel);}
+
+[data-theme="comics"] .toast{border:2px solid var(--ink);box-shadow:var(--sh3);
+  border-radius:var(--r4);font-weight:var(--w-semi);position:relative;}
 
 /* ─────────────────────── MOBILE ─────────────────────── */
 

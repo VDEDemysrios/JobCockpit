@@ -5,6 +5,7 @@ import {
 } from './format.js';
 import { poserIcones, icone } from './icons.js';
 import { jouerIntro } from './intro.js';
+import { onomatopee } from './comics.js';
 import {
   rendreCarte, rendreKanban, rendreAgenda, relanceDue, rendreFocus, actionsDuJour, celebrer,
 } from './render.js';
@@ -521,6 +522,7 @@ function brancherCarte(carte, offre) {
     const r = await essayer(() => API.supprimerOffre(offre.id),
       offre.isManual ? 'Offre supprimée' : 'Offre écartée — elle ne reviendra plus');
     if (!r) return;
+    onomatopee('ecartee');
 
     // La carte s'en va avant le rafraîchissement : montrer LAQUELLE part
     // vaut mieux qu'une liste qui se réorganise sans prévenir. La durée est
@@ -553,7 +555,12 @@ function brancherCarte(carte, offre) {
         : 'Remis à « À postuler » — date d\'envoi et relance effacées',
       e.currentTarget);
 
-    if (r) { appliquerSuivi(offre, r, champs); await rafraichirStats(); rendreTout(); }
+    if (r) {
+      // Uniquement dans le sens « je viens de postuler ». Revenir en arrière
+      // est une correction, pas une victoire.
+      if (versEnvoye) onomatopee('candidature', offre.entreprise ?? '');
+      appliquerSuivi(offre, r, champs); await rafraichirStats(); rendreTout();
+    }
   });
 
   carte.querySelectorAll('[data-champ]').forEach(el => {
@@ -615,12 +622,13 @@ async function ouvrirLettre(carte, offre, bouton) {
   }
 
   const libelleInitial = bouton.innerHTML;
+  const dejaEcrite = offre.aLettre;
   bouton.disabled = true;
   bouton.innerHTML = '<span class="spinner"></span> Rédaction en cours…';
 
   let lettre = null;
   try {
-    lettre = offre.aLettre ? await API.lettre(offre.id) : await API.genererLettre(offre.id);
+    lettre = dejaEcrite ? await API.lettre(offre.id) : await API.genererLettre(offre.id);
   } catch (erreur) {
     toast(erreur.message, 'err');
     bouton.disabled = false;
@@ -631,6 +639,9 @@ async function ouvrirLettre(carte, offre, bouton) {
   offre.aLettre = true;
   bouton.disabled = false;
   bouton.innerHTML = icone('plume', 14) + ' Masquer la lettre';
+  // Seulement à la RÉDACTION : rouvrir une lettre déjà écrite n'est pas un
+  // acte, et l'éclat se déclencherait à chaque consultation.
+  if (!dejaEcrite) onomatopee('lettre');
   zone.dataset.ouverte = '1';
 
   zone.innerHTML = `
@@ -729,6 +740,9 @@ async function lancerCollecte(bouton) {
     const s = r.resume;
     toast(`Collecte terminée : ${s.nouvelles} nouvelle(s) offre(s), ${s.analysees} analysée(s).`,
       s.nouvelles > 0 ? 'win' : '');
+    // L'éclat ne salue QUE la prise. Une collecte qui ne ramène rien n'est pas
+    // un événement, et fêter le vide userait l'effet en deux jours.
+    if (s.nouvelles > 0) onomatopee('collecte', `${s.nouvelles} nouvelle${s.nouvelles > 1 ? 's' : ''}`);
   } catch (erreur) {
     toast(erreur.message, 'err');
     rendreIndicateurMaj(etat.meta);

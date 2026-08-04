@@ -2,9 +2,30 @@
 //
 // CE QUE ÇA JOUE
 // --------------
-// Des cases de bande dessinée arrivent du fond et passent au ras de la
-// caméra, de plus en plus vite ; elles s'effacent, le bloc-titre se pose, un
-// flash blanc, et l'application est là. Environ 2,8 secondes.
+// Le titre est là dès la première image, et les planches défilent À
+// L'INTÉRIEUR DES LETTRES — le texte sert de fenêtre découpée sur la bande
+// qui glisse derrière. Puis le défilement ralentit, les lettres se remplissent
+// de rouge, un flash blanc, et l'application est là. Environ 3 secondes.
+//
+// La première version envoyait les cases voler à travers tout l'écran. C'est
+// un autre effet, et pas celui-là : ce qui fait le générique, c'est que le
+// mouvement soit CONTENU dans la typographie. Hors des lettres, il ne reste
+// qu'un carrousel.
+//
+// COMMENT LE DÉCOUPAGE FONCTIONNE
+// -------------------------------
+// `background-clip:text` + `color:transparent` : le navigateur ne peint le
+// fond que là où il y a du glyphe. Mais il ne clippe QUE le fond de
+// l'élément — jamais un enfant du DOM. Une pile de <div> derrière le titre ne
+// serait donc pas découpée du tout : elle passerait par-dessus.
+//
+// D'où la bande construite comme une IMAGE : un SVG en `data:` URI, empilant
+// les cases et leurs mots. C'est un vrai `background-image`, donc clippable,
+// donc défilable par `background-position` — et sans un seul élément de plus.
+//
+// Un doublon posé DESSOUS garde la couleur pleine, le cadre et l'ombre
+// portée : le titre existe dès la première image, et reste là quand la bande
+// s'efface.
 //
 // TROIS RÈGLES QUI COMPTENT PLUS QUE L'EFFET
 // ------------------------------------------
@@ -21,7 +42,7 @@
 
 const CLE_SESSION = 'bp_intro_jouee';
 
-/** Les mots des cases : le vocabulaire de l'application, pas du décor. */
+/** Les cases de la bande qui défile derrière les lettres. */
 const CASES = [
   { mot: 'OFFRES',      fond: '#d51f26' },
   { mot: 'STRASBOURG',  fond: '#1b4fd8' },
@@ -33,13 +54,39 @@ const CASES = [
   { mot: 'PARIS',       fond: '#ffd21f', encre: '#14110d' },
   { mot: 'LETTRE',      fond: '#c2187f' },
   { mot: 'ÉNERGIE',     fond: '#0f7d3d' },
+  { mot: 'CDI',         fond: '#14110d' },
+  { mot: 'CANDIDATURE', fond: '#d51f26' },
 ];
 
-/** Positions de départ : réparties autour du centre, jamais alignées. */
-const TRAJETS = [
-  [-38, -26, -14], [34, -20, 11], [-30, 24, 9], [40, 18, -12], [-8, -34, 6],
-  [12, 32, -8], [-44, 4, 13], [46, -6, -10], [-16, 38, -7], [20, -40, 8],
-];
+/**
+ * La bande dessinée qui défile dans les lettres, en `background-image`.
+ *
+ * Un SVG plutôt qu'une pile d'éléments : seul un fond peut être découpé par
+ * `background-clip:text`. Le ruban se répète verticalement (`repeat-y` côté
+ * CSS), donc sa hauteur totale est la seule chose qui doit tomber juste — le
+ * raccord se fait tout seul.
+ *
+ * @returns {string} une valeur `url("data:image/svg+xml,…")`
+ */
+function bandeDessinee() {
+  const L = 760;   // largeur du ruban
+  const H = 132;   // hauteur d'une case
+  const police = 'Impact,Haettenschweiler,\'Arial Narrow Bold\',sans-serif';
+
+  const cases = CASES.map((c, i) => {
+    const y = i * H;
+    return `<rect x="0" y="${y}" width="${L}" height="${H}" fill="${c.fond}"/>`
+      + `<text x="${L / 2}" y="${y + H * 0.68}" text-anchor="middle" `
+      + `font-family="${police}" font-size="${Math.round(H * 0.5)}" `
+      + `letter-spacing="2" fill="${c.encre ?? '#ffffff'}">${c.mot}</text>`
+      + `<rect x="0" y="${y + H - 6}" width="${L}" height="6" fill="#fffdf4"/>`;
+  }).join('');
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${L}" `
+    + `height="${CASES.length * H}" viewBox="0 0 ${L} ${CASES.length * H}">${cases}</svg>`;
+
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
 
 /**
  * Joue l'ouverture si les conditions sont réunies.
@@ -60,28 +107,17 @@ export function jouerIntro({ forcer = false } = {}) {
   ecran.className = 'intro';
   ecran.setAttribute('role', 'presentation');
 
-  const scene = document.createElement('div');
-  scene.className = 'intro-scene';
-
-  CASES.forEach((c, i) => {
-    const [dx, dy, rot] = TRAJETS[i];
-    const el = document.createElement('div');
-    el.className = 'intro-case';
-    el.textContent = c.mot;
-    el.style.background = c.fond;
-    el.style.color = c.encre ?? '#fff';
-    // Chaque case part d'un point différent et arrive à son tour : le décalage
-    // est ce qui donne la sensation de traverser une pile de pages.
-    el.style.setProperty('--dx', dx + 'vw');
-    el.style.setProperty('--dy', dy + 'vh');
-    el.style.setProperty('--rot', rot + 'deg');
-    el.style.animationDelay = (i * 0.11).toFixed(2) + 's';
-    scene.appendChild(el);
-  });
-
-  const logo = document.createElement('div');
-  logo.className = 'intro-logo';
-  logo.innerHTML = '<span>JOB</span><span>COCKPIT</span>';
+  // Le titre en DEUX exemplaires superposés :
+  //   · dessous, le bloc plein — couleur, cadre et ombre portée ;
+  //   · dessus, le même texte, découpé sur la bande qui défile.
+  // Un seul exemplaire obligerait à choisir entre « les planches défilent » et
+  // « le titre existe » ; il en faut deux pour avoir les deux.
+  const titre = document.createElement('div');
+  titre.className = 'intro-titre';
+  titre.innerHTML = `
+    <div class="intro-plein"><span>JOB</span><span>COCKPIT</span></div>
+    <div class="intro-decoupe" aria-hidden="true"><span>JOB</span><span>COCKPIT</span></div>`;
+  titre.querySelector('.intro-decoupe').style.backgroundImage = bandeDessinee();
 
   const flash = document.createElement('div');
   flash.className = 'intro-flash';
@@ -91,7 +127,7 @@ export function jouerIntro({ forcer = false } = {}) {
   passer.type = 'button';
   passer.textContent = 'Passer';
 
-  ecran.append(scene, logo, flash, passer);
+  ecran.append(titre, flash, passer);
   document.body.appendChild(ecran);
 
   return new Promise((resoudre) => {
@@ -109,7 +145,7 @@ export function jouerIntro({ forcer = false } = {}) {
       setTimeout(() => { ecran.remove(); resoudre(); }, 460);
     };
 
-    const minuteur = setTimeout(terminer, 2800);
+    const minuteur = setTimeout(terminer, 3050);
     window.addEventListener('keydown', terminer, true);
     window.addEventListener('pointerdown', terminer, true);
   });

@@ -112,25 +112,42 @@ test('les règles vitales des surcouches sont présentes', () => {
  * refuse de rétrécir sous son contenu, et `overflow` ne sert à rien.
  */
 /**
- * L'OUVERTURE DOIT S'EFFACER, PAS REVENIR.
+ * LE DÉCOUPAGE TYPOGRAPHIQUE DE L'OUVERTURE.
  *
- * Les cases de l'intro sont animées vers `opacity:0`. Avec `backwards`, ce
- * réglage ne survit pas à la fin de l'animation : les dix cases retrouvaient
- * leur état de base — opaques, et décalées en bas à droite faute de
- * `translate(-50%,-50%)` — et restaient plantées derrière le bloc-titre
- * jusqu'au fondu. Mesuré : 10 cases encore visibles à 1,9 s.
+ * Le générique tient à ce que les planches défilent DANS les lettres. Trois
+ * déclarations le portent, et chacune casse l'effet d'une manière différente
+ * et silencieuse si elle disparaît :
  *
- * `both` garde la dernière image. Le mot est invisible dans le rendu tant
- * qu'il est juste, et casse tout dès qu'il ne l'est plus : c'est exactement
- * ce qu'un test doit tenir.
+ *   · `background-clip:text` — sans lui, la bande s'affiche en plein rectangle
+ *     et recouvre le titre.
+ *   · `color:transparent` — sans lui, les lettres restent pleines et la bande
+ *     n'apparaît nulle part.
+ *   · `repeat-y` — sans lui, le ruban se termine à mi-course et les lettres
+ *     deviennent vides pendant la seconde moitié du défilement.
+ *
+ * Aucune de ces pannes ne produit d'erreur : on obtient juste une autre
+ * animation, moins bonne, sans savoir pourquoi.
  */
-test('les cases de l\'ouverture gardent leur état de fin', () => {
-  const regle = css.match(/\.intro-case\{[^}]*\}/s);
-  assert.ok(regle, 'la règle .intro-case a disparu');
-  assert.match(regle[0], /animation:introCase[^;]*\bboth\b/,
-    '.intro-case doit être en `both` — avec `backwards` les cases réapparaissent à la fin');
-  assert.match(regle[0], /transform:translate\(-50%,\s*-50%\)/,
-    '.intro-case a besoin de sa position de repos centrée');
+test('l\'ouverture découpe bien la bande dans les lettres', () => {
+  // `.intro-decoupe` apparaît dans plusieurs règles, dont une partagée avec
+  // `.intro-plein`. On réunit tous les corps qui la ciblent : chercher la
+  // « première » attrapait la règle de mise en page et concluait à tort que
+  // le découpage avait disparu.
+  const corps = [...css.matchAll(/([^{}]*\.intro-decoupe[^{}]*)\{([^}]*)\}/g)]
+    .map(m => m[2]).join(';');
+  assert.ok(corps, 'aucune règle ne cible .intro-decoupe');
+  const regle = [corps];
+  for (const [nom, motif] of [
+    ['background-clip:text', /background-clip:text/],
+    ['color:transparent',    /color:transparent/],
+    ['repeat-y',             /background-repeat:repeat-y/],
+  ]) {
+    assert.match(regle[0], motif, `.intro-decoupe a perdu ${nom}`);
+  }
+  // Le bloc plein posé DESSOUS : c'est lui qui reste quand la couche découpée
+  // s'efface. Sans lui, le générique se termine sur un titre invisible.
+  assert.match(css, /\.intro-plein\{[^}]*background:#d51f26/,
+    'le bloc-titre plein doit subsister sous la couche découpée');
 });
 
 test('le thème comics est défini et reste isolé', () => {
