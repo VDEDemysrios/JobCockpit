@@ -140,7 +140,7 @@ test('l\'ouverture découpe bien la bande dans les lettres', () => {
   for (const [nom, motif] of [
     ['background-clip:text', /background-clip:text/],
     ['color:transparent',    /color:transparent/],
-    ['repeat-y',             /background-repeat:repeat-y/],
+    ['repeat-x',             /background-repeat:repeat-x/],
   ]) {
     assert.match(regle[0], motif, `.intro-decoupe a perdu ${nom}`);
   }

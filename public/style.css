@@ -1203,17 +1203,26 @@ ul.mini li{margin-bottom:5px;}
 .intro-decoupe{position:absolute;inset:0;border:5px solid transparent;
   color:transparent;
   -webkit-background-clip:text;background-clip:text;
-  background-repeat:repeat-y;background-size:100% auto;background-position:0 0;
-  animation:introDefile 3s cubic-bezier(.12,.6,.2,1) both,
+  /* `repeat-x` et une hauteur calée sur l'élément : la planche traverse les
+     lettres en pleine hauteur, et se raccorde toute seule à chaque tour. */
+  background-repeat:repeat-x;background-size:auto 100%;background-position:0 0;
+  /* LA COURBE EST CALIBRÉE, PAS CHOISIE À L'OREILLE.
+     La précédente (.12,.62,.18,1) faisait passer 62 % de la planche dans la
+     première demi-seconde : cinquante millisecondes par case, soit rien du
+     tout — les dessins n'existaient pas. Celle-ci parcourt 13 % / 43 % / 75 %
+     à 0,5 / 1 / 1,5 s : presque régulier, puis un freinage franc sur la fin.
+     Environ 250 ms par case, ce qui suffit à les voir. */
+  animation:introDefile 3s cubic-bezier(.4,.15,.3,1) both,
             introFondu .45s 2.55s forwards;}
 
-/* Le défilement, puis l'arrêt. Ce sont les 14 % finaux — la bande presque
-   immobile — qui donnent l'impression que le titre « se pose ». Sans eux, le
-   mouvement s'interrompt net et on voit la coupure. */
+/* Le défilement, de GAUCHE À DROITE, puis l'arrêt. Ce sont les 14 % finaux —
+   la planche presque immobile — qui donnent l'impression que le titre « se
+   pose ». Sans eux, le mouvement s'interrompt net et on voit la coupure.
+   `--course` vient de intro.js : c'est la largeur réelle de la planche. */
 @keyframes introDefile{
-  0%{background-position:0 0;}
-  86%{background-position:0 -1580px;}
-  100%{background-position:0 -1620px;}
+  0%{background-position-x:0;}
+  86%{background-position-x:var(--course,-2600px);}
+  100%{background-position-x:calc(var(--course,-2600px) - 40px);}
 }
 /* Puis la couche découpée s'efface, découvrant le bloc plein : les lettres
    redeviennent blanches sur rouge, et le générique se termine sur le logo. */

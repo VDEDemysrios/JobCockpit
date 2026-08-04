@@ -75,16 +75,60 @@ function arreterApplication() {
   }
 }
 
-/** Relance l'application par son lanceur silencieux. */
-function relancerApplication(cible) {
-  const lanceur = join(cible, 'Demarrer.vbs');
-  if (!existsSync(lanceur)) return false;
+/** Une pause bloquante de `ms` millisecondes, sans dépendance. */
+const pause = (ms) => execFileSync(process.execPath, ['-e', `setTimeout(()=>{},${ms})`]);
+
+/**
+ * Vrai si quelqu'un répond sur le port de l'application.
+ *
+ * On interroge le PORT, pas la liste des processus : un exécutable vivant qui
+ * n'écoute pas est exactement le cas qu'on cherche à détecter.
+ */
+function repond(port = 3000) {
   try {
-    execFileSync('wscript.exe', [lanceur], { cwd: cible, stdio: 'ignore' });
-    return true;
+    const sortie = execFileSync('netstat', ['-ano', '-p', 'TCP'], { encoding: 'latin1' });
+    return sortie.split(/\r?\n/).some(l => /LISTENING/i.test(l) && l.includes(`:${port}`));
   } catch {
     return false;
   }
+}
+
+/**
+ * Relance l'application — et VÉRIFIE qu'elle est repartie.
+ *
+ * Lancer ne suffit pas. Deux fois de suite, une mise à jour a laissé zéro
+ * instance : le lanceur avait fait son travail, mais l'instance neuve tombait
+ * sur un port encore tenu par l'ancienne, refusait de démarrer — à juste
+ * titre — pendant que l'ancienne achevait de mourir. Le journal disait
+ * « le port 3000 est déjà pris », l'installateur disait « application
+ * relancée », et le tableau de bord était injoignable.
+ *
+ * Un installateur répond du RÉSULTAT, pas du geste : on attend la réponse, et
+ * on retente une fois si elle ne vient pas.
+ */
+function relancerApplication(cible) {
+  const lanceur = join(cible, 'Demarrer.vbs');
+  if (!existsSync(lanceur)) return false;
+
+  for (const essai of [1, 2]) {
+    try {
+      execFileSync('wscript.exe', [lanceur], { cwd: cible, stdio: 'ignore' });
+    } catch {
+      return false;
+    }
+
+    const limite = Date.now() + 25_000;
+    while (Date.now() < limite) {
+      pause(700);
+      if (repond()) return true;
+    }
+    if (essai === 1) {
+      console.log('   ⏳ pas de réponse sur le port 3000 — seconde tentative');
+      // Le port peut rester tenu quelques secondes après la mort du processus.
+      pause(3000);
+    }
+  }
+  return false;
 }
 
 export function principal(argv = process.argv.slice(2)) {
@@ -170,8 +214,17 @@ export function principal(argv = process.argv.slice(2)) {
 
   if (protegees) console.log(`   ⊘ ${protegees} fichier(s) de données déjà présent(s) — non touché(s)`);
 
-  if (tournait && relancerApplication(cible)) {
-    console.log('   ▶ application relancée');
+  // Le succès de la relance est DIT, et son échec aussi. Se taire quand
+  // l'application n'est pas repartie laissait croire à une mise à jour réussie
+  // alors que le tableau de bord était injoignable.
+  if (tournait) {
+    if (relancerApplication(cible)) {
+      console.log('   ▶ application relancée — elle répond sur http://localhost:3000');
+    } else {
+      console.log('\n   ⚠ L\'APPLICATION N\'EST PAS REPARTIE.');
+      console.log('     Rien n\'est perdu : lance-la toi-même depuis le Bureau,');
+      console.log(`     ou double-clique ${join(cible, 'Demarrer.vbs')}`);
+    }
   }
 
   console.log(`\n✅ ${premiere ? 'Installé' : 'Mis à jour'}.`);
