@@ -1182,21 +1182,33 @@ ul.mini li{margin-bottom:5px;}
 
 /* LA TAILLE DU TITRE EST CE QUI REND LES DESSINS VISIBLES.
    Les lettres ne sont pas une décoration posée sur la planche : elles en sont
-   la FENÊTRE. À 96 px, chaque glyphe ne laissait voir qu'un fragment de case
-   large comme un doigt — on devinait des couleurs qui bougent, pas une
-   éolienne. Doubler la taille double la surface par laquelle on regarde.
-   Le `clamp` monte donc jusqu'à 200 px, et la borne en `vw` garde le bloc
-   dans la fenêtre sur un petit écran. */
+   la FENÊTRE — et une fenêtre étroite ne montre rien. Un jambage d'Impact ne
+   fait qu'un cinquième de la largeur de sa lettre : à 166 px, on regardait la
+   planche à travers des fentes de trente pixels. On devinait des couleurs qui
+   bougent, jamais une éolienne.
+
+   Le titre occupe donc l'écran. `min()` le fait tenir dans les DEUX
+   dimensions à la fois : sur un écran large c'est la hauteur qui borne, sur
+   un écran bas c'est la largeur — un seul `vw` aurait débordé en hauteur dès
+   qu'on réduit la fenêtre, et l'inverse en largeur.
+
+   Les deux coefficients sont MESURÉS, pas devinés. Rendu en Impact, le bloc
+   « JOB / COCKPIT » occupe 4,96 fois sa taille de police en largeur et 2,48
+   fois en hauteur. Un premier essai à 22vw a donc débordé de 5 % — la chasse
+   d'Impact est plus large qu'elle n'en a l'air une fois le rembourrage
+   compté. 18,5vw tient dans 94 % de la fenêtre, entrée en fondu comprise. */
 .intro-titre{position:relative;z-index:5;
   font-family:Impact,Haettenschweiler,'Arial Narrow Bold','Segoe UI Black',sans-serif;
-  font-size:clamp(46px,13vw,200px);line-height:.9;text-transform:uppercase;
+  font-size:clamp(40px,min(18.5vw,33vh),400px);line-height:.9;text-transform:uppercase;
   letter-spacing:.01em;
-  animation:introTitre 3s cubic-bezier(.2,.8,.3,1) both;}
+  animation:introTitre 5s cubic-bezier(.2,.8,.3,1) both;}
+/* L'entrée part de 1,08 et non de 1,16 : à 1,16, un titre qui occupe déjà
+   94 % de la fenêtre dépasserait des bords pendant la première seconde. */
 @keyframes introTitre{
-  0%{transform:scale(1.16);opacity:0;}
+  0%{transform:scale(1.08);opacity:0;}
   7%{opacity:1;}
   86%{transform:scale(1);}
-  100%{transform:scale(1.02);opacity:1;}
+  100%{transform:scale(1.015);opacity:1;}
 }
 
 .intro-plein,.intro-decoupe{display:flex;flex-direction:column;align-items:center;
@@ -1213,30 +1225,43 @@ ul.mini li{margin-bottom:5px;}
   /* `repeat-x` et une hauteur calée sur l'élément : la planche traverse les
      lettres en pleine hauteur, et se raccorde toute seule à chaque tour. */
   background-repeat:repeat-x;background-size:auto 100%;background-position:0 0;
-  /* LA COURBE EST CALIBRÉE, PAS CHOISIE À L'OREILLE.
-     La précédente (.12,.62,.18,1) faisait passer 62 % de la planche dans la
-     première demi-seconde : cinquante millisecondes par case, soit rien du
-     tout — les dessins n'existaient pas. Celle-ci parcourt 13 % / 43 % / 75 %
-     à 0,5 / 1 / 1,5 s : presque régulier, puis un freinage franc sur la fin.
-     Environ 250 ms par case, ce qui suffit à les voir. */
-  animation:introDefile 3s cubic-bezier(.4,.15,.3,1) both,
-            introFondu .45s 2.55s forwards;}
+  /* LE RYTHME EST DANS LES IMAGES-CLÉS, PAS DANS LA COURBE.
+     Aucune courbe de Bézier simple ne donne un défilement régulier : toutes
+     chargent le début. Mesuré sur la précédente — 1,8 case la première
+     seconde, puis 4 la deuxième. On ne voyait rien au moment où il aurait
+     fallu regarder.
+     D'où deux segments explicites : 75 % de la planche à vitesse CONSTANTE
+     sur les 70 premiers pour cent du temps — soit un peu plus de deux cases
+     par seconde, environ 460 ms chacune — puis un freinage sur le dernier
+     quart, qui amène le titre à l'arrêt. */
+  animation:introDefile 5s linear both,
+            introFondu .5s 4.4s forwards;}
 
 /* Le défilement, de GAUCHE À DROITE, puis l'arrêt. Ce sont les 14 % finaux —
    la planche presque immobile — qui donnent l'impression que le titre « se
    pose ». Sans eux, le mouvement s'interrompt net et on voit la coupure.
    `--course` vient de intro.js : c'est la largeur réelle de la planche. */
 @keyframes introDefile{
-  0%{background-position-x:0;}
-  86%{background-position-x:var(--course,-2600px);}
-  100%{background-position-x:calc(var(--course,-2600px) - 40px);}
+  0%{background-position-x:0;animation-timing-function:linear;}
+  /* La pente d'entrée du second segment est CALCULÉE pour prolonger le
+     premier sans à-coup. Une courbe de freinage ordinaire redémarrait plus
+     vite que la vitesse de croisière — mesuré : un bond de 2,1 à 4,1 cases
+     par seconde juste avant de ralentir, soit une accélération pile au moment
+     où l'œil s'attend à un arrêt.
+     Le premier segment avance à 1,071 en unités normalisées, le second doit
+     couvrir 25 % de la distance en 30 % du temps, soit 0,833 de moyenne : sa
+     pente initiale doit donc valoir 1,071 / 0,833 = 1,286, ce que donne
+     y1/x1 = .45/.35. Et y2 = 1 amène la pente finale à zéro : l'arrêt. */
+  70%{background-position-x:calc(var(--course,-2600px) * .75);
+      animation-timing-function:cubic-bezier(.35,.45,.6,1);}
+  100%{background-position-x:var(--course,-2600px);}
 }
 /* Puis la couche découpée s'efface, découvrant le bloc plein : les lettres
    redeviennent blanches sur rouge, et le générique se termine sur le logo. */
 @keyframes introFondu{to{opacity:0;}}
 
 .intro-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;
-  animation:introFlash .6s 2.55s forwards;}
+  animation:introFlash .6s 4.45s forwards;}
 @keyframes introFlash{0%{opacity:0;}32%{opacity:.94;}100%{opacity:0;}}
 
 .intro-passer{position:absolute;right:var(--e4);bottom:var(--e4);z-index:6;

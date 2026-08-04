@@ -267,7 +267,10 @@ export function jouerIntro({ forcer = false } = {}) {
       setTimeout(() => { ecran.remove(); resoudre(); }, 460);
     };
 
-    const minuteur = setTimeout(terminer, 3050);
+    // 5 s d'animation + le temps du flash. Cette durée suit celle du CSS :
+    // les désaccorder couperait l'écran avant la fin, ou le laisserait traîner
+    // après.
+    const minuteur = setTimeout(terminer, 5050);
     window.addEventListener('keydown', terminer, true);
     window.addEventListener('pointerdown', terminer, true);
   });
