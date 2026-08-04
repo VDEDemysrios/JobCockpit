@@ -1180,10 +1180,17 @@ ul.mini li{margin-bottom:5px;}
 .intro-sortie{animation:introSortie .45s cubic-bezier(.4,0,1,1) forwards;}
 @keyframes introSortie{to{opacity:0;transform:scale(1.06);}}
 
+/* LA TAILLE DU TITRE EST CE QUI REND LES DESSINS VISIBLES.
+   Les lettres ne sont pas une décoration posée sur la planche : elles en sont
+   la FENÊTRE. À 96 px, chaque glyphe ne laissait voir qu'un fragment de case
+   large comme un doigt — on devinait des couleurs qui bougent, pas une
+   éolienne. Doubler la taille double la surface par laquelle on regarde.
+   Le `clamp` monte donc jusqu'à 200 px, et la borne en `vw` garde le bloc
+   dans la fenêtre sur un petit écran. */
 .intro-titre{position:relative;z-index:5;
   font-family:Impact,Haettenschweiler,'Arial Narrow Bold','Segoe UI Black',sans-serif;
-  font-size:clamp(30px,7vw,96px);line-height:.92;text-transform:uppercase;
-  letter-spacing:.02em;
+  font-size:clamp(46px,13vw,200px);line-height:.9;text-transform:uppercase;
+  letter-spacing:.01em;
   animation:introTitre 3s cubic-bezier(.2,.8,.3,1) both;}
 @keyframes introTitre{
   0%{transform:scale(1.16);opacity:0;}

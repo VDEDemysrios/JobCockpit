@@ -225,10 +225,6 @@ export function jouerIntro({ forcer = false } = {}) {
   const bande = bandeDessinee();
   const decoupe = titre.querySelector('.intro-decoupe');
   decoupe.style.backgroundImage = bande.image;
-  // La course est calculée d'après la LARGEUR RÉELLE de la planche, pas
-  // recopiée à la main dans le CSS. Ajouter une case ne demande donc rien
-  // d'autre que de l'ajouter : le défilement reste raccord tout seul.
-  decoupe.style.setProperty('--course', `-${bande.largeur}px`);
 
   const flash = document.createElement('div');
   flash.className = 'intro-flash';
@@ -240,6 +236,21 @@ export function jouerIntro({ forcer = false } = {}) {
 
   ecran.append(titre, flash, passer);
   document.body.appendChild(ecran);
+
+  // LA COURSE SE MESURE UNE FOIS LE TITRE POSÉ, pas avant.
+  //
+  // `background-size:auto 100%` met la planche à la hauteur du bloc : sa
+  // largeur RENDUE n'est donc plus celle du SVG, mais celle-là multipliée par
+  // le rapport d'échelle. Défiler de la largeur d'origine reviendrait à ne
+  // traverser qu'une partie de la planche — d'autant moins qu'on agrandit le
+  // titre, et c'est justement ce qu'on vient de faire.
+  //
+  // `offsetHeight` et non `getBoundingClientRect()` : le titre est en train de
+  // grandir (animation d'échelle), et le rectangle client renverrait la
+  // hauteur transformée de l'instant, pas celle de la mise en page.
+  const hauteur = decoupe.offsetHeight || CASE_H;
+  const largeurRendue = Math.round(bande.largeur * (hauteur / CASE_H));
+  decoupe.style.setProperty('--course', `-${largeurRendue}px`);
 
   return new Promise((resoudre) => {
     let fini = false;
