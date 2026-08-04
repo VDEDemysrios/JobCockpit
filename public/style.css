@@ -1180,6 +1180,22 @@ ul.mini li{margin-bottom:5px;}
 .intro-sortie{animation:introSortie .45s cubic-bezier(.4,0,1,1) forwards;}
 @keyframes introSortie{to{opacity:0;transform:scale(1.06);}}
 
+/* LE DÉCOR : la même planche, en grand, derrière le titre.
+   Des cases hautes de 60 % de l'écran — trois et demie tiennent en largeur,
+   assez pour lire un dessin en entier. Elle défile en même temps que celle
+   des lettres, avec sa propre course : les deux couches n'ont pas la même
+   échelle, une course commune les désynchroniserait. */
+.intro-fond{position:absolute;inset:0;
+  background-repeat:repeat-x;background-size:auto 60vh;background-position:0 center;
+  animation:introDefile 5s linear both;}
+
+/* Le voile. Sans lui, un fond à pleine lumière rivaliserait avec le titre et
+   l'on ne saurait plus où regarder ; à travers les lettres, la planche
+   apparaît en pleine lumière, et c'est ce contraste qui fait la découpe.
+   Le dégradé assombrit davantage le centre, là où le titre se pose. */
+.intro-voile{position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at center,rgba(10,10,12,.88) 0%,rgba(10,10,12,.72) 55%,rgba(10,10,12,.6) 100%);}
+
 /* LA TAILLE DU TITRE EST CE QUI REND LES DESSINS VISIBLES.
    Les lettres ne sont pas une décoration posée sur la planche : elles en sont
    la FENÊTRE — et une fenêtre étroite ne montre rien. Un jambage d'Impact ne

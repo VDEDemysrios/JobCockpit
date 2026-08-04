@@ -226,6 +226,25 @@ export function jouerIntro({ forcer = false } = {}) {
   const decoupe = titre.querySelector('.intro-decoupe');
   decoupe.style.backgroundImage = bande.image;
 
+  // LA PLANCHE PASSE AUSSI DERRIÈRE, EN GRAND.
+  //
+  // Mesure à l'appui, changer de police ne servait à rien : plus une grasse
+  // est large, plus il faut la réduire pour qu'elle tienne à l'écran, et le
+  // jambage rétrécit avec. Arial Black donne 45 px d'encre là où Impact en
+  // donne 62. La fenêtre typographique a une limite, et on l'avait atteinte.
+  //
+  // Alors on cesse de ne regarder QUE par la fenêtre : le même ruban défile
+  // en fond, assombri, à une échelle où trois cases tiennent à l'écran. Les
+  // dessins se voient enfin en entier — et les lettres, elles, les montrent
+  // en pleine lumière. C'est du même coup le décor comics de l'ouverture.
+  const fond = document.createElement('div');
+  fond.className = 'intro-fond';
+  fond.setAttribute('aria-hidden', 'true');
+  fond.style.backgroundImage = bande.image;
+
+  const voile = document.createElement('div');
+  voile.className = 'intro-voile';
+
   const flash = document.createElement('div');
   flash.className = 'intro-flash';
 
@@ -234,23 +253,31 @@ export function jouerIntro({ forcer = false } = {}) {
   passer.type = 'button';
   passer.textContent = 'Passer';
 
-  ecran.append(titre, flash, passer);
+  ecran.append(fond, voile, titre, flash, passer);
   document.body.appendChild(ecran);
 
-  // LA COURSE SE MESURE UNE FOIS LE TITRE POSÉ, pas avant.
+  // LA COURSE SE MESURE UNE FOIS LES ÉLÉMENTS POSÉS, pas avant.
   //
-  // `background-size:auto 100%` met la planche à la hauteur du bloc : sa
-  // largeur RENDUE n'est donc plus celle du SVG, mais celle-là multipliée par
-  // le rapport d'échelle. Défiler de la largeur d'origine reviendrait à ne
-  // traverser qu'une partie de la planche — d'autant moins qu'on agrandit le
-  // titre, et c'est justement ce qu'on vient de faire.
+  // La planche est mise à la hauteur de l'élément qui la porte : sa largeur
+  // RENDUE n'est donc pas celle du SVG, mais celle-là multipliée par le
+  // rapport d'échelle. Défiler de la largeur d'origine reviendrait à ne
+  // traverser qu'une partie du ruban.
+  //
+  // Et les deux couches n'ont ni la même taille ni la même échelle : le fond
+  // affiche des cases de 60 % de la hauteur d'écran, le titre des cases à sa
+  // propre hauteur. Une course commune les désynchroniserait — chacune a donc
+  // la sienne, calculée pareillement.
   //
   // `offsetHeight` et non `getBoundingClientRect()` : le titre est en train de
   // grandir (animation d'échelle), et le rectangle client renverrait la
   // hauteur transformée de l'instant, pas celle de la mise en page.
-  const hauteur = decoupe.offsetHeight || CASE_H;
-  const largeurRendue = Math.round(bande.largeur * (hauteur / CASE_H));
-  decoupe.style.setProperty('--course', `-${largeurRendue}px`);
+  const courseDe = (el, hauteurCase) => {
+    const largeur = Math.round(bande.largeur * (hauteurCase / CASE_H));
+    el.style.setProperty('--course', `-${largeur}px`);
+  };
+  courseDe(decoupe, decoupe.offsetHeight || CASE_H);
+  // Le fond suit la règle du CSS : des cases hautes de 60 % de la fenêtre.
+  courseDe(fond, window.innerHeight * 0.6);
 
   return new Promise((resoudre) => {
     let fini = false;
