@@ -42,38 +42,53 @@ function segmentsGeo(offre) {
 }
 
 /**
- * La ville prioritaire à laquelle rattacher une offre, ou null.
+ * DEUX QUESTIONS, PAS UNE.
  *
- * Les trois critères sont appliqués en PASSES SUCCESSIVES, du plus sûr au
- * plus large : un nom de commune explicite doit l'emporter sur une simple
- * coïncidence de département, quel que soit l'ordre des villes du profil.
+ * Elles se ressemblent assez pour avoir longtemps partagé la même
+ * configuration, et c'est ce qui a produit le défaut : l'onglet « Nancy »
+ * affichait Metz et Épinal, « Strasbourg » affichait Colmar et Mulhouse.
  *
- * @param {{ville?: string, zone?: string, codePostal?: string, departement?: string}} offre
- * @param {object[]} villesPrioritaires  profil.villesPrioritaires
- * @returns {string|null} le nom de la ville, tel qu'écrit dans le profil
+ *   « Est-ce que ce poste est géographiquement acceptable ? »
+ *      → LARGE. C'est le bassin qu'on accepte de considérer. Metz depuis
+ *        Nancy, oui. Cette réponse commande la COLLECTE : hors de ce
+ *        périmètre, seules les offres prioritaires ou possibles sont gardées.
+ *
+ *   « Dans quel onglet cette offre doit-elle apparaître ? »
+ *      → SERRÉ. Un onglet nommé « Nancy » qui contient Metz ne range rien :
+ *        il déguise un département en ville. Cette réponse commande
+ *        l'AFFICHAGE, et tout ce qui n'entre nulle part tombe dans « Autre »,
+ *        qui existe précisément pour ça.
+ *
+ * D'où deux jeux de champs dans profile.json :
+ *   · `zonesProches` / `departementsProches` — le filet large, pour collecter ;
+ *   · `zonesOnglet`  / `departementsOnglet`  — le périmètre serré, pour ranger.
+ *
+ * Les seconds retombent sur les premiers s'ils manquent : un profil qui n'a
+ * pas encore été mis à jour garde exactement l'ancien comportement.
  */
-export function villeDeRattachement(offre, villesPrioritaires = []) {
+
+/** Passes de rattachement, du signal le plus sûr au plus grossier. */
+function chercher(offre, villes, { zones, departements }) {
   const segments = segmentsGeo(offre);
-  const departement = deduireDepartement(offre);
 
   // 1. Le nom de la ville prioritaire est distinctif : une inclusion suffit
   //    (« Eurométropole de Strasbourg » doit correspondre à Strasbourg).
-  for (const v of villesPrioritaires) {
+  for (const v of villes) {
     const nom = normaliser(v.nom);
     if (segments.some(s => s.includes(nom))) return v.nom;
   }
 
-  // 2. Les zones limitrophes, elles, exigent une correspondance EXACTE.
-  for (const v of villesPrioritaires) {
-    const proches = (v.zonesProches ?? []).map(normaliser);
-    if (segments.some(s => proches.includes(s))) return v.nom;
+  // 2. Les communes et zones déclarées, elles, exigent l'égalité exacte.
+  for (const v of villes) {
+    const liste = zones(v).map(normaliser);
+    if (segments.some(s => liste.includes(s))) return v.nom;
   }
 
   // 3. À défaut, le département — le signal le plus grossier, donc le dernier.
+  const departement = deduireDepartement(offre);
   if (departement) {
-    for (const v of villesPrioritaires) {
-      const deps = v.departementsProches ?? [v.departement];
-      if (deps.includes(departement)) return v.nom;
+    for (const v of villes) {
+      if (departements(v).includes(departement)) return v.nom;
     }
   }
 
@@ -81,13 +96,36 @@ export function villeDeRattachement(offre, villesPrioritaires = []) {
 }
 
 /**
- * true si l'offre se situe dans (ou près d')une ville prioritaire.
+ * L'onglet dans lequel ranger une offre, ou null pour « Autre ».
+ *
+ * Périmètre SERRÉ : la ville et son agglomération réelle.
+ *
+ * @param {{ville?: string, zone?: string, codePostal?: string, departement?: string}} offre
+ * @param {object[]} villesPrioritaires  profil.villesPrioritaires
+ * @returns {string|null} le nom de la ville, tel qu'écrit dans le profil
+ */
+export function villeDeRattachement(offre, villesPrioritaires = []) {
+  return chercher(offre, villesPrioritaires, {
+    zones: v => v.zonesOnglet ?? v.zonesProches ?? [],
+    departements: v => v.departementsOnglet ?? (v.departement ? [v.departement] : []),
+  });
+}
+
+/**
+ * true si l'offre se situe dans un bassin qu'on accepte de considérer.
+ *
+ * Périmètre LARGE, et volontairement distinct de l'onglet : une offre à Metz
+ * reste collectée — elle est à trois quarts d'heure de Nancy — mais elle
+ * s'affiche dans « Autre », pas dans l'onglet Nancy.
  *
  * Les sources ne renvoient pas toutes une commune : Adzuna a renvoyé
  * « Hauts-de-Seine » (un département) et « Dammartin-en-Goële » (une commune
  * de banlieue). Un simple test sur le nom de la ville les classait « hors
  * zone » alors qu'elles sont en Île-de-France.
  */
-export function estDansZonePrioritaire(offre, villesPrioritaires) {
-  return villeDeRattachement(offre, villesPrioritaires) !== null;
+export function estDansZonePrioritaire(offre, villesPrioritaires = []) {
+  return chercher(offre, villesPrioritaires, {
+    zones: v => v.zonesProches ?? [],
+    departements: v => v.departementsProches ?? (v.departement ? [v.departement] : []),
+  }) !== null;
 }

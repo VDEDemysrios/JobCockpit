@@ -72,7 +72,57 @@ test('rattache par zone limitrophe et par département', () => {
 // `ville` et la colonne `departement` subsistent. L'onglet doit tenir avec ça.
 test('rattache une offre relue en base, à partir du département stocké', () => {
   assert.equal(rattachee({ ville: 'Schiltigheim', departement: '67' }), 'Strasbourg');
-  assert.equal(rattachee({ ville: 'Dammartin-en-Goele', departement: '77' }), 'Paris');
+  assert.equal(rattachee({ ville: 'Boulogne-Billancourt', departement: '92' }), 'Paris');
+});
+
+/**
+ * LE DÉFAUT QUE CES TESTS EXISTENT POUR ATTRAPER.
+ *
+ * L'onglet « Nancy » affichait Metz et Épinal, « Strasbourg » affichait
+ * Colmar et Mulhouse, « Lyon » affichait Grenoble. Les onglets portaient un
+ * nom de ville mais contenaient un département — quatre, dans le cas de
+ * Nancy. Sur les 337 offres en base, 50 étaient rangées sous une ville où
+ * elles ne sont pas.
+ *
+ * La cause n'était pas le code mais la configuration : un seul jeu de zones
+ * servait à DEUX questions qui n'ont pas la même réponse. Voir l'en-tête de
+ * src/zone.js.
+ */
+test('un onglet de ville ne contient pas les villes voisines', () => {
+  for (const [offre, attendu] of [
+    [{ ville: 'Metz', departement: '57' },      'Nancy'],
+    [{ ville: 'EPINAL CEDEX', departement: '88' }, 'Nancy'],
+    [{ ville: 'Colmar', departement: '68' },    'Strasbourg'],
+    [{ ville: 'Guebwiller', departement: '68' }, 'Strasbourg'],
+    [{ ville: 'Grenoble', departement: '38' },  'Lyon'],
+    [{ ville: 'Versailles', departement: '78' }, 'Paris'],
+  ]) {
+    assert.notEqual(rattachee(offre), attendu,
+      `${offre.ville} n'a rien à faire dans l'onglet ${attendu}`);
+  }
+});
+
+/**
+ * L'AUTRE MOITIÉ DU CONTRAT, ET LA PLUS FACILE À CASSER.
+ *
+ * Resserrer les onglets ne doit RIEN retirer de la collecte : `collect.js`
+ * jette les offres hors zone qui ne sont ni prioritaires ni possibles. Si les
+ * deux périmètres se remettaient à n'en faire qu'un, Metz et Colmar
+ * cesseraient d'être collectées — une perte silencieuse, invisible dans
+ * l'interface, et qu'on ne remarquerait qu'en ne recevant plus rien.
+ */
+test('resserrer les onglets ne rétrécit pas la collecte', () => {
+  for (const offre of [
+    { ville: 'Metz', departement: '57' },
+    { ville: 'Colmar', departement: '68' },
+    { ville: 'Grenoble', departement: '38' },
+    { ville: 'Versailles', departement: '78' },
+  ]) {
+    assert.ok(dansLaZone(offre),
+      `${offre.ville} doit rester collectée, même rangée dans « Autre »`);
+    assert.equal(rattachee(offre), null,
+      `${offre.ville} doit tomber dans « Autre »`);
+  }
 });
 
 // Un nom de commune explicite doit primer sur une simple coïncidence de

@@ -50,6 +50,13 @@
         "haut rhin",
         "alsace",
         "eurometropole de strasbourg"
+      ],
+      "departementsOnglet": [
+        "67"
+      ],
+      "zonesOnglet": [
+        "bas rhin",
+        "eurometropole de strasbourg"
       ]
     }
   ],
@@ -83,7 +90,6 @@
     }
   ],
   "rayonKm": 30,
-
   "_intitules": [
     "COURTS, et peu nombreux. Deux pièges, opposés l'un à l'autre :",
     "",
@@ -169,7 +175,6 @@
       "Les offres enlevées sont inscrites parmi les « écartées », sans quoi",
       "la source les republiant, elles reviendraient à la collecte suivante."
     ],
-
     "_nettoyageAutomatique": [
       "À placer À LA RACINE du profil, pas dans « scoring » :",
       "  \"nettoyageAutomatique\": true",
@@ -185,7 +190,6 @@
       "statut, envoi, relance, note, épingle, lettre ou saisie manuelle",
       "mettent une offre à l'abri."
     ],
-
     "_eliminatoiresTitre": [
       "Motifs cherchés dans le SEUL INTITULÉ du poste, jamais dans la",
       "description — et cette distinction n'est pas cosmétique.",
@@ -228,7 +232,6 @@
         "note": "profession réglementée non détenue"
       }
     ],
-
     "_seuils": [
       "Score minimal pour chaque groupe. « aVerifier » mérite attention :",
       "trop bas, un seul motif générique suffit à échapper au groupe 3, et la",
