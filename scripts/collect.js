@@ -15,6 +15,7 @@ import {
 } from '../src/db.js';
 import { peutAnalyser, noterAppel, fermerAnalyse, etatQuota, ANALYSE } from '../src/quota.js';
 import { sauvegarder } from '../src/sauvegarde.js';
+import { corrigerBase } from './corriger-departements.js';
 
 /** Racine du projet — la sauvegarde y prend le profil, le CV et les clés. */
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -238,6 +239,22 @@ export async function collecter({
       const ecartees = aEnlever.filter(o => o.motif === 'ecartee').length;
       console.log(`  🧹 ${horsProfil} offre(s) hors profil enlevée(s) — ${ecartees} écartées au score, ${horsProfil - ecartees} refusées par l'analyse`);
     }
+  }
+
+  // Cohérence des départements, à CHAQUE tour.
+  //
+  // Une correction ponctuelle ne tient pas : la source qui a produit le
+  // mauvais département le reproduit au passage suivant. Constaté sur une
+  // offre à Metz étiquetée 67 — remise à 57 à la main, revenue à 67 dès la
+  // collecte d'après, et de nouveau affichée dans l'onglet Strasbourg. Une
+  // erreur qui repousse doit être traitée là où elle repousse.
+  //
+  // La passe ne corrige que ce dont elle est sûre : majorité NETTE d'une
+  // commune sur son département, ou numéro d'arrondissement pris pour un
+  // département. Le reste est laissé tel quel.
+  const departementsCorriges = corrigerBase(db);
+  if (departementsCorriges > 0) {
+    console.log(`  📍 ${departementsCorriges} département(s) incohérent(s) corrigé(s)`);
   }
 
   // Offres restées « À postuler » trop longtemps. Réglé par `sansReponseJours`

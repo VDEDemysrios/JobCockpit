@@ -23,7 +23,17 @@ export function deduireDepartement(offre) {
   // On balaie les trois champs : le code postal est absent chez Adzuna, et
   // « 54 - NANCY » (France Travail) ou « Strasbourg, 67 » (Jooble) ne portent
   // le code que dans le libellé de zone.
-  const source = `${offre.codePostal ?? ''} ${offre.ville ?? ''} ${offre.zone ?? ''}`;
+  //
+  // UN NUMÉRO D'ARRONDISSEMENT N'EST PAS UN DÉPARTEMENT.
+  // « 13ème Arrondissement » donnait les Bouches-du-Rhône, « 17ème » la
+  // Charente-Maritime, « 18ème » le Cher — trois offres parisiennes envoyées
+  // à l'autre bout du pays. Le numéro du quartier est donc retiré AVANT toute
+  // déduction : mieux vaut aucun département qu'un département inventé, car
+  // le premier laisse l'offre dans « Autre » quand le second la range
+  // faussement ailleurs, avec l'air d'être sûr de lui.
+  const source = `${offre.codePostal ?? ''} ${offre.ville ?? ''} ${offre.zone ?? ''}`
+    .replace(/\b\d{1,2}\s*(?:er|ère|re|e|ème|eme)?[-\s]*arrondissements?\b/gi, ' ');
+
   const trouve = source.match(/\b(\d{2})\d{0,3}\b/);
   return trouve ? trouve[1] : null;
 }

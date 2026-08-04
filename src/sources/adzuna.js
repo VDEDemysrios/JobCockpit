@@ -9,14 +9,36 @@ const URL_BASE = 'https://api.adzuna.com/v1/api/jobs/fr/search/1';
 // Adzuna utilise un vocabulaire anglophone pour les types de contrat.
 const CONTRATS = { permanent: 'CDI', contract: 'CDD', part_time: 'Temps partiel', internship: 'Stage' };
 
+/**
+ * « 8ème Arrondissement », « 1er-Arrondissement », « 13e arrondissement ».
+ * Un quartier, jamais une commune.
+ */
+const EST_ARRONDISSEMENT = /^\s*\d{1,2}\s*(?:er|ère|re|e|ème|eme)?[-\s]*arrondissements?\b/i;
+
 /** Convertit une offre Adzuna vers le format commun du projet. */
 export function normaliserOffre(brute) {
   // location.area = ['France', 'Grand Est', 'Bas-Rhin', 'Strasbourg']
   // Le dernier élément est le plus précis.
   const zones = brute.location?.area ?? [];
-  const ville = zones.length > 0
-    ? zones[zones.length - 1]
-    : (brute.location?.display_name ?? '').split(',')[0].trim();
+
+  // SAUF DANS LES GRANDES VILLES, OÙ LE PLUS PRÉCIS N'EST PAS LE PLUS UTILE.
+  // Adzuna descend d'un cran de plus : ['France', 'Île-de-France', 'Paris',
+  // '8ème Arrondissement']. Ne garder que le dernier, c'était perdre « Paris »
+  // en chemin — 13 offres parisiennes se retrouvaient sous un nom de quartier
+  // que rien ne rattachait à une ville, donc dans l'onglet « Autre ».
+  //
+  // Pire : le numéro du quartier était ensuite lu comme un département.
+  // « 13ème Arrondissement » devenait les Bouches-du-Rhône, « 17ème » la
+  // Charente-Maritime, « 18ème » le Cher. Trois offres de Paris classées à
+  // l'autre bout du pays, sans que rien ne le signale.
+  const ville = (() => {
+    if (zones.length === 0) return (brute.location?.display_name ?? '').split(',')[0].trim();
+    const dernier = zones[zones.length - 1];
+    if (zones.length >= 2 && EST_ARRONDISSEMENT.test(dernier)) {
+      return `${zones[zones.length - 2]} ${dernier}`.trim();
+    }
+    return dernier;
+  })();
 
   let salaireSource = null;
   if (brute.salary_min && brute.salary_max) {
