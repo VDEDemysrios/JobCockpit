@@ -516,6 +516,13 @@ select:focus,.search:focus,input:focus,textarea:focus{outline:none;border-color:
   background:var(--bg2);color:var(--muted);border-radius:var(--r1);padding:1px 5px;min-width:20px;
   text-align:center;transition:background .16s,color .16s;}
 .ville.active .vn{background:var(--accent-bg);color:var(--accent-ink);}
+/* « Envoyées » n'est pas une ville : un filet à gauche le détache du groupe,
+   sans le reléguer — c'est là qu'on va voir ce qu'on a déjà fait. */
+.ville-envoyees{margin-left:auto;padding-left:var(--e4);
+  border-left:1px solid var(--line);}
+.ville-envoyees.active{border-bottom-color:var(--g1);}
+.ville-envoyees .vn{background:var(--g1b);color:var(--g1);}
+
 /* Le compte des prioritaires. C'est lui qui répond à « où travailler ? » :
    80 offres possibles pèsent moins que 12 prioritaires. */
 .ville .vp{font-size:10.5px;font-weight:var(--w-semi);font-variant-numeric:tabular-nums;

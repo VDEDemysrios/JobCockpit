@@ -27,6 +27,9 @@ const THEMES = ['comics', 'vivid', 'enr', 'dark', 'cockpit'];
 /** Onglet fourre-tout : tout ce qui n'est rattaché à aucune ville prioritaire. */
 const VILLE_AUTRE = 'autre';
 
+/** Onglet des offres auxquelles on a déjà postulé — voir `ongletDe`. */
+const ONGLET_ENVOYEES = 'envoyees';
+
 // ------------------------------------------------------------------ options
 
 const OPTIONS_DEFAUT = {
@@ -349,11 +352,28 @@ const rangGroupe = g => ({ 1: 0, 2: 1, 0: 2, 3: 3 }[g] ?? 4);
 
 /** Les onglets, dans l'ordre : les villes du profil, puis le fourre-tout. */
 function villesOnglets() {
-  return [...(etat.meta?.villes ?? []), VILLE_AUTRE];
+  return [...(etat.meta?.villes ?? []), VILLE_AUTRE, ONGLET_ENVOYEES];
 }
 
-/** L'onglet d'une offre. Une ville disparue du profil retombe dans « Autre ». */
+/**
+ * L'onglet d'une offre.
+ *
+ * UNE CANDIDATURE ENVOYÉE QUITTE SA VILLE.
+ * Les onglets de ville servent à TRIER ce qui reste à faire. Une offre à
+ * laquelle on vient de postuler n'est plus du tri : la laisser en tête de la
+ * liste de Strasbourg, avec sa pastille verte au milieu de celles qui
+ * attendent, oblige à la re-lire et à la re-écarter mentalement à chaque
+ * passage. Elle part donc dans « Envoyées » — visible, mais plus dans le
+ * chemin.
+ *
+ * Tous les statuts postérieurs à l'envoi s'y retrouvent (relancé, entretien,
+ * refus) : ce qui les réunit n'est pas leur issue, c'est que la décision de
+ * postuler est prise. Le Kanban reste l'endroit où suivre la suite.
+ *
+ * Une ville disparue du profil retombe dans « Autre ».
+ */
 function ongletDe(offre) {
+  if ((offre.suivi?.status ?? 'À postuler') !== 'À postuler') return ONGLET_ENVOYEES;
   return villesOnglets().includes(offre.villePrio) ? offre.villePrio : VILLE_AUTRE;
 }
 
@@ -375,13 +395,18 @@ function construireOnglets() {
   if (!villes.includes(etat.ville)) {
     const compte = Object.fromEntries(villes.map(v => [v, 0]));
     etat.offres.forEach(o => { compte[ongletDe(o)]++; });
-    etat.ville = villes.reduce((a, b) => (compte[b] > compte[a] ? b : a), villes[0]);
+    // « Envoyées » est exclu du choix : ouvrir l'application sur ce qui est
+    // déjà fait, c'est commencer la journée par regarder derrière soi.
+    const choisissables = villes.filter(v => v !== ONGLET_ENVOYEES);
+    etat.ville = choisissables.reduce((a, b) => (compte[b] > compte[a] ? b : a), choisissables[0]);
   }
 
-  const libelle = (v) => (v === VILLE_AUTRE ? 'Autre' : v);
+  const libelle = (v) => (v === VILLE_AUTRE ? 'Autre'
+    : v === ONGLET_ENVOYEES ? 'Envoyées' : v);
 
   document.getElementById('villes').innerHTML = villes.map(v => `
-    <button class="ville ${v === etat.ville ? 'active' : ''}" data-v="${echapper(v)}">
+    <button class="ville ${v === etat.ville ? 'active' : ''}${v === ONGLET_ENVOYEES ? ' ville-envoyees' : ''}"
+            data-v="${echapper(v)}">
       <span class="vv">${echapper(libelle(v))}</span>
       <span class="vn" data-compte="${echapper(v)}">0</span>
       <span class="vp"></span>
@@ -437,8 +462,11 @@ function rendreOffres() {
     const n = prioParVille[v] ?? 0;
     // La couleur de `.vp` dit déjà « prioritaire » : le disque vert doublait
     // l'information et se rendait différemment d'un système à l'autre.
-    prio.textContent = n ? `${n} prio` : '';
-    prio.style.display = n ? '' : 'none';
+    // « 12 prio » répond à « où sont les bonnes offres ». Dans « Envoyées »,
+    // la question ne se pose plus : la décision est prise.
+    const pertinent = n > 0 && v !== ONGLET_ENVOYEES;
+    prio.textContent = pertinent ? `${n} prio` : '';
+    prio.style.display = pertinent ? '' : 'none';
     bouton.title = n
       ? `${pluriel(n, 'offre')} prioritaire${n > 1 ? 's' : ''} sur ${parVille[v]}`
       : `${pluriel(parVille[v] ?? 0, 'offre')}, aucune prioritaire`;
@@ -463,9 +491,30 @@ function rendreOffres() {
   // Les épinglées remontent toujours en tête.
   liste.sort((a, b) => (b.suivi.pinned ? 1 : 0) - (a.suivi.pinned ? 1 : 0));
 
-  const ouLibelle = etat.ville === VILLE_AUTRE ? 'hors des villes prioritaires' : `à ${etat.ville}`;
-  document.getElementById('offersSub').textContent =
-    `${ouLibelle} — ${compte[1]} prioritaires · ${compte[2]} possibles · ${compte[0]} à vérifier`;
+  // Le libellé sert DEUX fois : le sous-titre juste en dessous, et le message
+  // d'onglet vide plus bas. Le déclarer dans une branche l'y rendait
+  // invisible — et une ReferenceError au milieu du rendu vidait la grille
+  // entière, sans rien afficher d'autre qu'une liste blanche.
+  const ouLibelle = etat.ville === ONGLET_ENVOYEES ? 'parmi les candidatures envoyées'
+    : etat.ville === VILLE_AUTRE ? 'hors des villes prioritaires'
+      : `à ${etat.ville}`;
+
+  // L'onglet « Envoyées » ne se décrit pas par groupe de pertinence : ce qui
+  // compte n'y est plus « faut-il postuler » mais « où en est-on ».
+  if (etat.ville === ONGLET_ENVOYEES) {
+    const parStatut = {};
+    for (const o of dansLaVille) parStatut[o.suivi.status] = (parStatut[o.suivi.status] ?? 0) + 1;
+    const resume = Object.entries(parStatut)
+      .sort((a, b) => b[1] - a[1])
+      .map(([s, n]) => `${n} ${s.toLowerCase()}`)
+      .join(' · ');
+    document.getElementById('offersSub').textContent = dansLaVille.length
+      ? `candidatures envoyées — ${resume}`
+      : 'aucune candidature envoyée pour l\'instant';
+  } else {
+    document.getElementById('offersSub').textContent =
+      `${ouLibelle} — ${compte[1]} prioritaires · ${compte[2]} possibles · ${compte[0]} à vérifier`;
+  }
 
   const vide = document.getElementById('empty');
   vide.style.display = liste.length ? 'none' : 'block';
