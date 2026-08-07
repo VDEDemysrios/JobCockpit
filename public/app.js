@@ -629,6 +629,11 @@ function brancherCarte(carte, offre) {
       // est une correction, pas une victoire.
       if (versEnvoye) onomatopee('candidature', offre.entreprise ?? '');
       appliquerSuivi(offre, r, champs); await rafraichirStats(); rendreTout();
+    } else {
+      // Voir `deposerKanban` : un échec doit ramener l'écran à ce qui est
+      // réellement enregistré, sans quoi on croit avoir postulé.
+      await chargerDonnees();
+      rendreTout();
     }
   });
 
@@ -791,7 +796,20 @@ async function deposerKanban(id, statut) {
     if (statut === 'Entretien') celebrer(60);
     await rafraichirStats();
     rendreTout();
+    return;
   }
+
+  // ÉCHEC : ON REDESSINE, POUR QUE L'ÉCRAN NE MENTE PAS.
+  //
+  // Sans cela, une carte déposée dans « Envoyé » alors que le serveur ne
+  // répond pas — pendant un redémarrage, par exemple — restait affichée dans
+  // sa nouvelle colonne. Le toast d'erreur passait, la carte semblait déplacée,
+  // et rien n'avait été écrit. On croit avoir postulé.
+  //
+  // Un écran qui affiche un état non enregistré est pire qu'un écran qui
+  // refuse : il fait perdre confiance dans tout le reste.
+  await chargerDonnees();
+  rendreTout();
 }
 
 // ---------------------------------------------------------------- rafraîchir

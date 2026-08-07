@@ -208,9 +208,27 @@ export function principal(argv = process.argv.slice(2)) {
     console.log(`   ✓ ${nom} repris depuis le projet`);
   }
 
-  // Les fichiers annexes de SQLite décrivent la base d'origine : les recopier
-  // corromprait la copie. SQLite les recrée seul au premier démarrage.
-  for (const suffixe of ['-wal', '-shm']) rmSync(join(cible, 'data.db' + suffixe), { force: true });
+  // LE BUG LE PLUS GRAVE QUE J'AIE ÉCRIT DANS CE PROJET.
+  //
+  // Cette ligne s'exécutait à CHAQUE installation, mise à jour comprise. Or
+  // en mode WAL, `data.db-wal` n'est pas un fichier annexe jetable : c'est là
+  // que vivent toutes les écritures depuis le dernier point de contrôle.
+  // L'effacer revient à jeter le travail le plus récent — précisément celui
+  // auquel on tient.
+  //
+  // Constaté deux fois dans la même soirée : Benjamin marque une candidature
+  // « Envoyé », je reconstruis l'exécutable, et la candidature a disparu.
+  // L'offre était intacte, absente de `rejetees`, et aucune suppression n'avait
+  // eu lieu depuis le matin — parce qu'il n'y avait pas eu de suppression. Il y
+  // avait eu une perte.
+  //
+  // Le raisonnement d'origine ne valait QUE pour la première installation :
+  // après un `VACUUM INTO`, les annexes de la copie décrivent la base source
+  // et n'ont effectivement rien à faire là. Sur une mise à jour, la base est
+  // celle qui vit, et son WAL avec elle.
+  if (reprisesBase) {
+    for (const suffixe of ['-wal', '-shm']) rmSync(join(cible, 'data.db' + suffixe), { force: true });
+  }
 
   if (protegees) console.log(`   ⊘ ${protegees} fichier(s) de données déjà présent(s) — non touché(s)`);
 
