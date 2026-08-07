@@ -33,7 +33,19 @@ End If
 shell.CurrentDirectory = racine
 shell.Environment("PROCESS")("COLLECTE_AUTO") = "1"
 
-' Le journal est repris à zéro à chaque démarrage : sans cela il grossit
-' indéfiniment, et ce qu'on y cherche est toujours à la fin.
+' LE JOURNAL EST VIDÉ ICI, ET LA REDIRECTION AJOUTE.
+'
+' C'est ce détail qui tuait l'application après une mise à jour, quatre fois
+' de suite, sans que rien ne le laisse deviner. Les deux instances écrivaient
+' dans le MÊME fichier, et « > » le tronque à l'ouverture : la seconde coupait
+' le fichier sous la première. La première, qui avait pourtant gagné le port,
+' mourait à son écriture suivante — et il ne restait plus personne.
+'
+' Le contrôle d'instance unique juste au-dessus ne suffit pas : entre le
+' moment où il regarde et celui où il lance, un autre lanceur peut passer.
+' Vider le journal AVANT, puis écrire en « >> », ôte au perdant tout moyen de
+' nuire au gagnant.
 journal = racine & "\journal.log"
-shell.Run "cmd /c """"" & racine & "\JobCockpit.exe"" > """ & journal & """ 2>&1""", 0, False
+fso.CreateTextFile(journal, True).Close
+
+shell.Run "cmd /c """"" & racine & "\JobCockpit.exe"" >> """ & journal & """ 2>&1""", 0, False

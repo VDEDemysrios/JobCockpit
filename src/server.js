@@ -32,6 +32,18 @@ const PUBLIC = join(RACINE, 'public');
 // ce qui est normal.
 dotenv.config({ path: join(RACINE, '.env') });
 
+// UN JOURNAL CASSÉ NE DOIT PAS TUER UN SERVEUR QUI MARCHE.
+//
+// La sortie standard est redirigée vers un fichier par le lanceur. Si ce
+// fichier est tronqué ou fermé sous les pieds du processus — deux instances
+// qui s'écrivent dessus, un antivirus qui verrouille —, la première écriture
+// suivante lève une erreur sur `stdout`. Sans écouteur, Node considère que
+// c'est fatal et arrête tout : le serveur tombait pour n'avoir pas pu écrire
+// une ligne de log, alors qu'il servait très bien ses pages.
+//
+// Écrire dans le vide est le moindre mal ; c'est un journal, pas la base.
+for (const flux of [process.stdout, process.stderr]) flux.on('error', () => {});
+
 const PORT = Number(process.env.PORT ?? 3000);
 const HOTE = process.env.HOST ?? '127.0.0.1';
 const MOT_DE_PASSE = process.env.COCKPIT_MOT_DE_PASSE ?? '';
