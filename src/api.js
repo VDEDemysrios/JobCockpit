@@ -99,6 +99,7 @@ export function creerRoutes({ db, collecter, sources, profil }) {
       source: o.source,
       isManual: Boolean(o.is_manual),
       salaireSource: o.salaire_source,
+      villesRepubliees: o.villes_republiees ?? 1,
       extrait: o.description ? String(o.description).slice(0, EXTRAIT_MAX) : '',
       analyse: o.analysis_json ? JSON.parse(o.analysis_json) : null,
       aLettre: Boolean(o.a_lettre),

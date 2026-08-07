@@ -762,6 +762,10 @@ select:focus,.search:focus,input:focus,textarea:focus{outline:none;border-color:
 .b1{background:var(--g1b);color:var(--g1)}.b2{background:var(--g2b);color:var(--g2)}
 .b3{background:var(--g3b);color:var(--g3)}.b0{background:var(--g0b);color:var(--g0)}
 .badge-zone{background:var(--pinkb);color:var(--pink);}
+/* Annonce diffusée dans plusieurs villes : le même texte partout, signe d'un
+   cabinet qui ratisse. Ce n'est pas une faute, mais ça se sait avant de
+   passer vingt minutes sur une lettre. */
+.badge-diffuse{background:var(--g2b);color:var(--g2);}
 .badge-src{background:transparent;color:var(--faint);border:1px solid var(--line-fort);
   font-weight:var(--w-medium);}
 .status-pill{font-size:10.5px;padding:1px 6px;border-radius:var(--r1);border:1px solid;

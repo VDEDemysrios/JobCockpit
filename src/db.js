@@ -132,7 +132,30 @@ export function ouvrirBase(chemin = 'data.db') {
   db.exec('PRAGMA journal_mode = WAL');
   db.exec('PRAGMA foreign_keys = ON');
   db.exec(SCHEMA);
+  ajouterColonnesManquantes(db);
   return db;
+}
+
+/**
+ * Ajoute les colonnes apparues après coup.
+ *
+ * `CREATE TABLE IF NOT EXISTS` ne touche pas à une table déjà là : sur une
+ * base existante, une colonne nouvelle n'apparaîtrait jamais, et la première
+ * requête qui l'utilise échouerait. On les ajoute donc une par une, sans
+ * bruit si elles sont déjà présentes.
+ */
+export function ajouterColonnesManquantes(db) {
+  const NOUVELLES = [
+    // Nombre de villes où la MÊME annonce a été republiée. Voir `fusionner`
+    // dans sources/index.js : les cabinets de recrutement diffusent le même
+    // texte sur toute la France, et le compte est un signal de qualité.
+    ['offers', 'villes_republiees', 'INTEGER DEFAULT 1'],
+  ];
+  for (const [table, colonne, type] of NOUVELLES) {
+    const existe = db.prepare(`SELECT COUNT(*) n FROM pragma_table_info(?) WHERE name = ?`)
+      .get(table, colonne).n;
+    if (!existe) db.exec(`ALTER TABLE ${table} ADD COLUMN ${colonne} ${type}`);
+  }
 }
 
 /**
@@ -184,12 +207,12 @@ export function upsertOffre(db, offre) {
       id, source, sources_all, external_id, titre, entreprise, ville, departement,
       hors_zone, contrat, date_offre, lien, description, salaire_source,
       groupe, score, score_detail, analysis_json, analysis_at,
-      is_manual, first_seen, last_seen
+      is_manual, villes_republiees, first_seen, last_seen
     ) VALUES (
       @id, @source, @sourcesAll, @externalId, @titre, @entreprise, @ville, @departement,
       @horsZone, @contrat, @dateOffre, @lien, @description, @salaireSource,
       @groupe, @score, @scoreDetail, @analysisJson, @analysisAt,
-      @isManual, @maintenant, @maintenant
+      @isManual, @villesRepubliees, @maintenant, @maintenant
     )
     ON CONFLICT(id) DO UPDATE SET
       source         = excluded.source,
@@ -207,6 +230,7 @@ export function upsertOffre(db, offre) {
       description    = CASE WHEN length(COALESCE(excluded.description, '')) > length(COALESCE(offers.description, ''))
                             THEN excluded.description ELSE offers.description END,
       salaire_source = COALESCE(excluded.salaire_source, offers.salaire_source),
+      villes_republiees = excluded.villes_republiees,
       groupe         = excluded.groupe,
       score          = excluded.score,
       score_detail   = excluded.score_detail,
@@ -229,6 +253,7 @@ export function upsertOffre(db, offre) {
     lien: offre.lien ?? null,
     description: offre.description ?? null,
     salaireSource: offre.salaireSource ?? null,
+    villesRepubliees: offre.villesRepubliees ?? 1,
     groupe: offre.groupe ?? null,
     score: offre.score ?? null,
     scoreDetail: offre.scoreDetail ? JSON.stringify(offre.scoreDetail) : null,

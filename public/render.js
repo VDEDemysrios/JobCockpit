@@ -297,6 +297,9 @@ export function rendreCarte(offre, actions) {
       ${pastilleScore(offre)}
       ${fl ? `<span class="fresh ${fl[0]}">${fl[1]}</span>` : ''}
       ${offre.horsZone ? '<span class="badge badge-zone">Hors zone</span>' : ''}
+      ${offre.villesRepubliees > 1
+        ? `<span class="badge badge-diffuse" title="Le même texte est diffusé dans ${offre.villesRepubliees} villes — souvent un cabinet qui ratisse, rarement un poste ouvert près de chez toi">${offre.villesRepubliees} villes</span>`
+        : ''}
       ${offre.aLettre ? `<span class="badge badge-src" title="Lettre rédigée">${icone('plume', 12)}</span>` : ''}
       ${badgesSources}
       <span class="status-pill" style="border-color:${STATUS_COL[s.status]};color:${STATUS_COL[s.status]}">${s.status}${due ? ' · en retard' : ''}</span>

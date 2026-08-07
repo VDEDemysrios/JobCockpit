@@ -16,6 +16,7 @@ import {
 import { peutAnalyser, noterAppel, fermerAnalyse, etatQuota, ANALYSE } from '../src/quota.js';
 import { sauvegarder } from '../src/sauvegarde.js';
 import { corrigerBase } from './corriger-departements.js';
+import { consoliderBase } from './fusionner-republications.js';
 
 /** Racine du projet — la sauvegarde y prend le profil, le CV et les clés. */
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -255,6 +256,15 @@ export async function collecter({
   const departementsCorriges = corrigerBase(db);
   if (departementsCorriges > 0) {
     console.log(`  📍 ${departementsCorriges} département(s) incohérent(s) corrigé(s)`);
+  }
+
+  // Republications : la même annonce diffusée ville par ville. La fusion à la
+  // collecte les empêche d'ENTRER en double ; cette passe referme le cas des
+  // lignes déjà présentes sous un ancien identifiant. Elle ne touche jamais à
+  // une offre portant une candidature, une lettre ou une note.
+  const copiesRetirees = consoliderBase(db, profil.villesPrioritaires ?? []);
+  if (copiesRetirees > 0) {
+    console.log(`  🧷 ${copiesRetirees} copie(s) d'annonces republiées regroupée(s)`);
   }
 
   // Offres restées « À postuler » trop longtemps. Réglé par `sansReponseJours`
