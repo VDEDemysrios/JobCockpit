@@ -518,10 +518,32 @@ function rendreOffres() {
 
   const vide = document.getElementById('empty');
   vide.style.display = liste.length ? 'none' : 'block';
-  // Dire QUEL onglet est vide évite de conclure que la collecte n'a rien donné.
-  vide.textContent = dansLaVille.length
-    ? `Aucune offre ${ouLibelle} avec ce filtre.`
-    : `Aucune offre ${ouLibelle} pour l'instant. Regarde les autres onglets.`;
+
+  // LE MESSAGE DE VIDE NE DOIT PAS MENTIR.
+  //
+  // Il se fondait sur `dansLaVille`, qui est DÉJÀ filtré par le statut, la
+  // recherche et les drapeaux. Un filtre qui ne laisse rien passer donnait
+  // donc « Aucune offre à Strasbourg pour l'instant » alors que l'onglet en
+  // contient dix-sept : on en conclut que la collecte n'a rien ramené.
+  // On compte donc sur la totalité des offres de l'onglet, filtres exclus.
+  const totalOnglet = etat.offres.filter(o => ongletDe(o) === etat.ville).length;
+  const filtreActif = etat.statut !== 'all' || etat.drapeaux.size > 0
+    || etat.recherche !== '' || etat.filtre !== 'all';
+
+  if (totalOnglet === 0) {
+    vide.textContent = etat.ville === ONGLET_ENVOYEES
+      ? 'Aucune candidature envoyée pour l\'instant. Elles arriveront ici dès que tu en marqueras une.'
+      : `Aucune offre ${ouLibelle} pour l'instant. Regarde les autres onglets.`;
+  } else if (etat.statut !== 'all' && etat.statut !== 'À postuler' && etat.ville !== ONGLET_ENVOYEES) {
+    // Le cas qui piège : un onglet de ville ne contient QUE des offres à
+    // postuler. Y chercher un statut d'après-envoi ne peut rien donner, jamais.
+    vide.textContent = `Les offres « ${etat.statut} » ne sont pas dans les onglets de ville : `
+      + 'elles sont regroupées dans « Envoyées ».';
+  } else {
+    vide.textContent = filtreActif
+      ? `Aucune des ${pluriel(totalOnglet, 'offre')} ${ouLibelle} ne correspond à ce filtre.`
+      : `Aucune offre ${ouLibelle} pour l'instant. Regarde les autres onglets.`;
+  }
 
   const grille = document.getElementById('grid');
   grille.classList.toggle('mosaique', options.mosaique);
@@ -885,7 +907,28 @@ document.getElementById('plusOffres').addEventListener('click', () => {
 
 document.getElementById('search').addEventListener('input', e => { etat.recherche = e.target.value; rendreOffresDepuisLeDebut(); });
 document.getElementById('sort').addEventListener('change', e => { etat.tri = e.target.value; rendreOffresDepuisLeDebut(); });
-document.getElementById('statusFilter').addEventListener('change', e => { etat.statut = e.target.value; rendreOffresDepuisLeDebut(); });
+document.getElementById('statusFilter').addEventListener('change', e => {
+  etat.statut = e.target.value;
+
+  // UN FILTRE NE DOIT PAS POUVOIR DEMANDER L'IMPOSSIBLE.
+  //
+  // Depuis que les candidatures envoyées ont leur onglet, une ville ne
+  // contient QUE des offres « À postuler ». Y filtrer sur « Envoyé » ou
+  // « Entretien » donnait zéro partout — non parce qu'il n'y a rien, mais
+  // parce que la combinaison est vide par construction. Cinq onglets à zéro
+  // et une liste blanche : on croit que tout a disparu.
+  //
+  // Choisir un statut d'après-envoi, c'est dire « montre-moi mes
+  // candidatures ». On va donc où elles sont, plutôt que d'afficher un vide
+  // qu'aucun réglage ne peut remplir.
+  const apresEnvoi = etat.statut !== 'all' && etat.statut !== 'À postuler';
+  if (apresEnvoi && etat.ville !== ONGLET_ENVOYEES) {
+    choisirVille(ONGLET_ENVOYEES);
+    toast(`Les offres « ${etat.statut} » sont dans l'onglet Envoyées`);
+    return;
+  }
+  rendreOffresDepuisLeDebut();
+});
 
 document.getElementById('toggleVue').addEventListener('click', e => {
   options.mosaique = !options.mosaique;
