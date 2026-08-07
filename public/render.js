@@ -144,10 +144,23 @@ export function rendreTroisDuJour(offres, actions) {
         <div class="dj-titre">${echapper(offre.titre)}</div>
         <div class="dj-meta">${echapper(offre.entreprise || 'entreprise non précisée')}
           · ${echapper(offre.ville ?? '')}${age ? ' · publiée ' + age : ''}</div>
+        ${(() => {
+          // L'ATOUT EN PREMIER, PAS LE SCORE.
+          // Un score de 18 ne dit rien à celui qui doute de coller ; « quatre
+          // ans de développement de projets EnR, exigé dans l'annonce » le dit.
+          const f = forces(offre.analyse);
+          if (!f?.premierAtout) return '';
+          return `<div class="dj-atout"><b>Ton atout ici :</b> ${echapper(f.premierAtout.slice(0, 150))}</div>`;
+        })()}
         <div class="dj-signaux">
           ${offre.score !== null && offre.score !== undefined
             ? `<span class="scorepill fort">⚡ ${offre.score}</span>` : ''}
-          ${offre.analyse ? '<span class="badge b1">analyse prête</span>' : ''}
+          ${(() => {
+            const f = forces(offre.analyse);
+            if (!f?.atouts) return offre.analyse ? '<span class="badge b1">analyse prête</span>' : '';
+            return `<span class="badge b1">${f.atouts} atout${f.atouts > 1 ? 's' : ''} prouvable${f.atouts > 1 ? 's' : ''}</span>`
+              + (f.manques ? `<span class="badge b0">${f.manques} manque${f.manques > 1 ? 's' : ''}</span>` : '');
+          })()}
           ${offre.aLettre ? '<span class="badge b2">lettre écrite</span>' : ''}
         </div>
       </div>
@@ -229,6 +242,59 @@ export function rendreFocus(offres, surClic) {
 }
 
 // ------------------------------------------------------------------- OFFRES
+
+/**
+ * Ce que l'analyse dit du RAPPORT entre l'offre et le profil.
+ *
+ * @returns {{atouts:number, manques:number, compensables:number, verdict:string, premierAtout:string}|null}
+ */
+export function forces(analyse) {
+  if (!analyse) return null;
+  const liste = (x) => Array.isArray(x) ? x.filter(Boolean) : [];
+  const prouvables = liste(analyse.prouvable);
+  return {
+    atouts: prouvables.length,
+    manques: liste(analyse.nonprouvable).length,
+    compensables: liste(analyse.compensable).length,
+    verdict: String(analyse.verdict ?? '').trim(),
+    premierAtout: String(prouvables[0] ?? '').trim(),
+  };
+}
+
+/**
+ * LE VERDICT REMONTE SUR LA CARTE FERMÉE.
+ *
+ * Constat de Benjamin : « je doute de coller au poste ». Or l'analyse lui
+ * répond déjà, et l'a fait 129 fois — « Oui, c'est ta cible exacte. Fonce. »,
+ * « ton profil coche 90 % des exigences ». Couverture moyenne des atouts face
+ * aux exigences : 75 %.
+ *
+ * Ce jugement était enterré dans le détail replié : il fallait ouvrir la
+ * carte, dérouler « pourquoi ce classement », et lire. Autrement dit, il
+ * fallait déjà avoir surmonté le doute pour lire ce qui l'aurait levé.
+ *
+ * On affiche AUSSI les manques, et le verdict tel quel même quand il est
+ * réservé. Une carte qui ne dirait que du bien deviendrait un bruit de fond
+ * qu'on cesse de lire — c'est le contraste entre « fonce » et « c'est
+ * jouable, mais » qui rend le premier utile.
+ */
+function verdictReplie(offre) {
+  const f = forces(offre.analyse);
+  if (!f || (!f.verdict && !f.atouts)) return '';
+
+  const compte = f.atouts
+    ? `<span class="vr-compte" title="Points que ton parcours prouve, face aux manques relevés par l'analyse">`
+      + `<b>${f.atouts}</b> atout${f.atouts > 1 ? 's' : ''}`
+      + (f.manques ? ` · ${f.manques} manque${f.manques > 1 ? 's' : ''}` : '')
+      + (f.compensables ? ` dont ${f.compensables} compensable${f.compensables > 1 ? 's' : ''}` : '')
+      + `</span>` : '';
+
+  // Le verdict est tronqué à la première phrase : c'est elle qui porte le
+  // jugement, la suite le nuance. Le détail complet reste dans la carte.
+  const phrase = f.verdict.split(/(?<=[.!?])\s/)[0] ?? '';
+  return `<div class="verdict-replie">${compte}${phrase
+    ? `<span class="vr-texte">${echapper(phrase.slice(0, 120))}</span>` : ''}</div>`;
+}
 
 /** Pastille de score, colorée selon la force du signal. */
 function pastilleScore(offre) {
@@ -360,6 +426,7 @@ export function rendreCarte(offre, actions) {
              title="Ouvrir l'annonce d'origine">${echapper(offre.titre)}<span class="ext">↗</span></a>`
         : echapper(offre.titre)}</div>
       <div class="pmeta">${echapper(offre.entreprise)} · ${echapper(offre.ville)}${offre.dateOffre ? ' · offre du ' + dateLisible(offre.dateOffre) : ''}</div>
+      ${verdictReplie(offre)}
       <div class="cardprog"><span style="width:${prog}%;background:${STATUS_COL[s.status]}"></span></div>
     </div>
     <div class="tags">
