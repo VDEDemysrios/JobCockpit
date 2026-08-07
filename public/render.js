@@ -7,6 +7,7 @@ import {
   todayISO, joursDepuis, ageOffre, etiquetteFraicheur, dateLisible, echapper, pluriel,
 } from './format.js';
 import { icone } from './icons.js';
+import { offresDuJour, envoyeesAujourdhui } from './selection.js';
 
 const liste = (a) => (a ?? []).map(x => `<li>${echapper(x)}</li>`).join('');
 
@@ -99,6 +100,74 @@ export function actionsDuJour(offres) {
     }));
 
   return actions.sort((a, b) => a.rang - b.rang);
+}
+
+/**
+ * Le bloc « Les 3 du jour ».
+ *
+ * Il passe AVANT la file d'attente, et c'est tout le propos : la file dit ce
+ * qu'il resterait à faire, celui-ci dit par quoi commencer. Trois lignes qu'on
+ * peut finir valent mieux que deux cent quatre-vingt-deux qu'on ne finira pas.
+ *
+ * @param {object[]} offres
+ * @param {{ouvrir: Function, ecarter: Function}} actions
+ */
+export function rendreTroisDuJour(offres, actions) {
+  const zone = document.getElementById('duJour');
+  if (!zone) return;
+  const { offres: choisies, criteresRelaches, vivier } = offresDuJour(offres, 3);
+  const envoyees = envoyeesAujourdhui(offres);
+
+  const sous = document.getElementById('duJourSub');
+  if (sous) {
+    sous.textContent = envoyees > 0
+      ? `${pluriel(envoyees, 'candidature')} envoyée${envoyees > 1 ? 's' : ''} aujourd'hui`
+      : (choisies.length ? 'Commence par celles-ci.' : '');
+  }
+
+  if (!choisies.length) {
+    zone.innerHTML = `<div class="dj-vide">Tout est traité de ce côté-là.
+      Lance une collecte, ou va piocher dans l'onglet Offres.</div>`;
+    return;
+  }
+
+  zone.innerHTML = '';
+  choisies.forEach((offre, i) => {
+    const el = document.createElement('div');
+    el.className = 'dj-carte';
+    el.style.animationDelay = (i * 0.06) + 's';
+    const age = offre.age === 0 ? "aujourd'hui"
+      : offre.age !== null ? `il y a ${pluriel(offre.age, 'jour')}` : '';
+    el.innerHTML = `
+      <div class="dj-rang">${i + 1}</div>
+      <div class="dj-corps">
+        <div class="dj-titre">${echapper(offre.titre)}</div>
+        <div class="dj-meta">${echapper(offre.entreprise || 'entreprise non précisée')}
+          · ${echapper(offre.ville ?? '')}${age ? ' · publiée ' + age : ''}</div>
+        <div class="dj-signaux">
+          ${offre.score !== null && offre.score !== undefined
+            ? `<span class="scorepill fort">⚡ ${offre.score}</span>` : ''}
+          ${offre.analyse ? '<span class="badge b1">analyse prête</span>' : ''}
+          ${offre.aLettre ? '<span class="badge b2">lettre écrite</span>' : ''}
+        </div>
+      </div>
+      <div class="dj-actions">
+        <button class="btn btn-primary" data-dj="ouvrir">${offre.aLettre ? 'Postuler' : 'Ouvrir'}</button>
+        <button class="btn btn-discret" data-dj="ecarter" title="Retirer cette offre de la sélection">Pas celle-ci</button>
+      </div>`;
+    el.querySelector('[data-dj="ouvrir"]').addEventListener('click', () => actions.ouvrir(offre));
+    el.querySelector('[data-dj="ecarter"]').addEventListener('click', () => actions.ecarter(offre));
+    zone.appendChild(el);
+  });
+
+  // Dire QUAND la sélection a dû baisser d'exigence, plutôt que de faire comme
+  // si ces trois-là étaient toujours les meilleures possibles.
+  if (criteresRelaches.length) {
+    const note = document.createElement('div');
+    note.className = 'dj-note';
+    note.textContent = `Vivier réduit (${vivier}) — critère(s) assoupli(s) : ${criteresRelaches.join(', ')}.`;
+    zone.appendChild(note);
+  }
 }
 
 export function rendreFocus(offres, surClic) {

@@ -7,7 +7,8 @@ import { poserIcones, icone } from './icons.js';
 import { jouerIntro } from './intro.js';
 import { onomatopee } from './comics.js';
 import {
-  rendreCarte, rendreKanban, rendreAgenda, relanceDue, rendreFocus, actionsDuJour, celebrer,
+  rendreCarte, rendreKanban, rendreAgenda, relanceDue, rendreFocus, rendreTroisDuJour,
+  actionsDuJour, celebrer,
 } from './render.js';
 import { rendreDashboard, rendreCourbe, rendreStats, rendreIndicateurMaj } from './dashboard.js';
 import { rendreCv } from './cv.js';
@@ -271,6 +272,24 @@ function rendreBandeau() {
 }
 
 /** Ouvre une offre depuis une autre vue : bascule sur Offres et la déplie. */
+/**
+ * « Pas celle-ci » : retire une offre de la sélection du jour.
+ *
+ * C'est un refus EXPLICITE, et il passe par la même porte que partout
+ * ailleurs — l'offre est écartée, donc elle ne reviendra pas aux prochaines
+ * collectes. Sans cela, une offre qui ne convient pas resterait éternellement
+ * en tête de la sélection : les trois du jour sont les meilleures du moment,
+ * pas un tirage qu'on peut relancer jusqu'à tomber sur autre chose.
+ */
+async function ecarterDepuisSelection(offre) {
+  if (!confirm(`Retirer « ${offre.titre} » de la sélection ?\n\nElle sera écartée et ne reviendra pas aux prochaines collectes.`)) return;
+  const r = await essayer(() => API.supprimerOffre(offre.id), 'Offre écartée');
+  if (!r) return;
+  onomatopee('ecartee');
+  await chargerDonnees();
+  rendreTout();
+}
+
 function ouvrirOffre(offre) {
   etat.ouvertes.add(offre.id);
   etat.filtre = 'all';
@@ -308,6 +327,7 @@ function rendreTout() {
 
   if (etat.vue === 'options') rendreOptions();
   else if (etat.vue === 'dashboard') {
+    rendreTroisDuJour(etat.offres, { ouvrir: ouvrirOffre, ecarter: ecarterDepuisSelection });
     rendreFocus(etat.offres, ouvrirOffre);
     if (etat.stats) {
       rendreDashboard(etat.stats, etat.offres, etat.meta, { periode: etat.periode });

@@ -870,6 +870,43 @@ ul.mini li{margin-bottom:5px;}
 .relance-flag{font-size:12px;color:var(--hot);font-weight:var(--w-semi);
   display:inline-flex;align-items:center;gap:5px;}
 
+/* ─────────────────────── LES 3 DU JOUR ─────────────────────── */
+
+/* Le seul bloc du tableau de bord qui a le droit d'attirer l'œil en premier.
+   Un liseré d'accent à gauche, et rien d'autre : la hiérarchie se fait par la
+   position et par le vide autour, pas par la couleur. */
+.panel-dujour{border-left:3px solid var(--accent);}
+
+.dj-carte{display:flex;align-items:center;gap:var(--e3);
+  padding:var(--e2) 0;border-bottom:1px solid var(--line);
+  animation:riseUp .3s backwards;}
+.dj-carte:last-of-type{border-bottom:none;}
+
+/* Le rang est un repère de progression, pas une décoration : « 1, 2, 3 » dit
+   qu'il y a une fin, ce qu'une liste de 282 ne dit jamais. */
+.dj-rang{width:26px;height:26px;flex-shrink:0;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--accent-bg);color:var(--accent-ink);
+  font-weight:var(--w-bold);font-size:12px;font-variant-numeric:tabular-nums;}
+
+.dj-corps{flex:1;min-width:0;}
+.dj-titre{font-weight:var(--w-semi);font-size:13.5px;line-height:1.3;}
+.dj-meta{color:var(--muted);font-size:11.5px;margin-top:1px;}
+.dj-signaux{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-top:5px;}
+.dj-actions{display:flex;gap:var(--e2);flex-shrink:0;}
+
+.dj-vide{color:var(--muted);font-size:12.5px;padding:var(--e3) 0;line-height:1.6;}
+/* Quand la sélection a dû baisser d'exigence, on le dit. Faire passer trois
+   offres moyennes pour les meilleures possibles serait une petite trahison. */
+.dj-note{font-size:11px;color:var(--faint);margin-top:var(--e3);
+  padding-top:var(--e2);border-top:1px dashed var(--line);}
+
+@media (max-width:720px){
+  .dj-carte{flex-wrap:wrap;}
+  .dj-actions{width:100%;padding-left:calc(26px + var(--e3));}
+  .dj-actions .btn{flex:1;justify-content:center;}
+}
+
 /* ─────────────────────── FOCUS DU JOUR ─────────────────────── */
 
 /* Le focus est BORNÉ. Sans plafond il grandit avec la file d'attente : à 282
