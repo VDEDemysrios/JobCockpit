@@ -6,6 +6,7 @@ import {
 import { poserIcones, icone } from './icons.js';
 import { jouerIntro } from './intro.js';
 import { onomatopee } from './comics.js';
+import { ouvrirSurcouche, fermerSurcouche } from './surcouche.js';
 import {
   rendreCarte, rendreKanban, rendreAgenda, relanceDue, rendreFocus, rendreTroisDuJour,
   actionsDuJour, celebrer,
@@ -83,16 +84,40 @@ const PAR_PAGE = 50;
 
 // ----------------------------------------------------------------- utilitaires
 
-function toast(message, type = '') {
+function toast(message, type = '', action = null) {
   const t = document.createElement('div');
   t.className = 'toast' + (type ? ' ' + type : '');
   t.textContent = (type === 'err' ? '⚠️ ' : type === 'win' ? '🎉 ' : '✨ ') + message;
+
+  // UN MESSAGE PEUT PORTER UNE ISSUE.
+  // « Offre écartée » sans retour possible oblige à passer par les Options et
+  // à tout remettre — des milliers d'offres pour en récupérer une. Le geste
+  // de réparation appartient au moment de l'erreur, pas à un écran de
+  // réglages qu'il faut penser à aller chercher.
+  let minuteur;
+  if (action) {
+    const b = document.createElement('button');
+    b.className = 'toast-action';
+    b.type = 'button';
+    b.textContent = action.libelle;
+    b.addEventListener('click', async () => {
+      clearTimeout(minuteur);
+      b.disabled = true;
+      await action.faire();
+      t.remove();
+    });
+    t.appendChild(b);
+  }
+
   document.getElementById('toastZone').appendChild(t);
-  setTimeout(() => {
+  // Plus de temps quand il y a quelque chose à décider : deux secondes six
+  // ne suffisent pas à lire, comprendre et viser un bouton.
+  const duree = type === 'err' ? 5200 : action ? 7000 : 2600;
+  minuteur = setTimeout(() => {
     t.style.opacity = '0';
     t.style.transition = 'opacity .3s';
     setTimeout(() => t.remove(), 300);
-  }, type === 'err' ? 5200 : 2600);
+  }, duree);
 }
 
 /** Enveloppe une action asynchrone : toute erreur devient un toast. */
@@ -602,18 +627,28 @@ function brancherCarte(carte, offre) {
   carte.querySelector('[data-act="suppr"]')?.addEventListener('click', async e => {
     e.stopPropagation();
 
-    // Écarter une offre collectée l'inscrit dans une liste que les collectes
-    // consultent : dire qu'elle ne reviendra pas est le seul moyen de rendre
-    // le geste compréhensible — et de ne pas le regretter.
-    const question = offre.isManual
-      ? `Supprimer « ${offre.titre} » ?`
-      : `Écarter « ${offre.titre} » définitivement ?\n\nElle ne reviendra pas aux prochaines collectes.`;
-    if (!confirm(question)) return;
+    // Une offre saisie à la main n'a pas de sauvegarde : la supprimer est
+    // définitif, et cela mérite encore une confirmation. Une offre collectée,
+    // elle, se remet d'un clic — demander confirmation ET offrir l'annulation
+    // ferait payer deux fois le même doute.
+    if (offre.isManual && !confirm(`Supprimer « ${offre.titre} » ?`)) return;
 
-    const r = await essayer(() => API.supprimerOffre(offre.id),
-      offre.isManual ? 'Offre supprimée' : 'Offre écartée — elle ne reviendra plus');
+    const r = await essayer(() => API.supprimerOffre(offre.id));
     if (!r) return;
     onomatopee('ecartee');
+
+    if (r.annulable) {
+      toast(`« ${offre.titre.slice(0, 42)} » écartée`, '', {
+        libelle: 'Annuler',
+        faire: async () => {
+          await essayer(() => API.restaurerOffre(offre.id), 'Offre remise dans la liste');
+          await chargerDonnees();
+          rendreTout();
+        },
+      });
+    } else {
+      toast('Offre supprimée');
+    }
 
     // La carte s'en va avant le rafraîchissement : montrer LAQUELLE part
     // vaut mieux qu'une liste qui se réorganise sans prévenir. La durée est
@@ -1186,17 +1221,18 @@ const COMMANDES = [
   { emoji: '📄', titre: 'Exporter en CSV', cat: 'Action', faire: () => document.getElementById('exportBtn').click() },
   { emoji: '🎨', titre: 'Changer de thème', cat: 'Action', faire: () => themeSuivant() },
   { emoji: '🎬', titre: 'Rejouer l\'ouverture', cat: 'Action', faire: () => jouerIntro({ forcer: true }) },
-  { emoji: '⌨️', titre: 'Afficher les raccourcis', cat: 'Action', faire: () => aide.classList.add('show') },
+  { emoji: '⌨️', titre: 'Afficher les raccourcis', cat: 'Action', faire: () => ouvrirSurcouche(aide, { titre: 'Raccourcis clavier' }) },
 ];
 
 function ouvrirPalette() {
-  palette.classList.add('show');
   paletteInput.value = '';
   majPalette('');
-  paletteInput.focus();
+  // Le champ reçoit le focus, et la page derrière devient inerte : sans cela,
+  // une tabulation depuis ce champ emmenait dans la liste d'offres masquée.
+  ouvrirSurcouche(palette, { focus: paletteInput, titre: 'Palette de commandes' });
 }
 
-function fermerPalette() { palette.classList.remove('show'); }
+function fermerPalette() { fermerSurcouche(palette); }
 
 function majPalette(q) {
   const requete = q.trim().toLowerCase();
@@ -1273,7 +1309,7 @@ function themeSuivant() {
 // ------------------------------------------------------- raccourcis clavier
 
 const aide = document.getElementById('aideClavier');
-const fermerAide = () => aide.classList.remove('show');
+const fermerAide = () => fermerSurcouche(aide);
 document.getElementById('fermerAide').addEventListener('click', fermerAide);
 aide.addEventListener('click', e => { if (e.target === aide) fermerAide(); });
 
@@ -1360,7 +1396,7 @@ document.addEventListener('keydown', e => {
 
     case '?':
       e.preventDefault();
-      aide.classList.add('show');
+      ouvrirSurcouche(aide, { titre: 'Raccourcis clavier' });
       break;
   }
 });

@@ -12,7 +12,10 @@
 <body>
 <div class="app">
   <aside class="sidebar" id="sidebar">
-    <div class="sb-brand"><span class="sb-logo" data-ic="boussole" data-ic-taille="17"></span><span>Job Cockpit</span></div>
+    <!-- Le nom de l'application EST le titre de la page. Sans `<h1>`, la
+         structure des titres commençait à `<h2>` : un lecteur d'écran
+         annonçait des sous-sections sans jamais nommer le tout. -->
+    <h1 class="sb-brand"><span class="sb-logo" data-ic="boussole" data-ic-taille="17"></span><span>Job Cockpit</span></h1>
     <div class="sb-sub">Benjamin Perrin</div>
 
     <div class="clock"><div class="time" id="clockTime">--:--:--</div><div class="date" id="clockDate"></div></div>
@@ -194,7 +197,7 @@
 
       <div class="toolbar">
         <input class="search" id="search" placeholder="Rechercher un poste, une entreprise…">
-        <select id="sort">
+        <select id="sort" aria-label="Trier les offres">
           <option value="grp">Tri : pertinence</option>
           <option value="score">Tri : score</option>
           <option value="fresh">Tri : fraîcheur</option>
@@ -202,7 +205,7 @@
           <option value="ville">Tri : ville</option>
           <option value="relance">Tri : relance</option>
         </select>
-        <select id="statusFilter"><option value="all">Tous les statuts</option><option>À postuler</option><option>Envoyé</option><option>Relancé</option><option>Entretien</option><option>Refus</option></select>
+        <select id="statusFilter" aria-label="Filtrer par statut de candidature"><option value="all">Tous les statuts</option><option>À postuler</option><option>Envoyé</option><option>Relancé</option><option>Entretien</option><option>Refus</option></select>
         <span class="tb-espace"></span>
         <button class="btn btn-discret" id="toggleVue" title="Basculer liste / grille"><span data-ic="colonnes" data-ic-taille="15"></span> Grille</button>
         <button class="btn btn-discret" id="exportBtn"><span data-ic="document" data-ic-taille="15"></span> CSV</button>
@@ -300,11 +303,11 @@
         <h3><span data-ic="etoile" data-ic-taille="14"></span> Apparence</h3>
         <div class="opt-row">
           <div><div class="t">Densité d'affichage</div><div class="d">Compacte pour voir plus d'offres à l'écran, large pour plus de confort de lecture.</div></div>
-          <select id="optDensite"><option value="compacte">Compacte</option><option value="normale">Normale</option><option value="large">Large</option></select>
+          <select id="optDensite" aria-label="Densité d'affichage"><option value="compacte">Compacte</option><option value="normale">Normale</option><option value="large">Large</option></select>
         </div>
         <div class="opt-row">
           <div><div class="t">Thème</div><div class="d">Raccourci clavier : <span class="kbd">T</span></div></div>
-          <select id="optTheme"><option value="comics">Comics</option><option value="vivid">Clair</option><option value="enr">EnR</option><option value="dark">Nuit</option><option value="cockpit">Cockpit</option></select>
+          <select id="optTheme" aria-label="Thème de l'interface"><option value="comics">Comics</option><option value="vivid">Clair</option><option value="enr">EnR</option><option value="dark">Nuit</option><option value="cockpit">Cockpit</option></select>
         </div>
         <div class="opt-row">
           <div><div class="t">Animations</div><div class="d">Coupe tous les mouvements de l'interface si tu les trouves distrayants — l'ouverture comprise.</div></div>
@@ -320,12 +323,12 @@
         <h3><span data-ic="eclair" data-ic-taille="14"></span> Comportement</h3>
         <div class="opt-row">
           <div><div class="t">Relance automatique</div><div class="d">Nombre de jours après l'envoi avant de proposer une relance.</div></div>
-          <input type="number" class="opt-num" id="optRelance" min="1" max="60" value="7">
+          <input type="number" class="opt-num" id="optRelance" aria-label="Jours avant la relance proposée" min="1" max="60" value="7">
         </div>
         <div class="opt-row">
           <div><div class="t">Objectif hebdomadaire</div><div class="d">Nombre de candidatures à envoyer par semaine. Affiché en haut de chaque écran.</div></div>
           <span class="opt-duo">
-            <input type="number" class="opt-num" id="goalInput" min="1" max="50" value="5">
+            <input type="number" class="opt-num" id="goalInput" aria-label="Objectif de candidatures par semaine" min="1" max="50" value="5">
             <button class="btn" id="goalSave">Enregistrer</button>
           </span>
         </div>

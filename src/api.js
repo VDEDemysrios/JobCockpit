@@ -11,7 +11,7 @@ import { villeDeRattachement } from './zone.js';
 import { peutRediger, noterAppel, etatQuota, LETTRE } from './quota.js';
 import {
   lireMeta, ecrireMeta, upsertOffre, transaction, noterActivite,
-  journaliser, SANS_ACTIVITE, supprimerOffres, oublierRejets,
+  journaliser, SANS_ACTIVITE, supprimerOffres, oublierRejets, restaurerRejet,
 } from './db.js';
 import { calculerStats, isoLocal } from './stats.js';
 import { offreId } from './hash.js';
@@ -362,7 +362,26 @@ export function creerRoutes({ db, collecter, sources, profil }) {
     supprimerOffres(db, [req.params.id], offre.is_manual ? null : 'manuel');
     journaliser(db, 'ecarte', { offerId: req.params.id, meta: { titre: offre.titre }, sansActivite: true });
 
-    res.json({ ok: true, definitif: !offre.is_manual });
+    // `annulable` dit à l'interface si elle peut proposer un retour en arrière.
+    // Une offre saisie à la main n'a pas de sauvegarde : elle n'est pas
+    // « écartée » mais supprimée, et rien ne la reconstituerait.
+    res.json({ ok: true, definitif: !offre.is_manual, annulable: !offre.is_manual });
+  });
+
+  /**
+   * Remet une offre écartée exactement là où elle était.
+   *
+   * Écarter se fait en un clic ; se tromper aussi. Sans ce retour, la seule
+   * issue était « Tout remettre », qui ramène des milliers d'offres du ménage
+   * automatique avec la seule qu'on visait.
+   */
+  routes.post('/offers/:id/restaurer', (req, res) => {
+    const restauree = restaurerRejet(db, req.params.id);
+    if (!restauree) {
+      return res.status(410).json({ ok: false,
+        error: 'Cette offre ne peut plus être remise : aucune sauvegarde ne lui est attachée.' });
+    }
+    res.json({ ok: true });
   });
 
   /** Remet en circulation ce qui a été écarté — le filet de sécurité. */

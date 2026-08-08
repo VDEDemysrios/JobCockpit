@@ -100,12 +100,12 @@ export function rendreCv(cv) {
           <div id="cvAnneau"></div>
           <div class="cv-couv-listes">
             ${manquants.length ? `
-              <div class="lbl no">❌ ${pluriel(manquants.length, 'motif')} sans appui dans le CV</div>
+              <div class="lbl no">${pluriel(manquants.length, 'motif')} sans appui dans le CV</div>
               <div class="motifs" style="margin-bottom:var(--e4)">
                 ${manquants.map(m => `<span class="motif neg" title="${echapper(m.motif)}">
                   +${m.poids} ${echapper(m.note || m.motif)}</span>`).join('')}
               </div>` : ''}
-            <div class="lbl ok">✅ ${pluriel(couverts.length, 'motif')} appuyé${couverts.length > 1 ? 's' : ''} par le CV</div>
+            <div class="lbl ok">${pluriel(couverts.length, 'motif')} appuyé${couverts.length > 1 ? 's' : ''} par le CV</div>
             <div class="motifs">
               ${couverts.map(m => `<span class="motif" title="${echapper(m.motif)}">
                 +${m.poids} ${echapper(m.note || m.motif)}</span>`).join('')}

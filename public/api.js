@@ -45,6 +45,8 @@ export const API = {
   ajouterOffre:  (offre)       => appeler('/api/offers', { method: 'POST', body: offre }),
   collerOffre:   (texte)       => appeler('/api/offers/paste', { method: 'POST', body: { texte } }),
   supprimerOffre:(id)          => appeler(`/api/offers/${id}`, { method: 'DELETE' }),
+  // Remet une offre écartée par erreur, avec son suivi et sa lettre.
+  restaurerOffre:(id)          => appeler(`/api/offers/${id}/restaurer`, { method: 'POST' }),
   rejetees:      ()            => appeler('/api/offers/rejetees'),
   oublierRejets: ()            => appeler('/api/offers/rejetees/oublier', { method: 'POST', body: {} }),
   rafraichir:    ()            => appeler('/api/refresh', { method: 'POST' }),

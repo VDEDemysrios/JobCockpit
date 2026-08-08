@@ -150,6 +150,9 @@ export function ajouterColonnesManquantes(db) {
     // dans sources/index.js : les cabinets de recrutement diffusent le même
     // texte sur toute la France, et le compte est un signal de qualité.
     ['offers', 'villes_republiees', 'INTEGER DEFAULT 1'],
+    // De quoi remettre une offre écartée par erreur : l'offre, son suivi et
+    // sa lettre, en JSON. Rempli uniquement pour les rejets manuels.
+    ['rejetees', 'donnees', 'TEXT'],
   ];
   for (const [table, colonne, type] of NOUVELLES) {
     const existe = db.prepare(`SELECT COUNT(*) n FROM pragma_table_info(?) WHERE name = ?`)
@@ -355,22 +358,74 @@ const SANS_TRACE = `
  */
 export function supprimerOffres(db, ids, motif = null) {
   return transaction(db, () => {
-    const lireTitre         = db.prepare('SELECT titre FROM offers WHERE id = ?');
-    const rejeter           = db.prepare(`INSERT INTO rejetees (offer_id, motif, titre, rejete_le)
-                                          VALUES (?, ?, ?, ?)
-                                          ON CONFLICT(offer_id) DO UPDATE SET motif = excluded.motif`);
+    const lireOffre         = db.prepare('SELECT * FROM offers   WHERE id = ?');
+    const lireSuivi         = db.prepare('SELECT * FROM tracking WHERE offer_id = ?');
+    const lireLettre        = db.prepare('SELECT * FROM letters  WHERE offer_id = ?');
+    const rejeter           = db.prepare(`INSERT INTO rejetees (offer_id, motif, titre, rejete_le, donnees)
+                                          VALUES (?, ?, ?, ?, ?)
+                                          ON CONFLICT(offer_id) DO UPDATE SET
+                                            motif = excluded.motif, donnees = excluded.donnees`);
     const supprimerOffre    = db.prepare('DELETE FROM offers   WHERE id = ?');
     const supprimerTracking = db.prepare('DELETE FROM tracking WHERE offer_id = ?');
     const supprimerLettre   = db.prepare('DELETE FROM letters  WHERE offer_id = ?');
     const maintenant = new Date().toISOString();
 
     for (const id of ids) {
-      if (motif) rejeter.run(id, motif, lireTitre.get(id)?.titre ?? null, maintenant);
+      const offre = lireOffre.get(id);
+      if (motif) {
+        // ON GARDE DE QUOI REVENIR EN ARRIÈRE — mais seulement pour ce que
+        // Benjamin écarte LUI-MÊME. Les suppressions automatiques portent sur
+        // des milliers d'offres : conserver chacune ferait grossir la base
+        // sans jamais servir, personne ne cherchant à annuler un ménage qu'il
+        // n'a pas demandé.
+        const donnees = motif === 'manuel' && offre
+          ? JSON.stringify({ offre, suivi: lireSuivi.get(id) ?? null, lettre: lireLettre.get(id) ?? null })
+          : null;
+        rejeter.run(id, motif, offre?.titre ?? null, maintenant, donnees);
+      }
       supprimerLettre.run(id);
       supprimerTracking.run(id);
       supprimerOffre.run(id);
     }
     return ids.length;
+  });
+}
+
+/**
+ * Remet une offre écartée exactement là où elle était.
+ *
+ * ÉCARTER SE FAIT EN UN CLIC ; SE TROMPER AUSSI. Sans retour possible, la
+ * seule issue était « Tout remettre » dans les Options — qui ramène les 2 500
+ * offres du ménage automatique avec la seule qu'on voulait. Autant dire rien.
+ *
+ * On restaure l'offre, son suivi et sa lettre, puis on efface le rejet : elle
+ * redevient collectable. Renvoie `false` si l'offre n'a pas de sauvegarde —
+ * une suppression automatique, ou un rejet d'avant cette fonctionnalité.
+ */
+export function restaurerRejet(db, id) {
+  const ligne = db.prepare('SELECT donnees FROM rejetees WHERE offer_id = ?').get(id);
+  if (!ligne?.donnees) return false;
+
+  const { offre, suivi, lettre } = JSON.parse(ligne.donnees);
+  if (!offre) return false;
+
+  return transaction(db, () => {
+    const colonnes = Object.keys(offre);
+    db.prepare(`INSERT OR REPLACE INTO offers (${colonnes.join(', ')})
+                VALUES (${colonnes.map(c => '@' + c).join(', ')})`).run(offre);
+
+    if (suivi) {
+      const cs = Object.keys(suivi);
+      db.prepare(`INSERT OR REPLACE INTO tracking (${cs.join(', ')})
+                  VALUES (${cs.map(c => '@' + c).join(', ')})`).run(suivi);
+    }
+    if (lettre) {
+      const cl = Object.keys(lettre);
+      db.prepare(`INSERT OR REPLACE INTO letters (${cl.join(', ')})
+                  VALUES (${cl.map(c => '@' + c).join(', ')})`).run(lettre);
+    }
+    db.prepare('DELETE FROM rejetees WHERE offer_id = ?').run(id);
+    return true;
   });
 }
 
