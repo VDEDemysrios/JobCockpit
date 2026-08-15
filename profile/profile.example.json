@@ -1,0 +1,252 @@
+{
+  "_lisezMoi": [
+    "Ce fichier pilote la collecte et le classement des offres. Il est modifiable",
+    "sans savoir programmer : ajouter une ville, un intitulé, un mot-clé ou changer",
+    "un poids suffit.",
+    "",
+    "ATTENTION aux motifs de scoring : ce sont des expressions régulières appliquées",
+    "au texte DÉJÀ NORMALISÉ (minuscules, sans accents, toute ponctuation remplacée",
+    "par un espace). Un motif écrit avec sa ponctuation d'origine ne matchera JAMAIS,",
+    "et l'échec sera silencieux.",
+    "  « agrivoltaïque »          devient « agrivoltaique »        -> motif : agrivolta",
+    "  « M&A »                    devient « m a »                  -> motif : \\bm a\\b",
+    "  « droit de l'environnement » devient « droit de l environnement »",
+    "  « diplôme d'ingénieur »    devient « diplome d ingenieur »",
+    "",
+    "Pour vérifier ce que devient un mot : npm run normaliser -- \"M&A\""
+  ],
+  "_zonesProches": [
+    "Une offre est « dans la zone » si sa localisation correspond à la ville",
+    "OU à l'une de ses zonesProches. Les sources renvoient souvent un nom de",
+    "département plutôt qu'une commune (Adzuna a renvoyé « Hauts-de-Seine »),",
+    "ou une commune de banlieue inconnue de nous (« Dammartin-en-Goële »).",
+    "Sans cette liste, ces offres étaient marquées « hors zone » à tort.",
+    "Les codes de département couvrent le cas où la source fournit un code postal."
+  ],
+  "_candidat": [
+    "Coordonnées portées en en-tête des lettres de motivation Word.",
+    "Elles sont déclarées ici plutôt que devinées dans le CV : l'ordre",
+    "d'extraction d'un .docx est imprévisible (la première version avait mis",
+    "« Projets agrivoltaïques » à la place du nom).",
+    "Laisser un champ vide fait chercher la valeur dans le CV en dernier recours."
+  ],
+  "candidat": {
+    "nom": "Prénom Nom",
+    "email": "",
+    "telephone": "",
+    "ville": "Ta ville"
+  },
+  "villesPrioritaires": [
+    {
+      "nom": "Strasbourg",
+      "codeInsee": "67482",
+      "departement": "67",
+      "departementsProches": [
+        "67",
+        "68"
+      ],
+      "zonesProches": [
+        "bas rhin",
+        "haut rhin",
+        "alsace",
+        "eurometropole de strasbourg"
+      ],
+      "departementsOnglet": [
+        "67"
+      ],
+      "zonesOnglet": [
+        "bas rhin",
+        "eurometropole de strasbourg"
+      ]
+    }
+  ],
+  "_flux": [
+    "Flux RSS / Atom à surveiller, en plus des API. C'est le moyen d'ajouter un",
+    "site sans écrire de code : la plupart des job boards français (APEC,",
+    "Welcome to the Jungle, HelloWork) n'ouvrent pas d'API mais publient un flux",
+    "pour chaque recherche enregistrée, et beaucoup d'employeurs en publient un",
+    "pour leur page carrière.",
+    "",
+    "  url          l'adresse du flux. Le jeton {intitule} y est remplacé par",
+    "               chacun de tes intitulés de recherche, encodé pour l'URL.",
+    "               Sans ce jeton, le flux est simplement lu tel quel.",
+    "  nom          libellé affiché dans les journaux de collecte.",
+    "  entreprise   force le nom de l'employeur (utile pour un flux carrière).",
+    "  ville        force la ville (utile pour un flux régional).",
+    "  zone         situe les offres d'un flux déjà filtré par département,",
+    "               quand l'entrée elle-même ne donne pas d'adresse.",
+    "",
+    "Exemple :",
+    "  { \"nom\": \"Carrières Voltalia\", \"url\": \"https://…/jobs.rss\",",
+    "    \"entreprise\": \"Voltalia\" }",
+    "",
+    "Laisser la liste vide désactive simplement la source."
+  ],
+  "flux": [
+    {
+      "nom": "Exemple — Service Public, filière et département",
+      "url": "https://place-ep-recrute.talent-soft.com/handlers/offerRss.ashx?LCID=1036&Rss_JobFamily=3506&Rss_JobDepartment=236",
+      "zone": "Bas-Rhin, 67"
+    }
+  ],
+  "rayonKm": 30,
+  "_intitules": [
+    "COURTS, et peu nombreux. Deux pièges, opposés l'un à l'autre :",
+    "",
+    "1. France Travail exige TOUS les mots. « chargé de développement EnR »",
+    "   y renvoyait 0 offre là où « énergies renouvelables » en renvoyait 60.",
+    "   Chaque mot supplémentaire réduit le résultat, il ne l'affine pas.",
+    "",
+    "2. Jooble et Adzuna font au contraire de la correspondance FLOUE : un mot",
+    "   générique y ramène tout le voisinage. « chef de projet énergie » leur",
+    "   fait remonter « Chef de projet MOE bâtiment » et « Ingénieur Chef de",
+    "   Projet Fluides ».",
+    "",
+    "D'où la seule méthode fiable : mesurer le TAUX DE SURVIE de chaque",
+    "mot-clé — la part de ses offres qui passe les filtres au lieu d'être",
+    "supprimée — et le mesurer SUR TOUTES LES SOURCES. Un mot jugé sur une",
+    "seule trompe : « foncier » gardait 40 % sur France Travail, mais 6 % sur",
+    "Jooble et 16 % sur Adzuna.",
+    "",
+    "En passant de 10 mots-clés choisis à l'intuition à 7 choisis sur ce",
+    "critère : suppressions 837 → 509, et davantage d'offres prioritaires.",
+    "",
+    "Garder la liste courte a aussi un coût direct : chaque mot-clé est",
+    "interrogé pour chaque ville ET en national, sur chaque source. Un mot de",
+    "plus, c'est 5 requêtes de plus par source et par collecte — et Jooble",
+    "plafonne à 500 requêtes."
+  ],
+  "intitules": [
+    "intitulé de poste 1",
+    "intitulé de poste 2",
+    "intitulé de poste 3"
+  ],
+  "fraicheurJours": 7,
+  "scoring": {
+    "positifs": [
+      {
+        "motif": "chef de projet",
+        "poids": 3,
+        "note": "exemple — intitulé recherché"
+      },
+      {
+        "motif": "droit de l environnement",
+        "poids": 2,
+        "note": "exemple — noter que l'apostrophe devient une espace"
+      }
+    ],
+    "negatifs": [
+      {
+        "motif": "diplome d ingenieur|ecole d ingenieur",
+        "poids": -3,
+        "note": "profil droit, pas ingénieur"
+      }
+    ],
+    "eliminatoires": [
+      {
+        "motif": "\\b([5-9]|[1-9]\\d)\\s*(ans|annees)\\b",
+        "note": "exigence d'expérience hors de portée (~2 ans)"
+      },
+      {
+        "motif": "\\bm a\\b|fusion acquisition",
+        "note": "aucune expérience en M&A — « M&A » devient « m a » après normalisation"
+      },
+      {
+        "motif": "genie electrique|chaudronnerie|mecanique|desp|asme",
+        "note": "hors compétences techniques"
+      },
+      {
+        "motif": "habilitation defense|certification amf|\\bamf\\b",
+        "note": "habilitations non détenues"
+      }
+    ],
+    "_sansReponseJours": [
+      "À placer À LA RACINE du profil, pas dans « scoring » :",
+      "  \"sansReponseJours\": 14",
+      "",
+      "Enlève les offres restées « À postuler » plus de N jours. Une offre",
+      "qu'on n'a pas ouverte en deux semaines ne sera pas ouverte : elle",
+      "encombre la liste et fait paraître le travail plus lourd qu'il n'est.",
+      "",
+      "L'ancienneté se compte depuis `first_seen` — le jour où l'offre est",
+      "apparue ici, pas sa date de publication. Absent ou à 0, rien ne se",
+      "passe. Les mêmes protections s'appliquent qu'ailleurs.",
+      "",
+      "Les offres enlevées sont inscrites parmi les « écartées », sans quoi",
+      "la source les republiant, elles reviendraient à la collecte suivante."
+    ],
+    "_nettoyageAutomatique": [
+      "À placer À LA RACINE du profil, pas dans « scoring » :",
+      "  \"nettoyageAutomatique\": true",
+      "",
+      "Enlève les offres hors profil à la fin de CHAQUE collecte, au lieu",
+      "d'attendre un « npm run nettoyer » manuel. Une collecte ratisse large",
+      "exprès : une seule passe peut remettre 300 offres à écarter dans une",
+      "base qu'on venait de nettoyer.",
+      "",
+      "Désactivé par défaut, et volontairement : une suppression est",
+      "irrécupérable, et l'activer sans le savoir viderait l'onglet",
+      "« 🔴 À écarter » de son contenu. Les protections restent entières —",
+      "statut, envoi, relance, note, épingle, lettre ou saisie manuelle",
+      "mettent une offre à l'abri."
+    ],
+    "_eliminatoiresTitre": [
+      "Motifs cherchés dans le SEUL INTITULÉ du poste, jamais dans la",
+      "description — et cette distinction n'est pas cosmétique.",
+      "Une annonce mentionne mille choses en passant (« alternance possible »,",
+      "« en lien avec les RH »). Appliqués au texte entier, ces motifs",
+      "écartaient de très bonnes offres : mesuré sur une base réelle,",
+      "125 offres partaient dont 78 en groupe 1 ou 2. Sur le seul intitulé,",
+      "46 partent et les bonnes survivent.",
+      "",
+      "Sers-t'en pour les MÉTIERS qui ne sont pas les tiens, pas pour des",
+      "mots-clés de contenu : ceux-là ont leur place dans « negatifs »."
+    ],
+    "eliminatoiresTitre": [
+      {
+        "motif": "alternance|alternant|apprenti|apprentissage|contrat de professionnalisation",
+        "note": "alternance — déjà quelques années d'expérience"
+      },
+      {
+        "motif": "\\bstage\\b|\\bstagiaire\\b",
+        "note": "stage — même raison"
+      },
+      {
+        "motif": "\\binterim",
+        "note": "intérim"
+      },
+      {
+        "motif": "\\bcommercial|\\bvente\\b|business developer|conseiller clientele",
+        "note": "fonction commerciale"
+      },
+      {
+        "motif": "\\bassistant|\\bsecretaire|\\bgestionnaire administratif",
+        "note": "poste d'assistanat — pas le niveau visé"
+      },
+      {
+        "motif": "ressources humaines|\\brh\\b|\\bpaie\\b",
+        "note": "filière RH, hors trajectoire"
+      },
+      {
+        "motif": "\\bavocat|\\bnotaire|\\bhuissier",
+        "note": "profession réglementée non détenue"
+      }
+    ],
+    "_seuils": [
+      "Score minimal pour chaque groupe. « aVerifier » mérite attention :",
+      "trop bas, un seul motif générique suffit à échapper au groupe 3, et la",
+      "liste se remplit de postes hors sujet. À 1, une base réelle gardait",
+      "147 offres inutiles ; à 3, elles partent sans qu'aucune offre des",
+      "groupes 1 ou 2 ne soit perdue.",
+      "",
+      "Après toute modification ici : npm run reclasser -- --appliquer",
+      "Sans quoi les offres déjà en base gardent leur ancien classement."
+    ],
+    "seuils": {
+      "prioritaire": 6,
+      "possible": 3,
+      "aVerifier": 3,
+      "descriptionMiniCaracteres": 200
+    }
+  }
+}

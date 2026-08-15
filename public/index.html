@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<!-- Le thème est posé ici AVANT le premier rendu. app.js le remplace ensuite
+     par le choix mémorisé ; l'écrire dans le balisage évite le clignotement
+     d'un écran clair au chargement quand on a choisi un thème sombre. -->
+<html lang="fr" data-theme="vivid" data-densite="normale" data-anim="on">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Le nom vient du profil, pas du balisage : app.js complète ce titre dès que
+     /meta a répondu. Écrit en dur, il partait dans le dépôt public avec le
+     nom de la seule personne qui s'en servait. -->
+<title>Job Cockpit</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- La nappe d'ambiance, derrière tout le reste. Purement décorative, donc
+     masquée aux lecteurs d'écran, et placée AVANT l'application : `.app`
+     masque ce qui déborde de lui, et la nappe déborde exprès. -->
+<div class="ambiance" aria-hidden="true"></div>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <!-- Le nom de l'application EST le titre de la page. Sans `<h1>`, la
+         structure des titres commençait à `<h2>` : un lecteur d'écran
+         annonçait des sous-sections sans jamais nommer le tout. -->
+    <h1 class="sb-brand"><span class="sb-logo" data-ic="boussole" data-ic-taille="17"></span><span>Job Cockpit</span></h1>
+    <div class="sb-sub"></div>
+
+    <div class="clock"><div class="time" id="clockTime">--:--:--</div><div class="date" id="clockDate"></div></div>
+
+    <nav class="nav" id="nav">
+      <button data-view="dashboard" class="active"><span data-ic="graphique" data-ic-taille="18"></span> Tableau de bord</button>
+      <button data-view="offers"><span data-ic="liste" data-ic-taille="18"></span> Offres <span class="nvbadge" id="nb-offers" style="display:none"></span></button>
+      <button data-view="kanban"><span data-ic="colonnes" data-ic-taille="18"></span> Kanban</button>
+      <button data-view="agenda"><span data-ic="calendrier" data-ic-taille="18"></span> Agenda <span class="nvbadge" id="nb-agenda" style="display:none"></span></button>
+      <button data-view="cv"><span data-ic="parchemin" data-ic-taille="18"></span> Mon CV <span class="nvbadge" id="nb-cv" style="display:none">!</span></button>
+      <button data-view="options"><span data-ic="reglages" data-ic-taille="18"></span> Options</button>
+    </nav>
+
+    <div class="sb-theme" id="themeSwitch">
+      <!-- Sans emoji : quatre libellés courts se lisent plus vite que quatre
+           pictogrammes qu'il faut décoder, et la pastille de thème actif dit
+           déjà lequel est en cours. -->
+      <button data-t="vivid">Clair</button>
+      <button data-t="enr">EnR</button>
+      <button data-t="dark">Nuit</button>
+      <button data-t="cockpit">Cockpit</button>
+    </div>
+    <div class="sb-foot">Collecte automatique · données locales.<br>Raccourcis : <span class="kbd">?</span> · Palette : <span class="kbd">Ctrl</span><span class="kbd">K</span></div>
+  </aside>
+
+  <div class="main">
+    <div class="mobile-nav">
+      <button id="burger" data-ic="colonnes"></button>
+      <strong>Job Cockpit</strong>
+      <span class="mob-serie" id="mobSerie"></span>
+    </div>
+
+    <!-- ══════════════ BANDEAU DE COMMANDE ══════════════ -->
+    <header class="cmdbar">
+      <div class="cmd-hello">
+        <div class="ch-t" id="salut">Bonjour</div>
+        <div class="ch-s" id="salutSous">Chargement…</div>
+      </div>
+      <div class="cmd-pills" id="cmdPills"></div>
+      <div class="cmd-actions">
+        <button class="btn btn-ghost" id="paletteBtn" title="Palette de commandes (Ctrl+K)">
+          <span data-ic="loupe" data-ic-taille="15"></span> Rechercher</button>
+        <button class="btn" id="quickAdd"><span data-ic="plume" data-ic-taille="15"></span> Ajouter</button>
+        <button class="btn btn-primary" id="refreshBtn">
+          <span data-ic="rafraichir" data-ic-taille="15"></span> Collecter</button>
+      </div>
+    </header>
+
+    <!-- ══════════════ TABLEAU DE BORD ══════════════ -->
+    <div class="view" id="view-dashboard">
+      <div class="view-head"><div><h2><span data-ic="graphique" data-ic-taille="17"></span> Tableau de bord</h2>
+        <div class="vh-sub" id="dashSub"></div></div>
+        <div class="vh-side" id="focusRythme"></div></div>
+
+      <!-- LES 3 DU JOUR — avant tout le reste, et c'est le propos.
+           La file d'attente dit ce qu'il RESTERAIT à faire ; ce bloc-ci dit
+           par quoi commencer. Trois lignes qu'on peut finir valent mieux que
+           deux cent quatre-vingt-deux qu'on ne finira pas. -->
+      <div class="panel-box panel-dujour">
+        <h3><span data-ic="cible" data-ic-taille="14"></span> Les 3 du jour
+          <span class="h3-side" id="duJourSub"></span></h3>
+        <div id="duJour"></div>
+      </div>
+
+      <div class="veille-banner" id="veilleBanner">
+        <span class="grow" id="veilleText">Chargement…</span>
+        <button class="btn btn-primary" id="refreshBtn2">
+          <span data-ic="rafraichir" data-ic-taille="15"></span> Rafraîchir maintenant</button>
+      </div>
+
+      <!-- Ce qui appelle une action passe avant ce qui décrit : on ouvre le
+           tableau de bord pour savoir quoi faire, pas pour se contempler. -->
+      <div class="panel-box">
+        <h3><span data-ic="eclair" data-ic-taille="14"></span> À faire maintenant
+          <span class="h3-side" id="focusSub"></span></h3>
+        <div id="focusList"></div>
+      </div>
+
+      <div class="stats" id="stats"></div>
+
+      <div class="grille-2">
+        <div class="panel-box">
+          <h3><span data-ic="entonnoir" data-ic-taille="14"></span> Entonnoir de candidature</h3>
+          <div class="ring-wrap">
+            <div id="dashAnneau"></div>
+            <div style="flex:1;min-width:260px" id="funnel"></div>
+          </div>
+        </div>
+        <div class="panel-box">
+          <h3><span data-ic="eclair" data-ic-taille="14"></span> Résultats de tes candidatures</h3>
+          <div id="perfJauges" class="jauges"></div>
+          <div class="stats compact" id="perf"></div>
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <h3><span data-ic="graphique" data-ic-taille="14"></span> Ton rythme
+          <span class="h3-side"><span class="seg" id="segRythme">
+            <button data-p="30" class="active">30 j</button><button data-p="90">90 j</button><button data-p="semaines">Semaines</button>
+          </span></span></h3>
+        <div id="courbeRythme"></div>
+      </div>
+
+      <!-- Tout ce qui décrit plutôt que d'appeler à agir est replié.
+           Rien n'est supprimé : ces graphiques répondent à des questions
+           réelles, mais une par mois. Les laisser dépliés faisait payer à
+           chaque ouverture le prix d'une page qu'on ne lit pas. -->
+      <details class="plus" id="dashPlus">
+        <summary>
+          <span data-ic="graphique" data-ic-taille="15"></span>
+          <span class="pl-t">Analyse détaillée</span>
+          <span class="pl-s">assiduité, villes, sources, thèmes, contrats, journal</span>
+          <span class="pl-fl">▾</span>
+        </summary>
+
+        <div class="panel-box">
+          <h3><span data-ic="flamme" data-ic-taille="14"></span> Calendrier d'assiduité
+            <span class="h3-side" id="heatSub"></span></h3>
+          <div id="heat"></div>
+        </div>
+
+        <div class="grille-2">
+          <div class="panel-box">
+            <h3><span data-ic="carte" data-ic-taille="14"></span> Répartition par ville</h3>
+            <div id="citybars"></div>
+          </div>
+          <div class="panel-box">
+            <h3><span data-ic="globe" data-ic-taille="14"></span> D'où viennent les offres</h3>
+            <div id="sourceDonut"></div>
+          </div>
+        </div>
+
+        <div class="grille-2">
+          <div class="panel-box">
+            <h3><span data-ic="boussole" data-ic-taille="14"></span> Adéquation par thème
+              <span class="h3-side">offres collectées</span></h3>
+            <div id="radarThemes" class="centre"></div>
+            <p class="note-panel">Ce que le marché propose réellement, mesuré sur les mots-clés de ton profil.
+              Un axe creux signale un thème sur lequel peu d'offres remontent — pas une faiblesse de ton CV.</p>
+          </div>
+          <div class="panel-box">
+            <h3><span data-ic="colonnes" data-ic-taille="14"></span> Distribution des scores</h3>
+            <div id="histoScores"></div>
+            <p class="note-panel">Le score par mots-clés de chaque offre collectée. Un pic à gauche veut dire
+              que tes intitulés de recherche ramènent trop large.</p>
+          </div>
+        </div>
+
+        <div class="grille-2">
+          <div class="panel-box">
+            <h3><span data-ic="poignee" data-ic-taille="14"></span> Types de contrat</h3>
+            <div id="barresContrat"></div>
+          </div>
+          <div class="panel-box">
+            <h3><span data-ic="gratte-ciel" data-ic-taille="14"></span> Entreprises qui recrutent le plus</h3>
+            <div id="topEntreprises"></div>
+          </div>
+        </div>
+
+        <div class="panel-box">
+          <h3><span data-ic="liste" data-ic-taille="14"></span> Journal d'activité</h3>
+          <div class="timeline" id="timeline"></div>
+        </div>
+      </details>
+    </div>
+
+    <!-- ══════════════ OFFRES ══════════════ -->
+    <div class="view" id="view-offers" style="display:none">
+      <div class="view-head"><div><h2><span data-ic="liste" data-ic-taille="17"></span> Toutes les offres</h2>
+        <div class="vh-sub" id="offersSub"></div></div></div>
+
+      <!-- Onglets de villes : la première question devant une liste d'offres
+           est « où ? ». Chaque ville prioritaire a le sien, « Autre » recueille
+           tout le reste — la partition est complète, rien n'est masqué.
+           Construits par app.js d'après profile.json : ajouter une ville au
+           profil suffit à créer son onglet. -->
+      <div class="villes" id="villes"></div>
+
+      <div class="toolbar">
+        <input class="search" id="search" placeholder="Rechercher un poste, une entreprise…">
+        <select id="sort" aria-label="Trier les offres">
+          <option value="grp">Tri : pertinence</option>
+          <option value="score">Tri : score</option>
+          <option value="fresh">Tri : fraîcheur</option>
+          <option value="date">Tri : date de l'offre</option>
+          <option value="ville">Tri : ville</option>
+          <option value="relance">Tri : relance</option>
+        </select>
+        <select id="statusFilter" aria-label="Filtrer par statut de candidature"><option value="all">Tous les statuts</option><option>À postuler</option><option>Envoyé</option><option>Relancé</option><option>Entretien</option><option>Refus</option></select>
+        <span class="tb-espace"></span>
+        <button class="btn btn-discret" id="toggleVue" title="Basculer liste / grille"><span data-ic="colonnes" data-ic-taille="15"></span> Grille</button>
+        <button class="btn btn-discret" id="exportBtn"><span data-ic="document" data-ic-taille="15"></span> CSV</button>
+        <button class="btn btn-discret" id="pdfBtn" title="Suivi de candidatures en PDF"><span data-ic="parchemin" data-ic-taille="15"></span> PDF</button>
+        <button class="btn btn-primary" id="toggleForm">+ Offre</button>
+      </div>
+
+      <!-- Le classement tient en un seul objet segmenté plutôt qu'en cinq
+           pastilles flottantes : c'est un choix unique, il se lit comme tel. -->
+      <div class="filtres">
+        <span class="seg seg-groupe" id="segGroupe">
+          <button data-g="all" class="active">Toutes <b id="c-all">0</b></button>
+          <!-- Des pastilles CSS, pas des emoji ronds : elles prennent la
+               couleur exacte du groupe dans le thème courant, au lieu de
+               quatre disques qui se rendent différemment sur chaque système
+               et ignorent la palette. -->
+          <button data-g="1" title="Prioritaires"><i class="pt pt1"></i> <b id="c-1">0</b></button>
+          <button data-g="2" title="Possibles"><i class="pt pt2"></i> <b id="c-2">0</b></button>
+          <button data-g="0" title="À vérifier"><i class="pt pt0"></i> <b id="c-0">0</b></button>
+          <button data-g="3" title="À écarter"><i class="pt pt3"></i> <b id="c-3">0</b></button>
+        </span>
+        <span class="chips" id="chips">
+          <span class="chip" data-f="pin"><span data-ic="etoile" data-ic-taille="13"></span> Épinglées</span>
+          <span class="chip" data-f="lettre"><span data-ic="plume" data-ic-taille="13"></span> Avec lettre</span>
+          <span class="chip" data-f="frais"><span data-ic="eclair" data-ic-taille="13"></span> Fraîches</span>
+        </span>
+      </div>
+
+      <div class="form" id="form">
+        <div class="tabs" id="formTabs">
+          <button data-tab="manuel" class="active"><span data-ic="plume" data-ic-taille="15"></span> Saisir une offre</button>
+          <button data-tab="collage"><span data-ic="document" data-ic-taille="15"></span> Coller une annonce</button>
+        </div>
+
+        <div class="tabpane active" id="tab-manuel">
+          <div class="frow"><div><label>Titre</label><input id="f-titre"></div><div><label>Entreprise</label><input id="f-entreprise"></div></div>
+          <div class="frow"><div><label>Ville</label><input id="f-ville" placeholder="Strasbourg (67)"></div><div><label>Date (AAAA-MM-JJ)</label><input id="f-date" placeholder="2026-07-28"></div></div>
+          <div class="frow"><div><label>Contrat</label><input id="f-contrat" placeholder="CDI"></div><div><label>Groupe</label><select id="f-groupe"><option value="1">Prioritaire</option><option value="2">Possible</option><option value="3">À écarter</option><option value="0">À vérifier</option></select></div></div>
+          <div style="margin-bottom:var(--e3)"><label>Lien</label><input id="f-lien" placeholder="https://…"></div>
+          <div style="margin-bottom:var(--e4)"><label>Note / verdict</label><textarea id="f-verdict" rows="3"></textarea></div>
+          <button class="btn btn-primary" id="saveOffer">Enregistrer <span class="gain">+5 pt</span></button>
+          <button class="btn" id="cancelOffer">Annuler</button>
+        </div>
+
+        <div class="tabpane" id="tab-collage">
+          <label>Colle le texte complet d'une annonce trouvée n'importe où (LinkedIn, APEC, site carrière…). Elle sera analysée et classée comme les offres collectées automatiquement.</label>
+          <textarea class="paste-area" id="pasteArea" placeholder="Colle l'annonce ici…"></textarea>
+          <div style="margin-top:var(--e3)">
+            <button class="btn btn-primary" id="savePaste">Analyser et ajouter <span class="gain">+5 pt</span></button>
+            <button class="btn" id="cancelPaste">Annuler</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="count" id="count"></div>
+      <div class="grid" id="grid"></div>
+      <button class="btn plus-offres" id="plusOffres" style="display:none"></button>
+      <div class="empty" id="empty" style="display:none;">Aucune offre ne correspond à ce filtre.</div>
+    </div>
+
+    <!-- ══════════════ KANBAN ══════════════ -->
+    <div class="view" id="view-kanban" style="display:none">
+      <div class="view-head"><div><h2><span data-ic="colonnes" data-ic-taille="17"></span> Kanban</h2>
+        <div class="vh-sub">Glisse une carte d'une colonne à l'autre pour changer son statut.</div></div>
+        <div class="vh-side" id="kanbanSide"></div></div>
+      <div class="kanban" id="kanban"></div>
+    </div>
+
+    <!-- ══════════════ AGENDA ══════════════ -->
+    <div class="view" id="view-agenda" style="display:none">
+      <div class="view-head"><div><h2><span data-ic="calendrier" data-ic-taille="17"></span> Agenda des relances</h2>
+        <div class="vh-sub" id="agendaSub"></div></div></div>
+      <div class="panel-box">
+        <h3><span data-ic="calendrier" data-ic-taille="14"></span> <span id="moisTitre">—</span>
+          <span class="h3-side">une pastille par relance · rouge = en retard</span></h3>
+        <div class="mois" id="moisCalendrier"></div>
+      </div>
+      <div id="agenda"></div>
+      <div class="empty" id="agendaEmpty" style="display:none;">Aucune relance planifiée. Ajoute une date de relance sur une offre depuis l'onglet Offres.</div>
+    </div>
+
+    <!-- ══════════════ MON CV ══════════════ -->
+    <div class="view" id="view-cv" style="display:none">
+      <div class="view-head"><div><h2><span data-ic="parchemin" data-ic-taille="17"></span> Mon CV</h2>
+        <div class="vh-sub" id="cvSub">Chargement…</div></div></div>
+      <div id="cvContenu"></div>
+    </div>
+
+    <!-- ══════════════ OPTIONS ══════════════ -->
+    <div class="view" id="view-options" style="display:none">
+      <div class="view-head"><div><h2><span data-ic="reglages" data-ic-taille="17"></span> Options</h2>
+        <div class="vh-sub">Ce que tu cherches et où, puis l'affichage et le confort.</div></div></div>
+
+      <!-- Mes villes. Réglage le plus conséquent de la page : il commande ce
+           que la collecte va chercher et la façon dont les offres se rangent.
+           Il passe donc avant l'apparence, et non en bas avec les préférences. -->
+      <div class="panel-box">
+        <h3><span data-ic="liste" data-ic-taille="14"></span> Mes villes</h3>
+        <p class="vil-intro">Chaque ville a son onglet dans la liste des offres, et oriente la
+          collecte. Un nom et un code postal suffisent : le périmètre ne se règle que si un
+          onglet finit par contenir des annonces qui n'ont rien à y faire.</p>
+        <div id="villesEditeur"></div>
+        <div class="vil-pied">
+          <button class="btn" id="villeAjouter" type="button">Ajouter une ville</button>
+          <span class="vil-etat" id="villesEtat"></span>
+          <button class="btn btn-primary" id="villesSave" type="button" disabled>Enregistrer</button>
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <h3><span data-ic="etoile" data-ic-taille="14"></span> Apparence</h3>
+        <div class="opt-row">
+          <div><div class="t">Densité d'affichage</div><div class="d">Compacte pour voir plus d'offres à l'écran, large pour plus de confort de lecture.</div></div>
+          <select id="optDensite" aria-label="Densité d'affichage"><option value="compacte">Compacte</option><option value="normale">Normale</option><option value="large">Large</option></select>
+        </div>
+        <div class="opt-row">
+          <div><div class="t">Thème</div><div class="d">Raccourci clavier : <span class="kbd">T</span></div></div>
+          <select id="optTheme" aria-label="Thème de l'interface"><option value="vivid">Clair</option><option value="enr">EnR</option><option value="dark">Nuit</option><option value="cockpit">Cockpit</option></select>
+        </div>
+        <div class="opt-row">
+          <div><div class="t">Animations</div><div class="d">Coupe tous les mouvements de l'interface si tu les trouves distrayants — l'ouverture comprise.</div></div>
+          <label class="switch"><input type="checkbox" id="optAnim" checked><span class="track"></span></label>
+        </div>
+        <div class="opt-row">
+          <div><div class="t">Ouverture animée</div><div class="d">Le générique au lancement. Il ne joue qu'une fois par ouverture, et se saute d'un clic ou d'une touche.</div></div>
+          <label class="switch"><input type="checkbox" id="optIntro" checked><span class="track"></span></label>
+        </div>
+        <div class="opt-row">
+          <div><div class="t">Visite guidée</div><div class="d">Six étapes qui montrent l'application en désignant les vrais éléments. Elle se lance seule à la première ouverture.</div></div>
+          <button class="btn" id="optTutoriel">Refaire la visite</button>
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <h3><span data-ic="eclair" data-ic-taille="14"></span> Comportement</h3>
+        <div class="opt-row">
+          <div><div class="t">Relance automatique</div><div class="d">Nombre de jours après l'envoi avant de proposer une relance.</div></div>
+          <input type="number" class="opt-num" id="optRelance" aria-label="Jours avant la relance proposée" min="1" max="60" value="7">
+        </div>
+        <div class="opt-row">
+          <div><div class="t">Objectif hebdomadaire</div><div class="d">Nombre de candidatures à envoyer par semaine. Affiché en haut de chaque écran.</div></div>
+          <span class="opt-duo">
+            <input type="number" class="opt-num" id="goalInput" aria-label="Objectif de candidatures par semaine" min="1" max="50" value="5">
+            <button class="btn" id="goalSave">Enregistrer</button>
+          </span>
+        </div>
+        <div class="opt-row">
+          <div><div class="t">Masquer les offres à écarter</div><div class="d">Cache d'office le groupe rouge dans la liste des offres.</div></div>
+          <label class="switch"><input type="checkbox" id="optMasquer"><span class="track"></span></label>
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <h3><span data-ic="eclair" data-ic-taille="14"></span> Quota Gemini du jour
+          <span class="h3-side" id="quotaJour"></span></h3>
+        <div id="quotaBarre"></div>
+        <p class="note-panel">Le quota est journalier et partagé entre l'analyse des offres et la
+          rédaction des lettres. Une réserve est mise de côté : l'analyse s'arrête avant d'y toucher,
+          pour qu'il reste toujours de quoi écrire une lettre. Réglable dans
+          <code>profile/profile.json</code>, bloc <code>gemini</code>.</p>
+      </div>
+
+      <div class="panel-box">
+        <h3><span data-ic="globe" data-ic-taille="14"></span> Sources de collecte</h3>
+        <div id="optSources"></div>
+        <p class="note-panel">Une source sans clé est simplement sautée : l'application fonctionne avec une seule.
+          Les clés se renseignent dans le fichier <code>.env</code>, les flux RSS dans <code>profile/profile.json</code>.</p>
+      </div>
+
+      <div class="panel-box">
+        <h3><span data-ic="document" data-ic-taille="14"></span> Tes données</h3>
+        <div class="opt-row">
+          <div><div class="t">Exporter une sauvegarde</div><div class="d">Offres, suivi et statistiques, dans un fichier JSON.</div></div>
+          <button class="btn" id="optExport"><span data-ic="document" data-ic-taille="15"></span> Exporter</button>
+        </div>
+        <div class="opt-row">
+          <div><div class="t">Offres écartées</div><div class="d">Celles que tu as supprimées d'un clic, ou qui sont parties d'elles-mêmes, sont retenues dans une liste pour ne pas revenir à chaque collecte. <span id="optRejetNb"></span></div></div>
+          <button class="btn" id="optOublierRejets">Tout remettre</button>
+        </div>
+        <div class="opt-row">
+          <div><div class="t">Effacer l'historique d'activité</div><div class="d">Vide le journal des actions et le calendrier d'assiduité. Tes offres, ton suivi et tes lettres ne sont pas touchés.</div></div>
+          <button class="btn" id="optResetHisto">Effacer</button>
+        </div>
+        <div class="opt-row">
+          <div><div class="t">Où sont mes données ?</div><div class="d">Dans le fichier <code>data.db</code>, sur cet ordinateur. Rien n'est envoyé ailleurs, hormis vers Gemini au moment d'une analyse d'offre ou de la rédaction d'une lettre.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toastZone"></div>
+<div class="overlay" id="palette">
+  <div class="palette-box">
+    <input id="paletteInput" placeholder="Aller à une offre, une vue, une action…" autocomplete="off">
+    <div class="palette-res" id="paletteRes"></div>
+    <div class="palette-pied"><span class="kbd">↑</span><span class="kbd">↓</span> naviguer · <span class="kbd">Entrée</span> ouvrir · <span class="kbd">Échap</span> fermer</div>
+  </div>
+</div>
+
+<div class="overlay" id="aideClavier">
+  <div class="overlay-box">
+    <h3>Raccourcis clavier</h3>
+    <div class="kbd-row"><span>Palette de commandes</span><span><span class="kbd">Ctrl</span> <span class="kbd">K</span></span></div>
+    <div class="kbd-row"><span>Focus du jour</span><span><span class="kbd">G</span> <span class="kbd">F</span></span></div>
+    <div class="kbd-row"><span>Tableau de bord</span><span><span class="kbd">G</span> <span class="kbd">D</span></span></div>
+    <div class="kbd-row"><span>Statistiques</span><span><span class="kbd">G</span> <span class="kbd">S</span></span></div>
+    <div class="kbd-row"><span>Mon CV</span><span><span class="kbd">G</span> <span class="kbd">V</span></span></div>
+    <div class="kbd-row"><span>Offres</span><span><span class="kbd">G</span> <span class="kbd">O</span></span></div>
+    <div class="kbd-row"><span>Kanban</span><span><span class="kbd">G</span> <span class="kbd">K</span></span></div>
+    <div class="kbd-row"><span>Agenda</span><span><span class="kbd">G</span> <span class="kbd">A</span></span></div>
+    <div class="kbd-row"><span>Options</span><span><span class="kbd">G</span> <span class="kbd">R</span></span></div>
+    <div class="kbd-row"><span>Rechercher</span><span><span class="kbd">/</span></span></div>
+    <div class="kbd-row"><span>Lancer une collecte</span><span><span class="kbd">R</span></span></div>
+    <div class="kbd-row"><span>Ajouter une offre</span><span><span class="kbd">N</span></span></div>
+    <div class="kbd-row"><span>Changer de thème</span><span><span class="kbd">T</span></span></div>
+    <div class="kbd-row"><span>Fermer / annuler</span><span><span class="kbd">Échap</span></span></div>
+    <div style="margin-top:var(--e5);text-align:right">
+      <button class="btn btn-primary" id="fermerAide">Compris</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

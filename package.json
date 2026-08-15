@@ -1,0 +1,42 @@
+{
+  "name": "job-cockpit",
+  "version": "1.0.0",
+  "description": "Tableau de bord de recherche d'emploi avec collecte automatisée",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "collect": "node scripts/collect.js",
+    "nettoyer": "node scripts/nettoyer.js",
+    "reclasser": "node scripts/reclasser.js",
+    "exe": "node scripts/construire-exe.mjs",
+    "sauvegardes": "node scripts/sauvegardes.js",
+    "installer": "node scripts/installer.js",
+    "extract-cv": "node scripts/extract-cv.js",
+    "normaliser": "node scripts/normaliser.js",
+    "modeles": "node scripts/modeles.js",
+    "test": "node --test \"test/**/*.test.js\"",
+    "icone": "node scripts/construire-icone.mjs"
+  },
+  "dependencies": {
+    "@google/genai": "^1.0.0",
+    "docx": "^9.7.1",
+    "dotenv": "^16.4.0",
+    "express": "^5.2.1",
+    "jszip": "^3.10.1",
+    "mammoth": "^1.8.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1",
+    "postject": "^1.0.0-alpha.6",
+    "rcedit": "^5.0.2"
+  },
+  "license": "MIT",
+  "author": "Benjamin Perrin",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/VDEDemysrios/JobCockpit.git"
+  }
+}

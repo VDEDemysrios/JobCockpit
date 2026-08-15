@@ -1,0 +1,46 @@
+# Secrets — ne JAMAIS commiter
+.env
+
+# Base de données locale.
+#
+# L'ÉTOILE N'EST PAS UN CONFORT, C'EST LA CORRECTION D'UNE FUITE.
+# `neutraliser()` met l'ancienne base de côté sous un nom horodaté
+# (« data.db.remplacee-par-l-application-<ms> »). Les trois motifs exacts
+# qui étaient ici ne le reconnaissaient pas : un « git add -A » a poussé
+# 1,4 Mo de base — 279 offres, une lettre, le suivi de candidature — sur le
+# dépôt PUBLIC, et c'est resté en ligne plusieurs commits sans que rien ne
+# le signale. Tout ce qui commence par data.db est désormais couvert.
+data.db*
+
+# Données personnelles (CV, lettres)
+profile/cv.txt
+profile/cv-source.docx
+profile/cv-source.pdf
+
+# Dépendances et journaux
+node_modules/
+collect.log
+serveur.log
+npm-debug.log*
+
+# Profil personnel : nom, ville, critères de recherche et motifs de scoring
+# calqués sur le CV. Le dépôt publie profile.example.json à la place.
+profile/profile.json
+profile/*.sauvegarde-*
+
+# Exécutable construit (92 Mo) — se reconstruit par « npm run exe »
+dist/
+
+# ─────────────────────────────────────────────────────────────────────
+# NOTES DE TRAVAIL — gardées ici, jamais publiées.
+#
+# Ces documents décrivent l'avancement, les décisions et les sessions de
+# travail. Ils contiennent des chemins Windows complets, un nom
+# d'utilisateur, un dossier Dropbox et le nom de l'auteur — soit la
+# concentration la plus dense de données personnelles du dépôt, pour des
+# fichiers dont personne n'a besoin pour installer ou comprendre l'outil.
+#
+# `docs/MISE-EN-LIGNE.md` reste publié : il sert à qui veut héberger.
+docs/HANDOFF.md
+docs/REPRISE.md
+docs/superpowers/

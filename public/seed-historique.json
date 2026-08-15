@@ -1,0 +1,468 @@
+[
+  {
+    "id": 1,
+    "titre": "Chef de Projet Junior Aménagement et Énergie",
+    "entreprise": "BARAN RECRUTEMENT",
+    "ville": "Strasbourg (67)",
+    "contrat": "CDI",
+    "groupe": 1,
+    "lien": "https://to.indeed.com/aapnsdv7y4wm",
+    "analyse": {
+      "exige": [
+        "Formation supérieure (Ingénieur/Master)",
+        "Première expérience en gestion de projet",
+        "Connaissances réglementations et financements"
+      ],
+      "souhaite": [
+        "Expérience « idéalement » aménagement/énergie/rénovation",
+        "Bon relationnel, sens pédagogique"
+      ],
+      "decoratif": [
+        "« Aventure humaine », « épanouissement »"
+      ],
+      "prouvable": [
+        "Master 2 dans le domaine (correspondance directe)",
+        "Conduite de projet depuis trois ans — proche de l'intitulé"
+      ],
+      "nonprouvable": [
+        "Pas d'expérience du montage de subventions"
+      ],
+      "compensable": [
+        "Oui : le suivi budgétaire est transposable au suivi de subventions"
+      ],
+      "verdict": "Oui, ça te correspond. La meilleure du lot.",
+      "fourchette": "32 000 – 38 000 € brut annuel",
+      "fnote": "Estimation indicative, à confirmer en entretien.",
+      "formul": "Reprends le vocabulaire de l'annonce sans recopier ses phrases.",
+      "budget": "Fourchette estimée d'après le marché local pour ce niveau.",
+      "kw": [
+        [
+          "Dossiers de subventions",
+          "non",
+          "Présent dans le CV du candidat."
+        ],
+        [
+          "Décret tertiaire",
+          "non",
+          "Présent dans le CV du candidat."
+        ],
+        [
+          "Maître d'ouvrage délégué",
+          "partiel",
+          "Présent dans le CV du candidat."
+        ],
+        [
+          "Reporting",
+          "oui",
+          "Présent dans le CV du candidat."
+        ]
+      ]
+    }
+  },
+  {
+    "id": 2,
+    "titre": "Juriste H/F",
+    "entreprise": "CC du Canton d'Erstein",
+    "ville": "Benfeld (67)",
+    "contrat": "Temps plein",
+    "groupe": 1,
+    "lien": "https://to.indeed.com/aawktfmtr6xn",
+    "analyse": {
+      "exige": [
+        "Bac+4/Bac+5 en droit",
+        "Droit public, administratif, collectivités"
+      ],
+      "souhaite": [
+        "Capacités rédactionnelles",
+        "Compréhension des collectivités",
+        "Permis B (optionnel)"
+      ],
+      "decoratif": [
+        "Quasiment aucun — fiche factuelle"
+      ],
+      "prouvable": [
+        "Coordination de prestataires sur huit projets",
+        "Suivi budgétaire mensuel documenté"
+      ],
+      "nonprouvable": [
+        "Aucun encadrement hiérarchique mentionné"
+      ],
+      "compensable": [
+        "Partiellement : coordination fonctionnelle à défaut de hiérarchique"
+      ],
+      "verdict": "À tenter : deux exigences sur trois sont couvertes.",
+      "fourchette": "27 000 – 31 000 € brut (indiciaire + RIFSEEP)",
+      "fnote": "Estimation indicative, à confirmer en entretien.",
+      "formul": "Reprends le vocabulaire de l'annonce sans recopier ses phrases.",
+      "budget": "Fourchette estimée d'après le marché local pour ce niveau.",
+      "kw": [
+        [
+          "Contrôle de légalité",
+          "non",
+          "Présent dans le CV du candidat."
+        ],
+        [
+          "Précontentieux",
+          "partiel",
+          "Présent dans le CV du candidat."
+        ],
+        [
+          "Notes d'aide à la décision",
+          "oui",
+          "Présent dans le CV du candidat."
+        ],
+        [
+          "Collectivités territoriales",
+          "oui",
+          "Présent dans le CV du candidat."
+        ]
+      ]
+    }
+  },
+  {
+    "id": 3,
+    "titre": "Conseiller·ère juridique",
+    "entreprise": "Département de Meurthe-et-Moselle",
+    "ville": "Écrouves (54)",
+    "contrat": "Temps plein",
+    "groupe": 0,
+    "lien": "https://to.indeed.com/aa6vpflyzx4c",
+    "analyse": {
+      "verdict": "Possible, mais la lettre devra traiter le point faible de front.",
+      "exige": [],
+      "souhaite": [],
+      "decoratif": [],
+      "prouvable": [
+        "Rédaction de notes et de procédures",
+        "Relation quotidienne avec des collectivités"
+      ],
+      "nonprouvable": [
+        "Pas de certification exigée par l'annonce"
+      ],
+      "compensable": [
+        "Non : la certification est éliminatoire dans cette annonce"
+      ],
+      "formul": "Reprends le vocabulaire de l'annonce sans recopier ses phrases.",
+      "budget": "Fourchette estimée d'après le marché local pour ce niveau.",
+      "kw": [],
+      "fourchette": null,
+      "fnote": null
+    }
+  },
+  {
+    "id": 4,
+    "titre": "Chef de projet ENR H/F",
+    "entreprise": "Veles Energies",
+    "ville": "Bordeaux (33)",
+    "contrat": "CDI",
+    "groupe": 2,
+    "lien": "https://to.indeed.com/aaqty47pfs4l",
+    "analyse": {
+      "exige": [
+        "Bac+5 (ingénieur, urbanisme, droit environnement)",
+        "Expérience CONFIRMÉE en développement ENR",
+        "Procédures d'autorisation",
+        "Anglais COURANT",
+        "Permis B"
+      ],
+      "souhaite": [
+        "« Idéalement » solaire ou agrivoltaïque — couvert par le CV"
+      ],
+      "decoratif": [
+        "Très peu — offre concrète"
+      ],
+      "prouvable": [
+        "Master 2 dans le domaine (correspondance directe)",
+        "Conduite de projet depuis trois ans — proche de l'intitulé"
+      ],
+      "nonprouvable": [
+        "Pas d'expérience du montage de subventions"
+      ],
+      "compensable": [
+        "Oui : le suivi budgétaire est transposable au suivi de subventions"
+      ],
+      "verdict": "Passe ton chemin : l'exigence bloquante n'est pas contournable.",
+      "fourchette": "36 000 – 44 000 € brut annuel",
+      "fnote": "Estimation indicative, à confirmer en entretien.",
+      "formul": "Reprends le vocabulaire de l'annonce sans recopier ses phrases.",
+      "budget": "Fourchette estimée d'après le marché local pour ce niveau.",
+      "kw": [
+        [
+          "Agrivoltaïsme",
+          "oui",
+          "Présent dans le CV du candidat."
+        ],
+        [
+          "Prospection de sites",
+          "partiel",
+          "Présent dans le CV du candidat."
+        ],
+        [
+          "Permis de construire",
+          "partiel",
+          "Présent dans le CV du candidat."
+        ],
+        [
+          "Acceptabilité locale",
+          "oui",
+          "Présent dans le CV du candidat."
+        ]
+      ]
+    }
+  },
+  {
+    "id": 5,
+    "titre": "Juriste M&A et Financement H/F",
+    "entreprise": "TENERGIE",
+    "ville": "Fuveau (13)",
+    "contrat": "Non précisé",
+    "groupe": 3,
+    "lien": "https://to.indeed.com/aajrlk4scmyt",
+    "analyse": {
+      "exige": [
+        "5 années CONFIRMÉES en Juridique M&A"
+      ],
+      "souhaite": [
+        "Cases RH génériques"
+      ],
+      "decoratif": [
+        "Accroche motivationnelle"
+      ],
+      "prouvable": [
+        "Coordination de prestataires sur huit projets",
+        "Suivi budgétaire mensuel documenté"
+      ],
+      "nonprouvable": [
+        "Aucun encadrement hiérarchique mentionné"
+      ],
+      "compensable": [
+        "Partiellement : coordination fonctionnelle à défaut de hiérarchique"
+      ],
+      "verdict": "Oui, ça te correspond. La meilleure du lot.",
+      "formul": "Reprends le vocabulaire de l'annonce sans recopier ses phrases.",
+      "budget": "Fourchette estimée d'après le marché local pour ce niveau.",
+      "kw": [],
+      "fourchette": null,
+      "fnote": null
+    }
+  },
+  {
+    "id": 6,
+    "titre": "Responsable Énergie H/F",
+    "entreprise": "Société des 3 Vallées",
+    "ville": "Courchevel (73)",
+    "contrat": "CDI",
+    "groupe": 3,
+    "lien": "https://to.indeed.com/aacsnx8mrz6w",
+    "analyse": {
+      "exige": [
+        "Génie électrique",
+        "Gestion énergétique sites complexes",
+        "Réseaux, supervision"
+      ],
+      "souhaite": [
+        "ISO 50 001"
+      ],
+      "decoratif": [
+        "« Projet de vie »"
+      ],
+      "prouvable": [
+        "Rédaction de notes et de procédures",
+        "Relation quotidienne avec des collectivités"
+      ],
+      "nonprouvable": [
+        "Pas de certification exigée par l'annonce"
+      ],
+      "compensable": [
+        "Non : la certification est éliminatoire dans cette annonce"
+      ],
+      "verdict": "À tenter : deux exigences sur trois sont couvertes.",
+      "formul": "Reprends le vocabulaire de l'annonce sans recopier ses phrases.",
+      "budget": "Fourchette estimée d'après le marché local pour ce niveau.",
+      "kw": [],
+      "fourchette": null,
+      "fnote": null
+    }
+  },
+  {
+    "id": 7,
+    "titre": "Juriste Contract Manager H/F",
+    "entreprise": "Thales",
+    "ville": "Élancourt (78)",
+    "contrat": "Temps plein",
+    "groupe": 3,
+    "lien": "https://to.indeed.com/aamssb8xfwm8",
+    "analyse": {
+      "exige": [
+        "Droit affaires/défense",
+        "8 ANS minimum",
+        "Anglais courant",
+        "Habilitation défense"
+      ],
+      "souhaite": [
+        "Vision business"
+      ],
+      "decoratif": [
+        "Marque employeur"
+      ],
+      "prouvable": [
+        "Master 2 dans le domaine (correspondance directe)",
+        "Conduite de projet depuis trois ans — proche de l'intitulé"
+      ],
+      "nonprouvable": [
+        "Pas d'expérience du montage de subventions"
+      ],
+      "compensable": [
+        "Oui : le suivi budgétaire est transposable au suivi de subventions"
+      ],
+      "verdict": "Possible, mais la lettre devra traiter le point faible de front.",
+      "formul": "Reprends le vocabulaire de l'annonce sans recopier ses phrases.",
+      "budget": "Fourchette estimée d'après le marché local pour ce niveau.",
+      "kw": [],
+      "fourchette": null,
+      "fnote": null
+    }
+  },
+  {
+    "id": 8,
+    "titre": "Contract Manager H/F",
+    "entreprise": "PAPREC",
+    "ville": "Paris (75)",
+    "contrat": "CDI",
+    "groupe": 3,
+    "lien": "https://to.indeed.com/aa4wrcmrmywq",
+    "analyse": {
+      "exige": [
+        "Ingénieur",
+        "10 ANS dont 5 Contract Mgmt",
+        "Contrats EPC",
+        "Anglais courant"
+      ],
+      "souhaite": [],
+      "decoratif": [
+        "« Mot du DRH »"
+      ],
+      "prouvable": [
+        "Coordination de prestataires sur huit projets",
+        "Suivi budgétaire mensuel documenté"
+      ],
+      "nonprouvable": [
+        "Aucun encadrement hiérarchique mentionné"
+      ],
+      "compensable": [
+        "Partiellement : coordination fonctionnelle à défaut de hiérarchique"
+      ],
+      "verdict": "Passe ton chemin : l'exigence bloquante n'est pas contournable.",
+      "formul": "Reprends le vocabulaire de l'annonce sans recopier ses phrases.",
+      "budget": "Fourchette estimée d'après le marché local pour ce niveau.",
+      "kw": [],
+      "fourchette": null,
+      "fnote": null
+    }
+  },
+  {
+    "id": 9,
+    "titre": "Contract Manager H/F",
+    "entreprise": "PAPREC",
+    "ville": "La Seyne-sur-Mer (83)",
+    "contrat": "CDI",
+    "groupe": 3,
+    "lien": "https://to.indeed.com/aa4bhcd4z778",
+    "analyse": {
+      "exige": [
+        "Identique Paris"
+      ],
+      "souhaite": [],
+      "decoratif": [],
+      "prouvable": [
+        "Rédaction de notes et de procédures",
+        "Relation quotidienne avec des collectivités"
+      ],
+      "nonprouvable": [
+        "Pas de certification exigée par l'annonce"
+      ],
+      "compensable": [
+        "Non : la certification est éliminatoire dans cette annonce"
+      ],
+      "verdict": "Oui, ça te correspond. La meilleure du lot.",
+      "formul": "Reprends le vocabulaire de l'annonce sans recopier ses phrases.",
+      "budget": "Fourchette estimée d'après le marché local pour ce niveau.",
+      "kw": [],
+      "fourchette": null,
+      "fnote": null
+    }
+  },
+  {
+    "id": 10,
+    "titre": "Chef de Projet Industriel H/F",
+    "entreprise": "Groupe PARLYM",
+    "ville": "Rueil-Malmaison (92)",
+    "contrat": "CDI",
+    "groupe": 3,
+    "lien": "https://to.indeed.com/aarts874cklp",
+    "analyse": {
+      "exige": [
+        "Ingénieur",
+        "Mécanique DESP/ASME",
+        "Chaudronnerie",
+        "Anglais C1"
+      ],
+      "souhaite": [
+        "ERP, MS Project"
+      ],
+      "decoratif": [
+        "« Best Place to Work »"
+      ],
+      "prouvable": [
+        "Master 2 dans le domaine (correspondance directe)",
+        "Conduite de projet depuis trois ans — proche de l'intitulé"
+      ],
+      "nonprouvable": [
+        "Pas d'expérience du montage de subventions"
+      ],
+      "compensable": [
+        "Oui : le suivi budgétaire est transposable au suivi de subventions"
+      ],
+      "verdict": "À tenter : deux exigences sur trois sont couvertes.",
+      "formul": "Reprends le vocabulaire de l'annonce sans recopier ses phrases.",
+      "budget": "Fourchette estimée d'après le marché local pour ce niveau.",
+      "kw": [],
+      "fourchette": null,
+      "fnote": null
+    }
+  },
+  {
+    "id": 11,
+    "titre": "RCSI / Head of Compliance",
+    "entreprise": "Fed Group",
+    "ville": "Paris (75)",
+    "contrat": "CDI",
+    "groupe": 3,
+    "lien": "https://to.indeed.com/aaghfrgnn77t",
+    "analyse": {
+      "exige": [
+        "Certification AMF",
+        "10+ ans conformité",
+        "Direction"
+      ],
+      "souhaite": [],
+      "decoratif": [],
+      "prouvable": [
+        "Coordination de prestataires sur huit projets",
+        "Suivi budgétaire mensuel documenté"
+      ],
+      "nonprouvable": [
+        "Aucun encadrement hiérarchique mentionné"
+      ],
+      "compensable": [
+        "Partiellement : coordination fonctionnelle à défaut de hiérarchique"
+      ],
+      "verdict": "Possible, mais la lettre devra traiter le point faible de front.",
+      "formul": "Reprends le vocabulaire de l'annonce sans recopier ses phrases.",
+      "budget": "Fourchette estimée d'après le marché local pour ce niveau.",
+      "kw": [],
+      "fourchette": null,
+      "fnote": null
+    }
+  }
+]

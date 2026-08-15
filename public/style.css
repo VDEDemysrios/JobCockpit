@@ -1,0 +1,1743 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   JOB COCKPIT — SYSTÈME DE DESIGN
+
+   C'EST UN INSTRUMENT, PAS UNE PLAQUETTE.
+   ---------------------------------------
+   La version précédente était une jolie page : grands rayons, ombres molles,
+   dégradé violet, espacement « écran 27 pouces », emoji dans les titres. Sur
+   1280×800 elle affichait TROIS offres à la fois — sur 282 à trier. On lisait
+   un document, section après section, là où il faut balayer un tableau.
+
+   Les règles qui remplacent ça :
+   · Les bordures dessinent, pas les ombres. Une ombre ne sert plus qu'à ce
+     qui FLOTTE réellement au-dessus du reste (surcouches, menus, toasts).
+   · Rayons courts. 6 px sur les contrôles, 8 sur les surfaces. Au-delà, une
+     interface prend un air de maquette et perd sa précision.
+   · Le neutre porte tout ; la couleur signale. Un seul accent, réservé à
+     l'action en cours et au focus. Les statuts gardent leurs couleurs parce
+     qu'elles PORTENT une information — pas pour décorer.
+   · Aucun dégradé de marque. Rien ne date plus vite.
+   · Densité : l'espacement est resserré d'environ un tiers. Le blanc sépare
+     encore, mais il ne meuble plus.
+   · Les emoji sont réservés au CONTENU ; le mobilier de l'interface est en
+     SVG — voir icons.js.
+   · Des chiffres en chasse fixe pour qu'ils ne dansent pas quand ils changent.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root{
+  --font:'Inter var','Inter',-apple-system,BlinkMacSystemFont,'Segoe UI Variable Text',
+    'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,'SF Mono','Cascadia Mono',Menlo,Consolas,monospace;
+  /* Police de titraille. Identique au texte du contenu par défaut :
+     c'est la seule façon de changer la voix des titres sans toucher à celle
+     du contenu, qui doit rester lisible sur 282 lignes. */
+  --font-titre:var(--font);
+  --sbw:212px;
+
+  /* Espacement — multiples de 2, échelle resserrée.
+     L'ancienne échelle (4/8/14/20/28/36/48/60/72) partait du principe qu'un
+     bloc a besoin d'air pour se lire comme un objet. C'est vrai d'une page de
+     présentation ; c'est faux d'un poste de travail, où ce qu'on cherche est
+     de voir PLUS de lignes d'un coup d'œil. */
+  --e1:4px; --e2:6px; --e3:10px; --e4:14px; --e5:18px;
+  --e6:24px; --e8:30px; --e10:40px; --e12:52px;
+
+  /* Rayons — courts et resserrés. Les grands rayons (26 px, 34 px) posés sur
+     des panneaux pleine largeur étaient le marqueur le plus visible. */
+  --r1:4px; --r2:6px; --r3:8px; --r4:10px; --r5:12px; --r6:14px;
+
+  /* Graisses */
+  --w-normal:400; --w-medium:500; --w-semi:600; --w-bold:700;
+}
+
+/* ─────────────────────────── THÈMES ─────────────────────────── */
+
+/* LES OMBRES, DANS LES QUATRE THÈMES.
+   sh1 et sh2 sont désormais presque nulles : ce sont les BORDURES qui
+   dessinent les surfaces posées à plat. sh3 et sh4 restent franches, parce
+   qu'elles habillent ce qui flotte pour de bon — menus, palette, modales — et
+   qu'à cet endroit l'ombre porte une information : « ceci est au-dessus ».   */
+
+[data-theme="vivid"]{
+  --bg:#fafafa; --bg2:#f3f4f6; --panel:#ffffff; --card:#ffffff;
+  --ink:#111318; --ink-2:#3a3f4a; --muted:#676d78; --faint:#949aa4;
+  --line:#e5e7eb; --line-fort:#d1d5db;
+  --accent:#3355d1; --accent2:#5b7cf0; --accent-bg:#eef1fc; --accent-ink:#2a45ab;
+  --g1:#047857; --g1b:#e8f5f0; --g2:#a16207; --g2b:#fbf3e2;
+  --g3:#b91c1c; --g3b:#fceceb; --g0:#6b7280; --g0b:#f1f2f4;
+  --hot:#b91c1c; --hotb:#fceceb; --info:#0369a1; --infob:#e9f2f9;
+  --pink:#a21caf; --pinkb:#f9edfa;
+  --grad:#3355d1;
+  --sbgrad:#15171c;
+  --voile:rgba(255,255,255,.78);
+  --sh1:none;
+  --sh2:0 1px 2px rgba(17,19,24,.05);
+  --sh3:0 4px 12px -3px rgba(17,19,24,.12),0 2px 4px -2px rgba(17,19,24,.06);
+  --sh4:0 16px 40px -12px rgba(17,19,24,.24),0 4px 10px -4px rgba(17,19,24,.1);
+  --lueur:0 0 0 1px rgba(51,85,209,.4);
+}
+
+[data-theme="enr"]{
+  --bg:#f8faf8; --bg2:#eff3f0; --panel:#ffffff; --card:#ffffff;
+  --ink:#0f1712; --ink-2:#374139; --muted:#616b64; --faint:#929c96;
+  --line:#e2e8e4; --line-fort:#ccd6d0;
+  --accent:#0f7a52; --accent2:#4d8c1f; --accent-bg:#e9f4ef; --accent-ink:#0a5c3e;
+  --g1:#0f7a52; --g1b:#e9f4ef; --g2:#a16207; --g2b:#fbf3e2;
+  --g3:#b4400f; --g3b:#fbeee7; --g0:#6b7671; --g0b:#f0f2f1;
+  --hot:#b4400f; --hotb:#fbeee7; --info:#0e7490; --infob:#e5f2f5;
+  --pink:#4d7c0f; --pinkb:#f2f7e9;
+  --grad:#0f7a52;
+  --sbgrad:#101613;
+  --voile:rgba(255,255,255,.78);
+  --sh1:none;
+  --sh2:0 1px 2px rgba(15,23,18,.05);
+  --sh3:0 4px 12px -3px rgba(15,23,18,.12),0 2px 4px -2px rgba(15,23,18,.06);
+  --sh4:0 16px 40px -12px rgba(15,23,18,.24),0 4px 10px -4px rgba(15,23,18,.1);
+  --lueur:0 0 0 1px rgba(15,122,82,.42);
+}
+
+[data-theme="dark"]{
+  --bg:#0b0c0f; --bg2:#131519; --panel:#111317; --card:#16181d;
+  --ink:#eceef2; --ink-2:#c0c4cc; --muted:#8b909a; --faint:#666b75;
+  --line:#232630; --line-fort:#343841;
+  --accent:#7d93f5; --accent2:#a78bfa; --accent-bg:#1a1f33; --accent-ink:#b9c4fb;
+  --g1:#34d399; --g1b:#0f2c25; --g2:#fbbf24; --g2b:#2f2611;
+  --g3:#f87171; --g3b:#331b1b; --g0:#8b909a; --g0b:#1c1f26;
+  --hot:#f87171; --hotb:#331b1b; --info:#60a5fa; --infob:#14243b;
+  --pink:#f472b6; --pinkb:#331a27;
+  --grad:#7d93f5;
+  --sbgrad:#0e1013;
+  --voile:rgba(255,255,255,.05);
+  --sh1:none;
+  --sh2:0 1px 2px rgba(0,0,0,.5);
+  --sh3:0 4px 12px -3px rgba(0,0,0,.6),0 2px 4px -2px rgba(0,0,0,.4);
+  --sh4:0 16px 40px -12px rgba(0,0,0,.8),0 4px 10px -4px rgba(0,0,0,.5);
+  --lueur:0 0 0 1px rgba(125,147,245,.5);
+}
+
+/* Cockpit : le thème « poste de pilotage ». Fonds froids, accent ambre,
+   pensé pour les longues sessions du soir. */
+[data-theme="cockpit"]{
+  --bg:#080b10; --bg2:#0e131a; --panel:#0d1116; --card:#12171e;
+  --ink:#e4edf4; --ink-2:#b6c4cf; --muted:#7e8d99; --faint:#5c6975;
+  --line:#1c242d; --line-fort:#2b3540;
+  --accent:#f0a020; --accent2:#38bdf8; --accent-bg:#251b0b; --accent-ink:#f8cd6a;
+  --g1:#22d3ee; --g1b:#0a2830; --g2:#f0a020; --g2b:#2a1f0a;
+  --g3:#fb7185; --g3b:#301520; --g0:#7e8d99; --g0b:#171d25;
+  --hot:#fb7185; --hotb:#301520; --info:#38bdf8; --infob:#0c2233;
+  --pink:#e879f9; --pinkb:#281431;
+  --grad:#f0a020;
+  --sbgrad:#0a0d12;
+  --voile:rgba(56,189,248,.05);
+  --sh1:none;
+  --sh2:0 1px 2px rgba(0,0,0,.6);
+  --sh3:0 4px 12px -3px rgba(0,0,0,.7),0 2px 4px -2px rgba(0,0,0,.5);
+  --sh4:0 16px 40px -12px rgba(0,0,0,.85),0 4px 10px -4px rgba(0,0,0,.6);
+  --lueur:0 0 0 1px rgba(240,160,32,.5);
+}
+
+/* ─────────────────────────── SOCLE ─────────────────────────── */
+
+*{box-sizing:border-box;}
+
+/* 15 px et un interlignage de 1,62 sont les réglages d'un ARTICLE : ils
+   servent la lecture suivie. Ici on ne lit pas, on balaye des lignes courtes
+   — un titre de poste, une entreprise, une ville. 13,5 px avec un
+   interlignage de 1,5 fait tenir un tiers de lignes en plus sans rien coûter
+   en confort, et le léger resserrement des lettres évite l'aspect « traitement
+   de texte » que donnent les polices système à leur chasse par défaut. */
+body{font-family:var(--font);background:var(--bg);color:var(--ink);margin:0;
+  line-height:1.5;-webkit-font-smoothing:antialiased;font-size:13.5px;
+  letter-spacing:-.006em;}
+a{color:var(--accent);text-decoration:none;}
+a:hover{text-decoration:underline;}
+
+/* Chiffres en chasse fixe : ils ne « sautent » plus quand ils changent. */
+.n,.big,.stat .n,.clock .time,.fn,.gr-anneau-mid b,
+.gr-jauge-mid b,.gb-v,.gbh-v,.ge-v,.qt-n,.stat .delta{
+  font-variant-numeric:tabular-nums;font-feature-settings:"tnum";}
+
+.ic{flex-shrink:0;vertical-align:-.15em;}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+@keyframes pop{from{opacity:0;transform:scale(.94);}to{opacity:1;transform:scale(1);}}
+@keyframes slideIn{from{opacity:0;transform:translateX(-6px);}to{opacity:1;transform:translateX(0);}}
+@keyframes grow{from{width:0;}}
+@keyframes growH{from{height:0;}}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes toastIn{from{opacity:0;transform:translateY(12px) scale(.97);}to{opacity:1;transform:translateY(0) scale(1);}}
+@keyframes riseUp{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+@keyframes confetti{0%{transform:translateY(0) rotate(0);opacity:1;}100%{transform:translateY(105vh) rotate(680deg);opacity:0;}}
+@keyframes shine{0%{transform:translateX(-100%);}55%,100%{transform:translateX(300%);}}
+@keyframes bounceIn{0%{transform:scale(.85);opacity:0;}60%{transform:scale(1.03);}100%{transform:scale(1);opacity:1;}}
+@keyframes shimmer{0%{background-position:-700px 0;}100%{background-position:700px 0;}}
+@keyframes tracer{from{stroke-dashoffset:1200;}to{stroke-dashoffset:0;}}
+@keyframes halo{0%,100%{opacity:.45;transform:scale(1);}50%{opacity:.85;transform:scale(1.09);}}
+@keyframes derive{0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
+@keyframes monte{from{transform:scaleY(0);opacity:0;}}
+@keyframes deplie{from{transform:scale(.15);opacity:0;}}
+@keyframes caseIn{from{opacity:0;transform:scale(.35);}}
+@keyframes pointIn{from{opacity:0;}}
+@keyframes deroule{from{stroke-dasharray:0 var(--tour);}}
+
+/* ─────────────────── ROULEAU DE CHIFFRES ─────────────────── */
+/* Chaque colonne est un ruban de 0-9 qui glisse sous une fenêtre d'un cadratin.
+   L'arrivée est posée en style inline par anim.js : si la transition ne
+   démarre pas, le bon chiffre reste affiché. */
+.roul{display:inline-flex;overflow:hidden;height:1em;line-height:1;
+  vertical-align:-.06em;}
+.roul-col{display:flex;flex-direction:column;will-change:transform;}
+.roul-col i{font-style:normal;display:block;height:1em;line-height:1;
+  font-variant-numeric:tabular-nums;text-align:center;}
+.roul-fixe{display:inline-block;}
+
+/* ─────────────────────── STRUCTURE ─────────────────────── */
+
+/* ═══ LE CADRE ═══
+   L'application occupe l'écran et n'en sort pas. Seule la vue courante
+   défile, à l'intérieur de son cadre.
+
+   Avant, c'était la PAGE entière qui défilait : le tableau de bord mesurait
+   près de 5 écrans, la liste d'offres plus de 7. On perdait la barre latérale
+   et le bandeau de commande dès le premier coup de molette, et il fallait
+   remonter tout en haut pour changer de vue ou lancer une collecte.
+
+   `min-height:0` revient partout dans ce bloc, et il n'est jamais décoratif :
+   sans lui, un enfant de flex refuse de rétrécir sous la taille de son
+   contenu — il repousse son parent au lieu de défiler, et tout l'édifice
+   retombe dans le défaut qu'on corrige ici. */
+html,body{height:100%;overflow:hidden;}
+
+/* `position` et `z-index` posés explicitement : c'est ce qui garantit que
+   l'application passe AU-DESSUS de la nappe d'ambiance, sans dépendre de
+   l'ordre de peinture des blocs non positionnés. */
+.app{display:flex;height:100dvh;overflow:hidden;position:relative;z-index:1;}
+
+/* LE RAIL.
+   Plus de dégradé violet — c'est ce qui datait le plus, et un dégradé de
+   marque sur 250 px de haut n'apporte aucune information. Un aplat sombre et
+   neutre fait le même travail : séparer la navigation du plan de travail,
+   sans prétendre à autre chose. Il reste sombre dans TOUS les thèmes, y
+   compris les clairs : le rail est un cadre, pas une page. */
+.sidebar{width:var(--sbw);background:var(--sbgrad);color:#fff;flex-shrink:0;
+  height:100%;display:flex;flex-direction:column;
+  padding:var(--e4) var(--e2) var(--e3);z-index:30;overflow-y:auto;}
+.sidebar::-webkit-scrollbar{width:4px;}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:2px;}
+/* `margin:0` parce que c'est un `<h1>` : sans lui, la marge par défaut du
+   navigateur décollerait la marque du haut du rail. */
+.sb-brand{font-size:13.5px;font-weight:var(--w-semi);display:flex;align-items:center;
+  gap:var(--e2);padding:0 var(--e2);letter-spacing:-.2px;margin:0;}
+.sb-logo{display:inline-flex;color:rgba(255,255,255,.85);}
+.sb-sub{font-size:10.5px;opacity:.45;margin:1px 0 var(--e4);padding:0 var(--e2);letter-spacing:.1px;}
+
+/* L'horloge n'est plus un cadran. Elle occupait un encadré de 22 px de
+   chiffres pour dire ce que la barre des tâches dit déjà, à trois centimètres
+   de là. Réduite à une ligne discrète, elle informe sans réclamer. */
+.clock{padding:0 var(--e2);margin-bottom:var(--e4);display:flex;align-items:baseline;
+  gap:var(--e2);}
+.clock .time{font-size:12.5px;font-weight:var(--w-medium);letter-spacing:.2px;opacity:.85;}
+.clock .date{font-size:10.5px;opacity:.42;text-transform:capitalize;}
+
+.nav{display:flex;flex-direction:column;gap:1px;}
+.nav button{display:flex;align-items:center;gap:var(--e2);background:transparent;
+  border:none;color:rgba(255,255,255,.62);font-family:inherit;font-size:12.5px;
+  font-weight:var(--w-medium);padding:6px var(--e2);border-radius:var(--r2);
+  cursor:pointer;text-align:left;transition:background .13s,color .13s;position:relative;}
+.nav button:hover{background:rgba(255,255,255,.06);color:#fff;}
+.nav button.active{background:rgba(255,255,255,.1);color:#fff;font-weight:var(--w-medium);}
+/* Plus de barre blanche en bord gauche : le fond suffit à dire « ici ». Le
+   trait supplémentaire était un troisième signal pour la même information. */
+.nav button .nvbadge{margin-left:auto;background:var(--hot);color:#fff;font-size:10px;
+  font-weight:var(--w-semi);border-radius:var(--r1);padding:0 5px;min-width:17px;text-align:center;}
+
+.sbq-titre{font-size:9.5px;text-transform:uppercase;letter-spacing:1.2px;opacity:.5;
+  font-weight:var(--w-bold);margin-bottom:var(--e2);padding-left:var(--e2);}
+.sbq{display:flex;align-items:center;gap:var(--e2);font-size:11.5px;padding:5px var(--e2);
+  border-radius:var(--r1);opacity:.78;transition:opacity .15s,background .15s;cursor:pointer;}
+.sbq:hover{background:rgba(255,255,255,.07);opacity:1;}
+.sbq.ok{opacity:.45;}
+.sbq.ok .sbq-n{text-decoration:line-through;}
+.sbq-n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sbq-p{font-size:10px;opacity:.75;font-variant-numeric:tabular-nums;}
+
+.sb-theme{display:grid;grid-template-columns:1fr 1fr;gap:3px;background:rgba(0,0,0,.24);
+  border-radius:var(--r2);padding:3px;margin-top:var(--e3);}
+/* Cinq thèmes dans une grille de deux : le premier prend la ligne entière
+   plutôt que de laisser un trou en bas. C'est aussi le thème par défaut — il
+   se trouve donc mis en avant, ce qui tombe bien. */
+.sb-theme button:first-child{grid-column:1 / -1;}
+.sb-theme button{border:none;background:transparent;color:rgba(255,255,255,.66);
+  font-size:11px;padding:6px 4px;border-radius:var(--r1);cursor:pointer;font-family:inherit;
+  font-weight:var(--w-medium);transition:background .15s,color .15s;white-space:nowrap;}
+.sb-theme button:hover{background:rgba(255,255,255,.09);color:#fff;}
+.sb-theme button.active{background:rgba(255,255,255,.94);color:#191934;font-weight:var(--w-semi);}
+.sb-foot{font-size:10.5px;opacity:.45;margin-top:var(--e3);line-height:1.7;padding:0 var(--e2);}
+.sb-foot .kbd{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2);color:#fff;}
+
+/* Aucune largeur maximale : sur un écran 2560, un cap à 1680 px laissait un
+   quart de la surface vide. Ce sont les GRILLES qui occupent la place — elles
+   ajoutent des colonnes toutes seules — et seules les zones de prose sont
+   bridées plus bas, parce qu'une ligne de texte de 2 000 px est illisible. */
+/* Le bandeau de commande ne défile plus : il est le haut du cadre. Le
+   rembourrage descend donc dans la vue, pour que la barre de défilement
+   longe le bord de la fenêtre plutôt que de flotter au milieu. */
+.main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;
+  overflow:hidden;padding:var(--e5) var(--e8) 0;}
+
+.view{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  padding-bottom:var(--e10);
+  /* La barre de défilement est ramenée au bord de la fenêtre, sans décaler
+     le contenu quand elle apparaît. */
+  margin-right:calc(-1 * var(--e8));padding-right:var(--e8);
+  scrollbar-gutter:stable;}
+
+/* Discrète au repos, visible sous le doigt. Une barre de défilement large
+   et grise dans une application soignée se remarque plus que le contenu. */
+.view::-webkit-scrollbar{width:10px;}
+.view::-webkit-scrollbar-track{background:transparent;}
+.view::-webkit-scrollbar-thumb{background:var(--line-fort);border-radius:99px;
+  border:3px solid transparent;background-clip:content-box;}
+.view::-webkit-scrollbar-thumb:hover{background:var(--faint);background-clip:content-box;}
+
+/* Une ombre apparaît sous le bandeau dès qu'on a défilé : sans elle, rien ne
+   distingue « je suis en haut » de « il y a du contenu au-dessus », et on
+   remonte pour vérifier. */
+.main{position:relative;}
+.main::before{content:"";position:absolute;left:0;right:0;top:0;height:14px;
+  pointer-events:none;z-index:10;opacity:0;transition:opacity .2s;
+  background:linear-gradient(to bottom,color-mix(in srgb,var(--ink) 12%,transparent),transparent);}
+.main.defile::before{opacity:1;}
+
+/* ── Navigation au clavier ─────────────────────────────────────────────── */
+/* `:focus-visible` ne se déclenche qu'au clavier : la souris ne laisse donc
+   aucun contour disgracieux, mais tabuler reste parfaitement lisible. */
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--r1);}
+.ville:focus-visible,.chip:focus-visible,.seg button:focus-visible{outline-offset:-2px;}
+
+/* Confort de lecture — la mesure typographique, pas la largeur de l'écran. */
+.verdict,.extrait,.note-panel,.goal-msg,.veille-banner .grow{max-width:105ch;}
+.letter-area,.paste-area{max-width:100ch;}
+/* LE TITRE DE VUE N'EST PAS UNE COUVERTURE.
+   34 px en gras, c'est le titre d'un document — et c'est très exactement ce
+   qui donnait l'impression d'un CV posé sur un site. Dans un outil, le nom de
+   la vue est un repère : on le lit une fois en arrivant, puis plus jamais. Il
+   redescend donc au rang de ce qu'il est, et rend la place aux données. */
+.view-head{display:flex;justify-content:space-between;align-items:baseline;gap:var(--e4);
+  flex-wrap:wrap;margin-bottom:var(--e3);}
+.view-head h2{font-size:17px;margin:0;font-weight:var(--w-semi);letter-spacing:-.3px;
+  line-height:1.3;display:flex;align-items:center;gap:var(--e2);}
+.view-head h2 .ic{color:var(--faint);}
+.view-head .vh-sub{color:var(--muted);font-size:12px;margin-top:2px;}
+.vh-side{color:var(--muted);font-size:12px;display:flex;align-items:center;gap:var(--e3);}
+
+/* ─────────────────── BANDEAU DE COMMANDE ─────────────────── */
+
+/* Plus besoin de `sticky` : le bandeau est hors de la zone qui défile, donc
+   toujours là. Il ne se superpose plus au contenu, ce qui permet de retirer
+   le flou d'arrière-plan — coûteux à chaque image, pour masquer un problème
+   qui n'existe plus. */
+.cmdbar{display:flex;align-items:center;gap:var(--e3);flex-wrap:wrap;
+  padding:var(--e2) var(--e3);margin-bottom:var(--e3);flex-shrink:0;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r3);}
+.cmd-hello{min-width:150px;}
+.cmd-hello .ch-t{font-size:12.5px;font-weight:var(--w-semi);letter-spacing:-.15px;}
+.cmd-hello .ch-s{font-size:11px;color:var(--muted);margin-top:0;}
+.cmd-pills{display:flex;gap:var(--e2);flex-wrap:wrap;flex:1;}
+.cpill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:var(--w-medium);
+  padding:2px 8px;border-radius:var(--r1);background:var(--bg2);border:1px solid var(--line);
+  color:var(--ink-2);white-space:nowrap;}
+.cpill b{font-variant-numeric:tabular-nums;}
+.cpill.chaud{background:var(--hotb);border-color:transparent;color:var(--hot);}
+.cpill.feu{background:var(--g2b);border-color:transparent;color:var(--g2);}
+.cpill.vert{background:var(--g1b);border-color:transparent;color:var(--g1);}
+.cpill.accent{background:var(--accent-bg);border-color:transparent;color:var(--accent-ink);}
+.cpill .em{font-size:13px;}
+.cmd-actions{display:flex;gap:var(--e2);flex-wrap:wrap;}
+.btn-ghost{background:transparent;border-style:dashed;color:var(--muted);}
+
+/* ─────────────────────── SURFACES ─────────────────────── */
+
+.panel-box{background:var(--panel);border:1px solid var(--line);border-radius:var(--r3);
+  padding:var(--e4);margin-bottom:var(--e3);animation:fadeUp .3s;}
+.panel-box h3{margin:0 0 var(--e3);font-size:11px;font-weight:var(--w-semi);
+  display:flex;align-items:center;gap:var(--e2);text-transform:uppercase;
+  letter-spacing:.7px;color:var(--muted);}
+.panel-box h3 .ic{color:var(--accent);}
+.panel-box h3 .h3-side{margin-left:auto;text-transform:none;letter-spacing:0;
+  font-weight:var(--w-medium);font-size:11.5px;color:var(--faint);}
+.note-panel{font-size:12px;color:var(--muted);line-height:1.65;margin:var(--e4) 0 0;
+  padding-top:var(--e3);border-top:1px solid var(--line);}
+.centre{display:flex;justify-content:center;}
+.grille-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:var(--e4);}
+.grille-2>.panel-box{margin-bottom:var(--e4);}
+
+.seg{display:inline-flex;background:var(--bg2);border:1px solid var(--line);
+  border-radius:var(--r2);padding:2px;gap:2px;}
+.seg button{border:none;background:transparent;color:var(--muted);font-family:inherit;
+  font-size:11.5px;font-weight:var(--w-medium);padding:4px 10px;border-radius:var(--r1);cursor:pointer;
+  transition:background .15s,color .15s;}
+.seg button:hover{color:var(--ink);}
+.seg button.active{background:var(--panel);color:var(--ink);font-weight:var(--w-semi);
+  box-shadow:var(--sh2);}
+
+/* Pastille de groupe — remplace les emoji 🟢🟡⚪🔴. Elle prend la couleur du
+   groupe telle que le thème la définit, donc elle reste juste dans les quatre
+   thèmes, ce qu'un emoji ne sait pas faire. */
+.pt{display:inline-block;width:7px;height:7px;border-radius:50%;vertical-align:0;}
+.pt1{background:var(--g1)}.pt2{background:var(--g2)}
+.pt0{background:var(--g0)}.pt3{background:var(--g3)}
+
+/* ─────────────────────── TUILES DE STATISTIQUE ─────────────────────── */
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));
+  gap:var(--e2);margin-bottom:var(--e3);}
+.stats.compact{grid-template-columns:repeat(auto-fit,minmax(126px,1fr));margin-bottom:0;}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--r3);
+  padding:var(--e3) var(--e4);position:relative;overflow:hidden;
+  animation:pop .3s backwards;transition:border-color .15s,background .15s;}
+/* Une tuile ne DÉCOLLE plus au survol. Six tuiles qui se soulèvent à chaque
+   passage de souris, c'est un tableau de bord qui frétille ; le changement de
+   bordure suffit à dire « survolé ». */
+.stat:hover{border-color:var(--line-fort);background:var(--bg2);}
+/* Le filet de teinte passe à gauche : en haut il redessinait un « couvercle »
+   de carte, en bord gauche il aligne les tuiles sur le reste de l'interface. */
+.stat::after{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;
+  background:var(--teinte,var(--accent));}
+.stat:nth-child(1){animation-delay:.02s}.stat:nth-child(2){animation-delay:.05s}
+.stat:nth-child(3){animation-delay:.08s}.stat:nth-child(4){animation-delay:.11s}
+.stat:nth-child(5){animation-delay:.14s}.stat:nth-child(6){animation-delay:.17s}
+.stat:nth-child(7){animation-delay:.2s}.stat:nth-child(8){animation-delay:.23s}
+/* L'emoji de tuile devient une pastille discrète en coin. À 19 px et pleine
+   opacité, six emoji colorés tiraient l'œil avant les chiffres qu'ils sont
+   censés annoter. */
+.stat .em{position:absolute;right:var(--e3);top:var(--e3);font-size:13px;opacity:.4;
+  filter:grayscale(1);}
+.stat .n{font-size:26px;font-weight:var(--w-semi);line-height:1.1;letter-spacing:-.8px;
+  color:var(--teinte,var(--ink));}
+.stat .n .u{font-size:14px;font-weight:var(--w-medium);letter-spacing:0;}
+.stat .l{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.35;}
+.stat .delta{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:var(--w-semi);
+  margin-top:5px;padding:1px 6px;border-radius:var(--r1);background:var(--g0b);color:var(--muted);}
+.stat .delta.up{background:var(--g1b);color:var(--g1);}
+.stat .delta.down{background:var(--g3b);color:var(--g3);}
+.stat .spark-slot{margin-top:var(--e2);height:34px;}
+
+/* ─────────────────────── BANDEAU DE MISE À JOUR ─────────────────────── */
+
+.veille-banner{display:flex;align-items:center;gap:var(--e3);background:var(--panel);
+  border:1px solid var(--line);border-radius:var(--r3);padding:var(--e2) var(--e3);
+  margin-bottom:var(--e3);font-size:12.5px;flex-wrap:wrap;}
+.veille-banner::before{content:"";width:3px;align-self:stretch;border-radius:3px;background:var(--g1);}
+.veille-banner.stale::before{background:var(--hot);}
+.veille-banner.warn::before{background:var(--g2);}
+.veille-banner .grow{flex:1;color:var(--ink-2);min-width:240px;}
+.veille-banner strong{color:var(--ink);}
+
+/* ─────────────────────── BOUTONS & CHAMPS ─────────────────────── */
+
+.btn,select,.search,.opt-num,input[type=date],input[type=number],input[type=text]{
+  font-family:inherit;font-size:12.5px;color:var(--ink);background:var(--panel);
+  border:1px solid var(--line-fort);border-radius:var(--r2);padding:5px var(--e3);
+  transition:border-color .13s,background .13s,color .13s;}
+.btn{cursor:pointer;font-weight:var(--w-medium);display:inline-flex;align-items:center;
+  gap:6px;white-space:nowrap;}
+/* Le survol change le FOND, pas la couleur du texte. Un libellé qui vire au
+   bleu sous la souris se lit une fraction de seconde comme un lien. */
+.btn:hover{border-color:var(--line-fort);background:var(--bg2);}
+.btn[disabled]{opacity:.5;cursor:progress;}
+
+/* L'ACTION PRINCIPALE EST ENCRE, PAS COULEUR.
+   Un gros bouton indigo saturé est la signature des gabarits SaaS de 2021.
+   L'encre du thème donne le contraste maximal — donc la meilleure lisibilité
+   de la seule action qui compte — sans dépenser la couleur d'accent, qui
+   reste ainsi disponible pour ce qu'elle doit vraiment signaler : le focus,
+   la sélection, l'urgent. Et le couple ink/panel s'inverse tout seul dans les
+   thèmes sombres, sans une seule règle de plus. */
+.btn-primary{background:var(--ink);border-color:var(--ink);color:var(--panel);
+  font-weight:var(--w-semi);}
+.btn-primary:hover{background:var(--ink-2);border-color:var(--ink-2);color:var(--panel);}
+.btn .gain{font-size:10px;font-weight:var(--w-semi);background:var(--voile);
+  padding:1px 5px;border-radius:var(--r1);}
+.btn:not(.btn-primary) .gain{background:var(--accent-bg);color:var(--accent-ink);}
+select:focus,.search:focus,input:focus,textarea:focus{outline:none;border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-bg);}
+.search{flex:1;min-width:200px;padding:6px var(--e3);}
+
+.spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.32);
+  border-top-color:#fff;border-radius:50%;animation:spin .65s linear infinite;}
+.btn:not(.btn-primary) .spinner{border-color:var(--line-fort);border-top-color:var(--accent);}
+
+.toolbar{display:flex;flex-wrap:wrap;gap:var(--e2);align-items:center;margin-bottom:var(--e3);}
+/* Pousse les actions secondaires à droite : au centre elles avaient l'air
+   d'être au même rang que la recherche, qui est le geste courant. */
+.tb-espace{flex:1;min-width:var(--e4);}
+.btn-discret{background:transparent;box-shadow:none;color:var(--muted);border-color:var(--line);}
+.btn-discret:hover{background:var(--panel);}
+
+/* ── Onglets de villes ────────────────────────────────────────────────── */
+/* Rang de navigation, pas de filtre : d'où la taille, le soulignement plein
+   et la position juste sous le titre de la vue. */
+/* Onglets et filtres restent en haut de la vue pendant qu'on parcourt les
+   offres : changer de ville ou de groupe après avoir descendu de trois cents
+   cartes ne doit pas obliger à tout remonter. */
+.villes{display:flex;gap:var(--e1);align-items:stretch;flex-wrap:wrap;
+  border-bottom:1px solid var(--line);margin-bottom:var(--e4);
+  position:sticky;top:0;z-index:20;background:var(--bg);
+  padding-top:var(--e1);}
+.ville{display:inline-flex;align-items:center;gap:var(--e2);background:transparent;
+  border:none;border-bottom:2px solid transparent;margin-bottom:-1px;
+  font-family:inherit;font-size:15.5px;font-weight:var(--w-medium);color:var(--muted);
+  padding:var(--e3) var(--e4);cursor:pointer;letter-spacing:-.2px;white-space:nowrap;
+  transition:color .16s,border-color .16s,background .16s;border-radius:var(--r2) var(--r2) 0 0;}
+.ville:hover{color:var(--ink);background:var(--voile);}
+.ville.active{color:var(--ink);font-weight:var(--w-bold);border-bottom-color:var(--accent);}
+.ville .vn{font-size:11px;font-weight:var(--w-semi);font-variant-numeric:tabular-nums;
+  background:var(--bg2);color:var(--muted);border-radius:var(--r1);padding:1px 5px;min-width:20px;
+  text-align:center;transition:background .16s,color .16s;}
+.ville.active .vn{background:var(--accent-bg);color:var(--accent-ink);}
+/* « Envoyées » n'est pas une ville : un filet à gauche le détache du groupe,
+   sans le reléguer — c'est là qu'on va voir ce qu'on a déjà fait. */
+.ville-envoyees{margin-left:auto;padding-left:var(--e4);
+  border-left:1px solid var(--line);}
+.ville-envoyees.active{border-bottom-color:var(--g1);}
+.ville-envoyees .vn{background:var(--g1b);color:var(--g1);}
+
+/* Le compte des prioritaires. C'est lui qui répond à « où travailler ? » :
+   80 offres possibles pèsent moins que 12 prioritaires. */
+.ville .vp{font-size:10.5px;font-weight:var(--w-semi);font-variant-numeric:tabular-nums;
+  color:var(--g1);background:var(--g1b);border-radius:var(--r1);padding:1px 5px;white-space:nowrap;}
+
+/* ── Filtres secondaires ──────────────────────────────────────────────── */
+.filtres{display:flex;flex-wrap:wrap;gap:var(--e2);align-items:center;margin-bottom:var(--e3);}
+.seg-groupe button{font-size:11.5px;padding:3px var(--e3);display:inline-flex;
+  align-items:center;gap:5px;}
+.seg-groupe button b{font-variant-numeric:tabular-nums;font-weight:var(--w-semi);
+  color:var(--ink);}
+.seg-groupe button:not(.active) b{color:var(--faint);}
+
+.chips{display:flex;flex-wrap:wrap;gap:var(--e1);align-items:center;}
+.chip{padding:3px var(--e3);border-radius:var(--r2);border:1px solid var(--line);
+  background:transparent;color:var(--muted);font-size:11.5px;font-weight:var(--w-medium);
+  cursor:pointer;user-select:none;transition:all .13s;display:inline-flex;align-items:center;gap:5px;}
+.chip:hover{border-color:var(--line-fort);color:var(--ink);background:var(--bg2);}
+.chip.active{background:var(--accent-bg);border-color:transparent;color:var(--accent-ink);
+  font-weight:var(--w-semi);}
+
+/* ── Section repliable ────────────────────────────────────────────────── */
+.plus{margin-top:var(--e6);}
+.plus>summary{display:flex;align-items:center;gap:var(--e3);cursor:pointer;list-style:none;
+  padding:var(--e3) var(--e5);background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--r5);box-shadow:var(--sh1);color:var(--muted);
+  transition:border-color .16s,color .16s;}
+.plus>summary::-webkit-details-marker{display:none;}
+.plus>summary:hover{border-color:var(--line-fort);color:var(--ink);}
+.plus>summary .ic{color:var(--accent);}
+.plus .pl-t{font-size:13px;font-weight:var(--w-semi);text-transform:uppercase;letter-spacing:1.1px;}
+.plus .pl-s{font-size:12.5px;color:var(--faint);}
+.plus .pl-fl{margin-left:auto;font-size:14px;transition:transform .22s;}
+.plus[open]>summary{margin-bottom:var(--e4);}
+.plus[open] .pl-fl{transform:rotate(180deg);}
+
+/* Sur écran étroit, cinq onglets empilés font une colonne de 260 px de haut
+   avant la première offre. Ils défilent latéralement à la place : la barre
+   garde une ligne, et le geste est celui qu'on attend d'une rangée d'onglets. */
+@media(max-width:720px){
+  .plus .pl-s{display:none;}
+  .villes{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;}
+  .villes::-webkit-scrollbar{display:none;}
+  .ville{font-size:14px;padding:var(--e3);}
+}
+
+/* ─────────────────────── GRAPHIQUES ─────────────────────── */
+
+.gr{width:100%;height:auto;overflow:visible;}
+.gr .ax{font-size:10px;fill:var(--faint);font-family:var(--font);}
+.gr .ax-fort{font-size:10.5px;fill:var(--muted);font-family:var(--font);font-weight:var(--w-semi);}
+.gr .trace{stroke-dasharray:1400;animation:tracer 1.1s cubic-bezier(.22,1,.36,1) forwards;}
+/* La surface pousse depuis la ligne de base pendant que le tracé se dessine.
+   `transform-box:fill-box` est indispensable : sans lui, l'origine serait
+   celle du repère SVG et la forme partirait du coin haut-gauche. */
+.gr .surface{transform-box:fill-box;transform-origin:bottom;
+  animation:monte .95s cubic-bezier(.22,1,.36,1);}
+.gr .pt{animation:pointIn .3s backwards;}
+.gr .pt .dot{opacity:0;transition:opacity .15s,r .15s;}
+.gr .pt:hover .dot{opacity:1;r:5;}
+.gr-radar .toile-pleine{transform-box:fill-box;transform-origin:center;
+  animation:deplie .85s cubic-bezier(.22,1,.36,1);}
+.gr-radar .sommet{animation:pop .4s backwards;}
+.gr-vide{text-align:center;color:var(--faint);font-size:12.5px;padding:var(--e8) var(--e4);
+  border:1px dashed var(--line-fort);border-radius:var(--r3);}
+
+.gr-barres{display:flex;align-items:flex-end;gap:3px;height:var(--h,150px);}
+.gb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  height:100%;min-width:0;position:relative;}
+.gb-v{font-size:10px;color:var(--faint);font-variant-numeric:tabular-nums;margin-bottom:2px;
+  opacity:0;transition:opacity .15s;height:13px;}
+.gb:hover .gb-v{opacity:1;}
+.gb-t{width:100%;max-width:34px;border-radius:4px 4px 0 0;animation:growH .5s cubic-bezier(.22,1,.36,1) backwards;
+  transition:filter .15s;min-height:2px;}
+.gb:hover .gb-t{filter:brightness(1.18);}
+.gb-l{font-size:9.5px;color:var(--faint);margin-top:5px;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;max-width:100%;}
+
+.gr-barresh{display:flex;flex-direction:column;gap:8px;}
+.gbh{display:flex;align-items:center;gap:var(--e3);font-size:12.5px;}
+.gbh-l{width:132px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;}
+.gbh-t{flex:1;height:9px;background:var(--line);border-radius:5px;overflow:hidden;position:relative;}
+.gbh-f{position:absolute;inset:0 auto 0 0;height:100%;border-radius:5px;
+  animation:grow .6s cubic-bezier(.22,1,.36,1) backwards;}
+.gbh-s{position:absolute;inset:0 auto 0 0;height:100%;border-radius:5px;
+  background:rgba(255,255,255,.34);mix-blend-mode:overlay;}
+.gbh-v{width:30px;text-align:right;font-weight:var(--w-semi);flex-shrink:0;}
+
+.gr-anneau{position:relative;flex-shrink:0;}
+.gr-anneau svg,.gr-jauge svg{width:100%;height:100%;display:block;}
+/* L'arc se remplit depuis zéro. `--vide` porte la circonférence complète :
+   l'image d'arrivée reste la valeur écrite en attribut, donc un thème coupant
+   les animations affiche quand même le bon anneau. */
+.gr-anneau .arc,.gr-jauge .arc{animation:arcIn 1.15s cubic-bezier(.22,1,.36,1) backwards;}
+@keyframes arcIn{from{stroke-dashoffset:var(--vide);}}
+.gr-anneau-mid{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;pointer-events:none;}
+.gr-anneau-mid b{font-size:25px;font-weight:var(--w-bold);letter-spacing:-.8px;line-height:1.1;}
+.gr-anneau-mid span{font-size:9.5px;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.9px;margin-top:2px;}
+.gr-anneau.atteint .gr-anneau-mid b{color:var(--g1);}
+
+.gr-jauge{position:relative;}
+.gr-jauge-mid{position:absolute;left:0;right:0;bottom:2px;text-align:center;}
+.gr-jauge-mid b{font-size:21px;font-weight:var(--w-bold);letter-spacing:-.6px;display:block;line-height:1.1;}
+.gr-jauge-mid span{font-size:10px;color:var(--muted);}
+.jauges{display:flex;gap:var(--e4);flex-wrap:wrap;justify-content:space-around;
+  margin-bottom:var(--e4);}
+
+.gr-donut-wrap{display:flex;align-items:center;gap:var(--e6);flex-wrap:wrap;}
+.gr-donut{position:relative;flex-shrink:0;}
+.gr-donut svg{width:100%;height:100%;display:block;}
+/* Chaque secteur se déroule depuis une longueur nulle, les uns après les
+   autres — l'anneau se remplit au lieu d'apparaître d'un bloc. */
+.gr-donut .part{transition:stroke-width .18s;
+  animation:deroule .8s cubic-bezier(.22,1,.36,1) backwards;}
+.gr-donut .part:hover{stroke-width:32;}
+.gr-donut-mid{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;pointer-events:none;}
+.gr-donut-mid b{font-size:26px;font-weight:var(--w-bold);letter-spacing:-.8px;line-height:1.1;}
+.gr-donut-mid span{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.9px;}
+.gr-legende{list-style:none;margin:0;padding:0;flex:1;min-width:170px;display:flex;
+  flex-direction:column;gap:6px;}
+.gr-legende.en-ligne{flex-direction:row;flex-wrap:wrap;gap:var(--e3);margin-top:var(--e3);}
+.gr-legende li{display:flex;align-items:center;gap:var(--e2);font-size:12.5px;color:var(--ink-2);}
+.gr-legende i{width:9px;height:9px;border-radius:3px;flex-shrink:0;}
+.gr-legende span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.gr-legende b{font-variant-numeric:tabular-nums;color:var(--ink);}
+
+.gr-radar{max-width:340px;}
+
+.gr-heat{display:flex;flex-direction:column;gap:var(--e2);}
+.gr-heat-corps{display:flex;flex-direction:column;gap:3px;overflow-x:auto;}
+.gr-heat-jours{display:none;}
+.gr-heat-mois{display:grid;gap:3px;font-size:9px;color:var(--faint);height:12px;}
+.gr-heat-grille{display:grid;gap:3px;min-width:520px;}
+.gr-heat-col{display:grid;grid-template-rows:repeat(7,1fr);gap:3px;}
+.gr-heat-col i{aspect-ratio:1;border-radius:2.5px;background:var(--line);
+  transition:transform .12s,outline-color .12s;outline:1px solid transparent;
+  animation:caseIn .3s ease backwards;}
+.gr-heat-col i:hover{transform:scale(1.35);outline-color:var(--accent);}
+.gr-heat-col i.vide{background:transparent;}
+.gr-heat-col i[data-n="1"]{background:color-mix(in srgb,var(--accent) 28%,var(--line));}
+.gr-heat-col i[data-n="2"]{background:color-mix(in srgb,var(--accent) 52%,var(--line));}
+.gr-heat-col i[data-n="3"]{background:color-mix(in srgb,var(--accent) 76%,var(--line));}
+.gr-heat-col i[data-n="4"]{background:var(--accent);}
+.gr-heat-legende{display:flex;align-items:center;gap:4px;justify-content:flex-end;
+  font-size:10px;color:var(--faint);}
+.gr-heat-legende i{width:11px;height:11px;border-radius:2.5px;background:var(--line);}
+.gr-heat-legende i[data-n="1"]{background:color-mix(in srgb,var(--accent) 28%,var(--line));}
+.gr-heat-legende i[data-n="2"]{background:color-mix(in srgb,var(--accent) 52%,var(--line));}
+.gr-heat-legende i[data-n="3"]{background:color-mix(in srgb,var(--accent) 76%,var(--line));}
+.gr-heat-legende i[data-n="4"]{background:var(--accent);}
+
+.gr-entonnoir{display:flex;flex-direction:column;gap:9px;}
+.ge{display:flex;align-items:center;gap:var(--e3);font-size:12.5px;animation:slideIn .35s backwards;}
+.ge-l{width:88px;color:var(--muted);flex-shrink:0;}
+.ge-t{flex:1;height:22px;background:var(--bg2);border-radius:var(--r1);overflow:hidden;}
+.ge-f{display:block;height:100%;border-radius:var(--r1);animation:grow .65s cubic-bezier(.22,1,.36,1) backwards;}
+.ge-v{width:34px;text-align:right;font-weight:var(--w-bold);flex-shrink:0;}
+.ge-c{width:44px;text-align:right;font-size:11px;color:var(--faint);flex-shrink:0;
+  font-variant-numeric:tabular-nums;}
+
+.gr-spark{display:block;width:100%;height:34px;}
+.gr-spark .trace{stroke-dasharray:400;animation:tracer 1s cubic-bezier(.22,1,.36,1) forwards;}
+.gr-spark .surface{transform-box:fill-box;transform-origin:bottom;
+  animation:monte .8s cubic-bezier(.22,1,.36,1);}
+.gr-legende li{animation:slideIn .35s backwards;}
+.gr-legende li:nth-child(2){animation-delay:.05s}
+.gr-legende li:nth-child(3){animation-delay:.1s}
+.gr-legende li:nth-child(4){animation-delay:.15s}
+.gr-legende li:nth-child(5){animation-delay:.2s}
+.gr-legende li:nth-child(6){animation-delay:.25s}
+.gr-empilee .ge-barre{display:flex;border-radius:99px;overflow:hidden;background:var(--line);}
+.gr-empilee .ge-barre>span{animation:grow .6s cubic-bezier(.22,1,.36,1) backwards;}
+
+.funnel-row{display:flex;align-items:center;gap:var(--e3);margin-bottom:7px;font-size:12.5px;}
+.funnel-row .fname{width:86px;color:var(--muted);}
+.funnel-row .ftrack{flex:1;height:9px;background:var(--line);border-radius:5px;overflow:hidden;}
+.funnel-row .ffill{height:100%;border-radius:5px;animation:grow .6s ease;}
+.funnel-row .fn{width:26px;text-align:right;font-weight:var(--w-semi);}
+.ring-wrap,.goal-wrap{display:flex;align-items:center;gap:var(--e6);flex-wrap:wrap;}
+
+/* ─────────────────────── CARTES D'OFFRE ─────────────────────── */
+
+/* LA LISTE EST UN TABLEAU, PAS UN EMPILEMENT DE CARTES.
+   Chaque offre faisait 141 px de haut : sur un 1280×800, TROIS tenaient à
+   l'écran — pour 282 à trier. Les lignes sont désormais jointives, séparées
+   par un filet plutôt que par un intervalle, et le rembourrage a fondu. On
+   parcourt la liste au lieu de la faire défiler. */
+.grid{display:flex;flex-direction:column;gap:0;border:1px solid var(--line);
+  border-radius:var(--r3);overflow:hidden;background:var(--card);}
+.grid.mosaique{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+  gap:var(--e2);align-items:start;border:none;background:transparent;overflow:visible;}
+.grid.mosaique .card{border:1px solid var(--line);border-radius:var(--r3);}
+.grid.mosaique .card.open{grid-column:1/-1;}
+
+.card{background:var(--card);border-bottom:1px solid var(--line);
+  animation:fadeUp .25s backwards;transition:background .13s;position:relative;}
+.grid>.card:last-child{border-bottom:none;}
+.card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--g0);}
+.card[data-g="1"]::before{background:var(--g1)}.card[data-g="2"]::before{background:var(--g2)}
+.card[data-g="3"]::before{background:var(--g3)}.card[data-g="0"]::before{background:var(--g0)}
+.card:hover{background:var(--bg2);}
+.card.open{background:var(--bg2);}
+/* Épinglée et échéance dépassée : un liseré à gauche, pas un halo. Le halo
+   sur une ligne de tableau bavait sur ses voisines. */
+.card.pinned::before{background:var(--accent);width:3px;}
+.card.due::before{background:var(--hot);width:3px;}
+
+.head{display:flex;align-items:center;gap:var(--e3);padding:var(--e2) var(--e3) var(--e2) var(--e4);
+  cursor:pointer;flex-wrap:wrap;}
+.chevron{color:var(--faint);display:flex;transition:transform .2s;}
+.card.open .chevron{transform:rotate(90deg);}
+.titlebox{flex:1;min-width:200px;}
+.ptitle{font-weight:var(--w-medium);font-size:13.5px;letter-spacing:-.15px;line-height:1.35;}
+/* Le titre EST le lien vers l'annonce : c'est le premier réflexe, et
+   « Voir ↗ » en bout de ligne de badges passait inaperçu. */
+.ptitle a{color:inherit;text-decoration:none;}
+.ptitle a:hover{color:var(--accent);text-decoration:underline;text-underline-offset:3px;}
+.ptitle .ext{font-size:10px;margin-left:4px;color:var(--faint);vertical-align:1px;}
+.ptitle a:hover .ext{color:var(--accent);}
+.pmeta{color:var(--muted);font-size:11.5px;margin-top:1px;}
+/* Le verdict de l'analyse, sur la carte FERMÉE. Il était enterré dans le
+   détail replié : il fallait déjà avoir surmonté le doute pour lire ce qui
+   l'aurait levé. */
+/* UNE SEULE LIGNE, ET PAS DEUX.
+   En laissant le texte passer à la ligne, la carte montait de 75 à 117 px et
+   on perdait une offre à l'écran — la densité gagnée plus tôt repartait dans
+   un renseignement censé aider. `nowrap` sur le conteneur, coupe à
+   l'ellipse sur le texte : le verdict coûte dix-huit pixels, pas quarante. */
+.verdict-replie{display:flex;align-items:baseline;gap:var(--e2);flex-wrap:nowrap;
+  margin-top:2px;font-size:11.5px;line-height:1.35;overflow:hidden;}
+.vr-compte{color:var(--g1);white-space:nowrap;font-weight:var(--w-medium);flex-shrink:0;}
+.vr-compte b{font-weight:var(--w-bold);}
+/* `min-width:0` est ce qui autorise l'ellipse : sans lui, un enfant de flex
+   refuse de descendre sous la largeur de son texte et pousse le conteneur. */
+.vr-texte{color:var(--ink-2);font-style:italic;min-width:0;flex:1;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+.cardprog{height:2px;background:var(--line);border-radius:2px;margin-top:5px;
+  overflow:hidden;max-width:180px;}
+.cardprog>span{display:block;height:100%;border-radius:2px;transition:width .5s;}
+.tags{display:flex;gap:5px;align-items:center;flex-wrap:wrap;}
+.pinbtn{cursor:pointer;color:var(--faint);display:flex;font-size:13px;line-height:1;
+  transition:color .15s;}
+.pinbtn:hover{color:var(--ink);}
+.pinbtn.on{color:var(--accent);}
+
+/* Les pastilles perdent leur forme de gélule. Un rayon 99 px sur un élément de
+   20 px de haut fait « badge de notification » ; un rayon court le fait lire
+   comme une donnée, ce qu'il est. */
+.scorepill{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:var(--w-semi);
+  padding:1px 5px;border-radius:var(--r1);background:var(--bg2);color:var(--muted);
+  font-variant-numeric:tabular-nums;border:1px solid var(--line);}
+.scorepill.fort{background:var(--g1b);color:var(--g1);border-color:transparent;}
+.scorepill.moyen{background:var(--g2b);color:var(--g2);border-color:transparent;}
+
+.badge{font-size:10.5px;font-weight:var(--w-medium);padding:1px 6px;border-radius:var(--r1);
+  white-space:nowrap;letter-spacing:.1px;}
+.b1{background:var(--g1b);color:var(--g1)}.b2{background:var(--g2b);color:var(--g2)}
+.b3{background:var(--g3b);color:var(--g3)}.b0{background:var(--g0b);color:var(--g0)}
+.badge-zone{background:var(--pinkb);color:var(--pink);}
+/* Annonce diffusée dans plusieurs villes : le même texte partout, signe d'un
+   cabinet qui ratisse. Ce n'est pas une faute, mais ça se sait avant de
+   passer vingt minutes sur une lettre. */
+.badge-diffuse{background:var(--g2b);color:var(--g2);}
+.badge-src{background:transparent;color:var(--faint);border:1px solid var(--line-fort);
+  font-weight:var(--w-medium);}
+.status-pill{font-size:10.5px;padding:1px 6px;border-radius:var(--r1);border:1px solid;
+  white-space:nowrap;font-weight:var(--w-medium);}
+.fresh{font-size:10.5px;padding:1px 5px;border-radius:var(--r1);font-weight:var(--w-medium);white-space:nowrap;}
+.fresh.new{background:var(--g1b);color:var(--g1)}
+.fresh.ok{background:var(--infob);color:var(--info)}
+.fresh.warn{background:var(--g2b);color:var(--g2)}
+.fresh.old{background:var(--g0b);color:var(--g0)}
+.link{color:var(--accent);font-size:12.5px;font-weight:var(--w-medium);cursor:pointer;}
+
+/* Écarter est irréversible sans passer par les Options : le bouton reste
+   discret jusqu'au survol, pour ne pas être cliqué par mégarde en dépliant
+   une carte. */
+.ecarter{color:var(--faint);font-size:13px;line-height:1;cursor:pointer;padding:2px 5px;
+  border-radius:var(--r1);opacity:.45;transition:opacity .15s,color .15s,background .15s;}
+.card:hover .ecarter{opacity:1;}
+.ecarter:hover{color:var(--g3);background:var(--g3b);}
+
+/* ── Quota Gemini ─────────────────────────────────────────────────────── */
+/* Les segments sont dans l'ordre où le quota se dépense, la réserve en bout :
+   la voir tenir ou rétrécir est ce qui permet de décider s'il faut rédiger
+   maintenant ou attendre demain. */
+.quota-barre{display:flex;height:14px;border-radius:99px;overflow:hidden;
+  background:var(--bg2);border:1px solid var(--line);}
+.quota-barre .qs{transition:width .4s var(--ease-doux);}
+.qs.analyses{background:var(--accent);}
+.qs.lettres{background:var(--g1);}
+.qs.libre{background:var(--line);}
+.qs.reserve{background:repeating-linear-gradient(45deg,var(--g2b),var(--g2b) 5px,var(--g2) 5px,var(--g2) 6px);}
+.quota-legende{display:flex;flex-wrap:wrap;gap:var(--e4);margin-top:var(--e3);
+  font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.quota-legende i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;}
+.quota-legende i.analyses{background:var(--accent);}
+.quota-legende i.lettres{background:var(--g1);}
+.quota-legende i.libre{background:var(--line-fort);}
+.quota-legende i.reserve{background:var(--g2);}
+.quota-alerte{margin-top:var(--e3);padding:var(--e2) var(--e3);border-radius:var(--r2);
+  background:var(--hotb);color:var(--hot);font-size:12.5px;font-weight:var(--w-medium);}
+.quota-ok{margin-top:var(--e3);font-size:12.5px;color:var(--g1);font-weight:var(--w-medium);}
+
+/* Charger la suite. Pleine largeur : c'est une action de fin de liste, elle
+   doit se trouver sans être cherchée. */
+.plus-offres{width:100%;justify-content:center;margin-top:var(--e4);
+  padding:var(--e3);font-size:14px;color:var(--muted);
+  background:transparent;border-style:dashed;box-shadow:none;}
+.plus-offres:hover{color:var(--accent);background:var(--panel);}
+
+.detail{display:none;border-top:1px solid var(--line);background:var(--bg);}
+.card.open .detail{display:block;animation:fadeUp .25s;}
+.sec{padding:var(--e4) var(--e5);border-bottom:1px solid var(--line);}
+.sec:last-child{border-bottom:none;}
+.cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--e5);}
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:var(--e5);}
+.lbl{font-weight:var(--w-bold);font-size:10.5px;letter-spacing:.8px;margin-bottom:var(--e2);
+  text-transform:uppercase;display:flex;align-items:center;gap:6px;}
+.lbl.req{color:var(--g3)}.lbl.want{color:var(--g2)}.lbl.deco{color:var(--faint)}
+.lbl.ok{color:var(--g1)}.lbl.no{color:var(--g3)}.lbl.fix{color:var(--accent)}
+ul.mini{margin:0;padding-left:var(--e4);font-size:12.5px;color:var(--ink-2);}
+ul.mini li{margin-bottom:5px;}
+.verdict{font-size:13.5px;padding:var(--e4) var(--e5);border-bottom:1px solid var(--line);
+  line-height:1.6;}
+.vd1{background:var(--g1b)}.vd2{background:var(--g2b)}.vd3{background:var(--g3b)}.vd0{background:var(--g0b)}
+.desaccord{display:block;margin-top:var(--e3);padding:var(--e3);background:var(--panel);
+  border:1px solid var(--line-fort);border-left:3px solid var(--hot);border-radius:var(--r2);
+  font-size:12px;color:var(--ink-2);}
+.kwtable{width:100%;border-collapse:collapse;font-size:12.5px;}
+.kwtable th{text-align:left;color:var(--faint);font-weight:var(--w-semi);padding:0 6px 6px;
+  font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;}
+.kwtable td{padding:8px 6px;border-top:1px solid var(--line);vertical-align:top;color:var(--ink-2);}
+.pill{padding:1px 6px;border-radius:var(--r1);font-size:10.5px;font-weight:var(--w-medium);}
+.money{background:var(--panel);border:1px solid var(--line);border-radius:var(--r2);
+  padding:var(--e3);margin:var(--e2) 0 var(--e4);font-size:13px;}
+.extrait{font-size:12.5px;color:var(--ink-2);line-height:1.65;white-space:pre-wrap;
+  max-height:210px;overflow:auto;padding-right:var(--e2);}
+.motifs{display:flex;flex-wrap:wrap;gap:6px;}
+.motif{font-size:10.5px;padding:1px 6px;border-radius:var(--r1);background:var(--g1b);color:var(--g1);
+  font-weight:var(--w-medium);}
+.motif.neg{background:var(--g3b);color:var(--g3);}
+/* Score de prioritaire mais pas de secteur : l'écart entre le chiffre et la
+   pastille passerait pour une incohérence s'il n'était pas expliqué. */
+.plafond{margin-top:var(--e3);padding:var(--e3);background:var(--panel);
+  border:1px solid var(--line);border-left:3px solid var(--g2);border-radius:var(--r2);
+  font-size:12.5px;color:var(--ink-2);line-height:1.6;}
+
+.track-row{display:flex;flex-wrap:wrap;gap:var(--e3);align-items:flex-end;}
+.track-field{display:flex;flex-direction:column;gap:5px;}
+.track-field label{font-size:11px;color:var(--muted);font-weight:var(--w-medium);}
+.applied-toggle{display:inline-flex;align-items:center;gap:7px;background:var(--g1b);
+  color:var(--g1);padding:7px var(--e3);border-radius:var(--r2);font-size:12.5px;
+  font-weight:var(--w-semi);cursor:pointer;border:1px solid transparent;transition:all .15s;}
+.applied-toggle.off{background:var(--panel);color:var(--muted);border-color:var(--line-fort);}
+.applied-toggle:hover{border-color:var(--accent);}
+.notes-area,.letter-area,.paste-area{width:100%;padding:var(--e3);border:1px solid var(--line-fort);
+  border-radius:var(--r2);font-size:13px;font-family:inherit;background:var(--panel);
+  color:var(--ink);resize:vertical;line-height:1.6;}
+.notes-area{min-height:64px;margin-top:var(--e3);}
+.letter-area{min-height:320px;}
+.paste-area{min-height:220px;}
+.letter-actions{display:flex;gap:var(--e2);flex-wrap:wrap;align-items:center;margin-bottom:var(--e3);}
+.letter-hint{font-size:11.5px;color:var(--muted);margin-top:6px;}
+.relance-flag{font-size:12px;color:var(--hot);font-weight:var(--w-semi);
+  display:inline-flex;align-items:center;gap:5px;}
+
+/* Le bouton d'une action portée par un message. Il doit se voir sans voler la
+   vedette au texte : c'est une issue qu'on propose, pas une injonction. */
+.toast-action{margin-left:var(--e3);background:transparent;
+  border:1px solid currentColor;color:inherit;font-family:inherit;
+  font-size:11.5px;font-weight:var(--w-semi);padding:2px 10px;
+  border-radius:var(--r1);cursor:pointer;opacity:.85;}
+.toast-action:hover{opacity:1;background:rgba(255,255,255,.14);}
+.toast-action[disabled]{opacity:.5;cursor:progress;}
+
+/* ─────────────────────── VISITE GUIDÉE ─────────────────────── */
+
+.tuto{position:fixed;inset:0;z-index:8800;}
+
+/* LE PROJECTEUR. Une ombre portée démesurée assombrit tout SAUF le rectangle
+   de l'élément : pas de masque SVG, pas de quatre volets à faire coïncider.
+   `pointer-events:none` laisse la page en dessous inerte visuellement mais
+   sans intercepter les clics du voile lui-même. */
+.tuto-trou{position:absolute;border-radius:var(--r3);pointer-events:none;
+  box-shadow:0 0 0 9999px rgba(10,10,12,.66), 0 0 0 2px var(--accent);
+  transition:all .25s cubic-bezier(.2,.8,.3,1);}
+
+.tuto-bulle{position:absolute;width:min(30rem,calc(100vw - 28px));
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r3);
+  padding:var(--e4);box-shadow:var(--sh4);
+  transition:left .25s cubic-bezier(.2,.8,.3,1),top .25s cubic-bezier(.2,.8,.3,1);}
+
+.tuto-etape{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums;
+  letter-spacing:.5px;}
+.tuto-titre{font-family:var(--font-titre);font-size:17px;margin:2px 0 var(--e2);
+  font-weight:var(--w-semi);}
+.tuto-texte{font-size:13px;color:var(--ink-2);line-height:1.6;margin:0 0 var(--e4);}
+.tuto-pied{display:flex;align-items:center;gap:var(--e2);}
+.tuto-espace{flex:1;}
+
+@media (max-width:620px){
+  .tuto-bulle{left:14px !important;right:14px;width:auto;
+    top:auto !important;bottom:14px;}
+}
+
+/* ─────────────────────── DÉPÔT DU CV ─────────────────────── */
+
+/* Le voile couvre toute la fenêtre : déposer son CV est un geste qu'on fait
+   une seule fois, au tout début, quand on ne sait pas encore où sont les
+   choses. `pointer-events:none` est indispensable — un voile qui intercepte
+   le pointeur empêcherait l'évènement `drop` d'atteindre la fenêtre, et le
+   dépôt ne marcherait tout simplement jamais. */
+.depot-voile{position:fixed;inset:0;z-index:8500;display:none;
+  align-items:center;justify-content:center;pointer-events:none;
+  background:color-mix(in srgb,var(--bg) 82%,transparent);
+  backdrop-filter:blur(2px);}
+.depot-voile.actif{display:flex;animation:fadeUp .16s;}
+.depot-boite{border:3px dashed var(--accent);border-radius:var(--r4);
+  padding:var(--e10) var(--e12);text-align:center;background:var(--panel);
+  box-shadow:var(--sh4);}
+.depot-titre{font-family:var(--font-titre);font-size:clamp(20px,3vw,32px);
+  color:var(--accent);text-transform:uppercase;letter-spacing:.5px;}
+.depot-sous{font-size:12.5px;color:var(--muted);margin-top:var(--e2);}
+
+/* ─────────────────────── ASSISTANT DE PREMIER LANCEMENT ─────────────────────── */
+
+/* Cette page s'affiche AVANT qu'un profil existe. Elle ne réutilise donc rien
+   du cadre de l'application — pas de rail, pas de vues, pas de données — et
+   défile normalement : c'est un formulaire, pas un poste de travail. */
+.bv-page{overflow:auto;height:auto;}
+/* Comme `.app` : l'empilement est POSÉ, pas déduit. La nappe d'ambiance passe
+   dessous, et le texte reste sur un fond franc. */
+.bv,.porte{position:relative;z-index:1;}
+.bv{max-width:56rem;margin:0 auto;padding:var(--e10) var(--e5) var(--e12);}
+.bv-titre{font-family:var(--font-titre);font-size:clamp(30px,5vw,46px);
+  margin:0 0 var(--e2);text-transform:uppercase;letter-spacing:.5px;}
+.bv-intro{color:var(--muted);font-size:14px;margin:0 0 var(--e8);line-height:1.6;}
+
+.bv-bloc{background:var(--panel);border:1px solid var(--line);border-radius:var(--r3);
+  padding:var(--e5);margin-bottom:var(--e4);}
+.bv-bloc h2{font-size:14px;margin:0 0 var(--e3);font-weight:var(--w-semi);}
+.bv-bloc h2 em{font-weight:var(--w-normal);color:var(--faint);font-style:normal;font-size:12.5px;}
+.bv-aide{font-size:12.5px;color:var(--muted);line-height:1.65;margin:0 0 var(--e4);}
+
+.bv-champ{display:block;margin-bottom:var(--e3);}
+.bv-champ > span{display:block;font-size:12px;color:var(--ink-2);margin-bottom:4px;}
+.bv-champ > span em{color:var(--faint);font-style:normal;}
+.bv-champ > span a{margin-left:var(--e2);font-size:11.5px;}
+.bv-champ input{width:100%;}
+
+/* Une ligne répétable : le champ prend la place, le retrait reste discret. */
+.bv-ligne{display:flex;gap:var(--e2);margin-bottom:var(--e2);}
+.bv-ligne input{flex:1;min-width:0;}
+.bv-ligne .bv-cp{flex:0 0 7rem;}
+.bv-retirer{flex:0 0 auto;background:transparent;border:1px solid var(--line);
+  color:var(--faint);border-radius:var(--r2);cursor:pointer;padding:0 10px;
+  font-family:inherit;font-size:13px;}
+.bv-retirer:hover{border-color:var(--hot);color:var(--hot);}
+
+.bv-plus{margin-top:var(--e4);}
+.bv-plus summary{cursor:pointer;font-size:12.5px;color:var(--muted);
+  padding:var(--e2) 0;user-select:none;}
+.bv-plus summary:hover{color:var(--ink);}
+
+.bv-case{display:flex;align-items:center;gap:var(--e3);font-size:13px;cursor:pointer;}
+.bv-case input{width:16px;height:16px;flex:0 0 auto;}
+
+.bv-pied{display:flex;align-items:center;gap:var(--e4);flex-wrap:wrap;
+  margin-top:var(--e5);}
+.bv-message{font-size:12.5px;}
+.bv-message.ok{color:var(--g1);font-weight:var(--w-semi);}
+.bv-message.err{color:var(--hot);}
+.bv-note{font-size:11.5px;color:var(--faint);margin-top:var(--e6);line-height:1.7;}
+
+/* ─────────────────────── LES 3 DU JOUR ─────────────────────── */
+
+/* Le seul bloc du tableau de bord qui a le droit d'attirer l'œil en premier.
+   Un liseré d'accent à gauche, et rien d'autre : la hiérarchie se fait par la
+   position et par le vide autour, pas par la couleur. */
+.panel-dujour{border-left:3px solid var(--accent);}
+
+.dj-carte{display:flex;align-items:center;gap:var(--e3);
+  padding:var(--e2) 0;border-bottom:1px solid var(--line);
+  animation:riseUp .3s backwards;}
+.dj-carte:last-of-type{border-bottom:none;}
+
+/* Le rang est un repère de progression, pas une décoration : « 1, 2, 3 » dit
+   qu'il y a une fin, ce qu'une liste de 282 ne dit jamais. */
+.dj-rang{width:26px;height:26px;flex-shrink:0;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--accent-bg);color:var(--accent-ink);
+  font-weight:var(--w-bold);font-size:12px;font-variant-numeric:tabular-nums;}
+
+.dj-corps{flex:1;min-width:0;}
+.dj-titre{font-weight:var(--w-semi);font-size:13.5px;line-height:1.3;}
+.dj-meta{color:var(--muted);font-size:11.5px;margin-top:1px;}
+.dj-signaux{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-top:5px;}
+.dj-actions{display:flex;gap:var(--e2);flex-shrink:0;}
+
+/* L'argument qui répond au doute. Il passe AVANT les pastilles : un score de
+   18 ne dit rien à qui doute de coller au poste ; « portefeuille de 8 projets
+   solaires et éoliens, exigé dans l'annonce » le dit. */
+.dj-atout{font-size:12px;color:var(--ink-2);line-height:1.45;margin-top:4px;
+  padding-left:var(--e2);border-left:2px solid var(--g1);}
+.dj-atout b{color:var(--g1);font-weight:var(--w-semi);}
+
+.dj-vide{color:var(--muted);font-size:12.5px;padding:var(--e3) 0;line-height:1.6;}
+/* Quand la sélection a dû baisser d'exigence, on le dit. Faire passer trois
+   offres moyennes pour les meilleures possibles serait une petite trahison. */
+.dj-note{font-size:11px;color:var(--faint);margin-top:var(--e3);
+  padding-top:var(--e2);border-top:1px dashed var(--line);}
+
+@media (max-width:720px){
+  .dj-carte{flex-wrap:wrap;}
+  .dj-actions{width:100%;padding-left:calc(26px + var(--e3));}
+  .dj-actions .btn{flex:1;justify-content:center;}
+}
+
+/* ─────────────────────── FOCUS DU JOUR ─────────────────────── */
+
+/* Le focus est BORNÉ. Sans plafond il grandit avec la file d'attente : à 282
+   actions en attente il occupait 2 550 px, et les statistiques, les
+   graphiques et le suivi n'existaient plus qu'en théorie, trois écrans plus
+   bas. Une hauteur fixe garde le tableau de bord lisible quel que soit le
+   nombre d'offres — c'est la file qui défile, pas la vue. */
+#focusList{max-height:46vh;overflow-y:auto;overscroll-behavior:contain;
+  margin-right:calc(-1 * var(--e2));padding-right:var(--e2);scrollbar-gutter:stable;}
+
+.focus-card{display:flex;align-items:center;gap:var(--e4);background:var(--panel);
+  border:1px solid var(--line);border-radius:var(--r3);padding:var(--e3) var(--e4);
+  margin-bottom:var(--e2);animation:riseUp .35s backwards;
+  transition:transform .18s,box-shadow .18s,border-color .18s;cursor:pointer;position:relative;overflow:hidden;}
+.focus-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);}
+.focus-card:hover{transform:translateX(3px);box-shadow:var(--sh2);border-color:var(--line-fort);}
+.focus-card.urgent::before{background:var(--hot);}
+.focus-card.chaud::before{background:var(--g2);}
+.focus-card.ok::before{background:var(--g1);}
+.focus-ic{width:22px;height:22px;flex-shrink:0;border-radius:var(--r1);display:flex;
+  align-items:center;justify-content:center;background:var(--bg2);font-size:11px;margin-left:var(--e1);}
+.focus-card.urgent .focus-ic{background:var(--hotb);}
+.focus-card.chaud .focus-ic{background:var(--g2b);}
+.focus-card.ok .focus-ic{background:var(--g1b);}
+.focus-body{flex:1;min-width:0;}
+.focus-body .ft{font-weight:var(--w-medium);font-size:12.5px;letter-spacing:-.1px;}
+.focus-body .fs{color:var(--muted);font-size:11px;margin-top:0;}
+.focus-quoi{font-size:10.5px;font-weight:var(--w-medium);padding:2px var(--e2);
+  border-radius:var(--r1);background:var(--accent-bg);color:var(--accent-ink);white-space:nowrap;}
+.focus-vide{text-align:center;padding:var(--e10) var(--e5);animation:bounceIn .4s;}
+.focus-vide .em{font-size:44px;display:block;margin-bottom:var(--e3);}
+.focus-groupe{font-size:10.5px;font-weight:var(--w-bold);text-transform:uppercase;
+  letter-spacing:1px;color:var(--faint);margin:var(--e4) 0 var(--e2);}
+.focus-groupe:first-child{margin-top:0;}
+
+/* ─────────────────────── KANBAN & AGENDA ─────────────────────── */
+
+/* Le Kanban tient dans UN écran.
+   Avec 200 offres « À postuler », la première colonne mesurait plusieurs
+   mètres : les quatre autres devenaient invisibles, et glisser une carte de
+   la première à la dernière demandait de faire défiler la page pendant le
+   glissement — geste impossible en pratique.
+   Chaque colonne défile donc à l'intérieur d'elle-même, et les cinq en-têtes
+   restent toujours à l'écran. */
+/* La vue a désormais une hauteur propre : le Kanban la remplit, sans avoir à
+   deviner ce que mesure le reste de la page. */
+.kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--e3);
+  align-items:stretch;height:calc(100% - 90px);min-height:380px;}
+.kcol{background:var(--panel);border:1px solid var(--line);border-radius:var(--r3);
+  padding:var(--e2);transition:background .15s,border-color .15s;
+  display:flex;flex-direction:column;min-height:0;}
+.kcol h4{margin:0 0 var(--e2);font-size:10px;font-weight:var(--w-semi);display:flex;
+  align-items:center;justify-content:space-between;gap:5px;padding:4px 7px;border-radius:var(--r1);
+  text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;}
+
+/* La zone qui défile. `min-height:0` est indispensable : sans lui, un enfant
+   de flex refuse de rétrécir sous la taille de son contenu, et la colonne
+   repousse la page au lieu de défiler. */
+.kcol-liste{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  margin:0 calc(-1 * var(--e1));padding:0 var(--e1);}
+.kcol-liste::-webkit-scrollbar{width:6px;}
+.kcol-liste::-webkit-scrollbar-thumb{background:var(--line-fort);border-radius:3px;}
+.kcol-liste::-webkit-scrollbar-track{background:transparent;}
+.kcol h4 span{background:rgba(0,0,0,.12);border-radius:var(--r1);padding:0 5px;font-size:10px;}
+.kcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r2);
+  padding:6px var(--e3);margin-bottom:var(--e1);font-size:11.5px;cursor:grab;
+  animation:pop .2s backwards;border-left:2px solid var(--accent);
+  transition:background .13s,border-color .13s;}
+.kcard:hover{background:var(--bg2);border-color:var(--line-fort);}
+.kcard:active{cursor:grabbing;}
+.kcard.drag{opacity:.4;}
+.kcard .kt{font-weight:var(--w-medium);margin-bottom:1px;line-height:1.3;}
+.kcard .km{color:var(--muted);font-size:10.5px;}
+.kcard .kb{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap;}
+.kcard .kb i{font-style:normal;font-size:10.5px;}
+.kcol.dragover{background:var(--accent-bg);border-color:var(--accent);border-style:dashed;}
+.kcol-vide{font-size:11.5px;color:var(--faint);text-align:center;padding:var(--e5) var(--e2);
+  border:1px dashed var(--line);border-radius:var(--r2);}
+
+.mois{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+.mois-tete{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--faint);
+  text-align:center;font-weight:var(--w-semi);padding-bottom:var(--e2);}
+.mjour{aspect-ratio:1.25;border:1px solid var(--line);border-radius:var(--r2);padding:5px 6px;
+  font-size:11px;display:flex;flex-direction:column;gap:2px;background:var(--panel);
+  transition:border-color .15s,transform .15s;}
+.mjour.hors{opacity:.34;}
+.mjour.today{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg);}
+.mjour .mn{font-weight:var(--w-semi);color:var(--muted);font-variant-numeric:tabular-nums;}
+.mjour .mp{display:flex;gap:3px;flex-wrap:wrap;}
+.mjour .mp i{width:6px;height:6px;border-radius:50%;background:var(--accent);}
+.mjour .mp i.retard{background:var(--hot);}
+.mjour.charge{border-color:var(--line-fort);}
+
+.agenda-item{display:flex;align-items:center;gap:var(--e4);background:var(--panel);
+  border:1px solid var(--line);border-radius:var(--r4);padding:var(--e4);
+  margin-bottom:var(--e2);box-shadow:var(--sh1);animation:slideIn .25s backwards;
+  position:relative;overflow:hidden;transition:box-shadow .18s;cursor:pointer;}
+.agenda-item:hover{box-shadow:var(--sh2);}
+.agenda-item::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);}
+.agenda-item.overdue::before{background:var(--hot);}
+.agenda-item.soon::before{background:var(--g2);}
+.agenda-date{text-align:center;min-width:52px;margin-left:var(--e1);}
+.agenda-date .ad-d{font-size:23px;font-weight:var(--w-bold);line-height:1;letter-spacing:-.8px;}
+.agenda-date .ad-m{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-top:2px;}
+.agenda-body{flex:1;min-width:0;}
+.agenda-body .ab-t{font-weight:var(--w-semi);font-size:14px;letter-spacing:-.2px;}
+.agenda-body .ab-s{color:var(--muted);font-size:12.5px;margin-top:1px;}
+.agenda-tag{font-size:11px;padding:4px 10px;border-radius:99px;font-weight:var(--w-semi);white-space:nowrap;}
+
+/* ─────────────────────── MON CV ─────────────────────── */
+
+.cv-couv{display:flex;align-items:flex-start;gap:var(--e6);flex-wrap:wrap;}
+.cv-couv-listes{flex:1;min-width:260px;}
+.cv-fiche{display:flex;flex-direction:column;gap:2px;}
+.cv-l{display:flex;gap:var(--e4);padding:9px 0;border-bottom:1px solid var(--line);font-size:13px;}
+.cv-l:last-child{border-bottom:none;}
+.cv-k{width:130px;color:var(--muted);flex-shrink:0;}
+.cv-v{flex:1;min-width:0;font-weight:var(--w-medium);word-break:break-word;}
+.cv-v code{font-family:var(--mono);font-size:11.5px;background:var(--bg2);padding:1px 5px;border-radius:4px;}
+.cv-q{font-size:11.5px;color:var(--faint);font-weight:var(--w-normal);}
+/* La carte du document joint : c'est l'objet principal de la vue, elle doit
+   se lire d'un coup d'œil et donner envie d'être cliquée. */
+.cv-doc{display:flex;align-items:center;gap:var(--e4);margin-bottom:var(--e5);
+  background:var(--bg2);border:1px solid var(--line-fort);border-radius:var(--r3);
+  padding:var(--e4) var(--e5);}
+.cv-doc-ic{font-size:30px;line-height:1;flex-shrink:0;}
+.cv-doc-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+.cv-doc-txt strong{font-size:14px;word-break:break-all;}
+.cv-doc-txt span{font-size:12px;color:var(--muted);}
+@media (max-width:560px){
+  .cv-doc{flex-wrap:wrap;}
+  .cv-doc .btn{width:100%;justify-content:center;}
+}
+.cv-cmd{display:inline-block;margin-top:var(--e4);font-family:var(--mono);font-size:12.5px;
+  background:var(--bg2);border:1px solid var(--line-fort);border-radius:var(--r2);
+  padding:9px var(--e4);color:var(--ink);}
+.nav button .nvbadge{margin-left:auto;}
+
+/* ─────────────────────── JOURNAL D'ACTIVITÉ ─────────────────────── */
+
+.timeline{display:flex;flex-direction:column;gap:2px;max-height:420px;overflow-y:auto;padding-right:4px;}
+.tl{display:flex;align-items:flex-start;gap:var(--e3);padding:8px var(--e2);border-radius:var(--r2);
+  transition:background .15s;position:relative;}
+.tl:hover{background:var(--bg2);}
+.tl .tl-em{width:26px;height:26px;flex-shrink:0;border-radius:50%;background:var(--bg2);
+  display:flex;align-items:center;justify-content:center;font-size:13px;}
+.tl .tl-b{flex:1;min-width:0;}
+.tl .tl-t{font-size:12.5px;font-weight:var(--w-medium);}
+.tl .tl-s{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tl .tl-q{font-size:10.5px;color:var(--faint);flex-shrink:0;white-space:nowrap;padding-top:2px;}
+.tl-jour{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--faint);
+  font-weight:var(--w-bold);margin:var(--e3) 0 var(--e1);padding-left:var(--e2);}
+.tl-jour:first-child{margin-top:0;}
+
+/* ─────────────────────── FORMULAIRES & OPTIONS ─────────────────────── */
+
+.form{background:var(--panel);border:1px solid var(--line);border-radius:var(--r4);
+  padding:var(--e5);margin-bottom:var(--e3);display:none;box-shadow:var(--sh2);animation:fadeUp .25s;}
+.form.show{display:block;}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:var(--e3);margin-bottom:var(--e3);}
+.form label{font-size:11.5px;color:var(--muted);display:block;margin-bottom:5px;font-weight:var(--w-medium);}
+.form input,.form select,.form textarea{width:100%;}
+.tabs{display:flex;gap:var(--e1);margin-bottom:var(--e4);border-bottom:1px solid var(--line);}
+.tabs button{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);
+  font-family:inherit;font-size:13px;font-weight:var(--w-medium);padding:9px var(--e3);
+  cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:color .15s,border-color .15s;}
+.tabs button:hover{color:var(--ink);}
+.tabs button.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:var(--w-semi);}
+.tabpane{display:none;}.tabpane.active{display:block;}
+
+.opt-row{display:flex;justify-content:space-between;align-items:center;gap:var(--e5);
+  padding:var(--e4) 0;border-bottom:1px solid var(--line);}
+.opt-row:last-child{border-bottom:none;}
+.opt-row .t{font-size:13.5px;font-weight:var(--w-semi);}
+.opt-row .d{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.45;max-width:58ch;}
+.opt-row code{font-family:var(--mono);font-size:11.5px;background:var(--bg2);padding:1px 5px;border-radius:4px;}
+.switch{position:relative;width:42px;height:24px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.switch .track{position:absolute;inset:0;background:var(--line-fort);border-radius:24px;
+  cursor:pointer;transition:background .2s;}
+.switch .track::before{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;
+  background:#fff;border-radius:50%;transition:transform .2s;box-shadow:var(--sh1);}
+.switch input:checked + .track{background:var(--accent);}
+.switch input:checked + .track::before{transform:translateX(18px);}
+.opt-num{width:74px;text-align:center;}
+.opt-duo{display:flex;align-items:center;gap:var(--e3);flex-shrink:0;}
+
+/* ══════════════════════════ MES VILLES ══════════════════════════
+
+   L'éditeur des villes prioritaires. Une ligne par ville : nom, code postal,
+   et un résumé de son périmètre.
+
+   LE RÉGLAGE FIN EST REPLIÉ, PAS ABSENT.
+   Distinguer ce que l'onglet affiche de ce que la collecte va chercher est ce
+   qui empêche Metz d'atterrir dans l'onglet Nancy — mais c'est une subtilité,
+   et quatre champs de plus par ville à l'ouverture feraient renoncer avant
+   d'avoir commencé. Ils n'apparaissent que si on les demande.               */
+
+.vil-intro{font-size:12px;color:var(--muted);line-height:1.55;
+  margin:0 0 var(--e4);max-width:64ch;}
+
+.vil-ligne{padding:var(--e3) 0;border-bottom:1px solid var(--line);}
+.vil-ligne:last-child{border-bottom:none;}
+.vil-tete{display:flex;align-items:center;gap:var(--e2);}
+.vil-tete input{font-family:inherit;font-size:12.5px;color:var(--ink);
+  background:var(--panel);border:1px solid var(--line-fort);border-radius:var(--r2);
+  padding:5px var(--e3);min-width:0;transition:border-color .13s;}
+.vil-nom{flex:1;}
+.vil-cp{width:104px;flex-shrink:0;}
+
+.vil-detail,.vil-retirer{font-family:inherit;font-size:11.5px;font-weight:var(--w-medium);
+  color:var(--muted);background:transparent;border:1px solid var(--line-fort);
+  border-radius:var(--r2);padding:5px var(--e3);cursor:pointer;flex-shrink:0;
+  transition:background .13s,color .13s;}
+.vil-detail:hover,.vil-retirer:hover{background:var(--bg2);color:var(--ink);}
+.vil-retirer{padding:5px 9px;}
+.vil-ligne.ouverte .vil-detail{background:var(--bg2);color:var(--ink);}
+
+.vil-resume{font-size:11.5px;color:var(--faint);margin-top:5px;}
+
+.vil-reglage{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:var(--e3);margin-top:var(--e3);padding:var(--e3);
+  background:var(--bg2);border-radius:var(--r2);}
+.vil-champ{display:flex;flex-direction:column;gap:3px;}
+.vil-champ .vil-t{font-size:11.5px;font-weight:var(--w-medium);color:var(--ink-2);}
+.vil-champ input{width:100%;font-family:inherit;font-size:12.5px;color:var(--ink);
+  background:var(--panel);border:1px solid var(--line-fort);border-radius:var(--r2);
+  padding:5px var(--e3);}
+/* Le nom du département sous le numéro : « 68 » ne se vérifie pas d'un coup
+   d'œil, et un numéro faux ne se verrait qu'à la collecte suivante — six
+   heures plus tard, sous la forme d'un onglet resté vide. */
+.vil-noms{font-size:11px;color:var(--accent);min-height:14px;line-height:1.3;}
+.vil-aide{font-size:11px;color:var(--faint);line-height:1.35;}
+
+.vil-vide{font-size:12px;color:var(--muted);margin:0;padding:var(--e3) 0;}
+
+.vil-pied{display:flex;align-items:center;gap:var(--e3);margin-top:var(--e4);}
+.vil-etat{flex:1;font-size:11.5px;color:var(--muted);}
+/* « Enregistrer » éteint ne veut pas dire « en cours » mais « rien à écrire ».
+   Le curseur d'attente hérité de .btn[disabled] annoncerait le contraire. */
+#villesSave[disabled]{cursor:default;}
+
+.src-row{display:flex;align-items:center;gap:var(--e3);padding:10px 0;
+  border-bottom:1px solid var(--line);font-size:13px;}
+.src-row:last-child{border-bottom:none;}
+.src-row .pastille{width:8px;height:8px;border-radius:50%;background:var(--g0);flex-shrink:0;}
+.src-row.on .pastille{background:var(--g1);box-shadow:0 0 0 3px var(--g1b);}
+.src-row .etat{margin-left:auto;font-size:11.5px;font-weight:var(--w-semi);color:var(--faint);}
+.src-row.on .etat{color:var(--g1);}
+
+.count{color:var(--muted);font-size:12.5px;margin-bottom:var(--e3);}
+.empty{text-align:center;color:var(--muted);padding:var(--e12);background:var(--panel);
+  border:1px solid var(--line);border-radius:var(--r4);}
+
+/* ─────────────────────── SURCOUCHES ─────────────────────── */
+
+#toastZone{position:fixed;bottom:var(--e6);right:var(--e6);z-index:100;display:flex;
+  flex-direction:column;gap:var(--e2);align-items:flex-end;pointer-events:none;}
+.toast{background:var(--ink);color:var(--bg);padding:var(--e3) var(--e4);border-radius:var(--r3);
+  box-shadow:var(--sh4);font-size:13px;font-weight:var(--w-medium);animation:toastIn .25s;
+  display:flex;align-items:center;gap:var(--e2);max-width:420px;line-height:1.45;pointer-events:auto;}
+.toast.err{background:var(--hot);color:#fff;}
+.toast.win{background:var(--g1);color:#fff;}
+
+.overlay{position:fixed;inset:0;background:rgba(8,10,18,.56);backdrop-filter:blur(6px);
+  z-index:150;display:none;align-items:center;justify-content:center;padding:var(--e5);}
+.overlay.show{display:flex;animation:fadeUp .2s;}
+.overlay-box{background:var(--panel);border:1px solid var(--line);border-radius:var(--r5);
+  padding:var(--e8);max-width:440px;width:100%;box-shadow:var(--sh4);animation:bounceIn .3s;}
+.overlay-box h3{margin:0 0 var(--e4);font-size:16px;font-weight:var(--w-bold);letter-spacing:-.3px;}
+
+.palette-box{background:var(--panel);border:1px solid var(--line-fort);border-radius:var(--r4);
+  max-width:620px;width:100%;box-shadow:var(--sh4);overflow:hidden;animation:bounceIn .22s;
+  margin-top:-12vh;}
+.palette-box input{width:100%;border:none;border-bottom:1px solid var(--line);border-radius:0;
+  padding:var(--e5);font-size:15.5px;background:transparent;}
+.palette-box input:focus{box-shadow:none;border-color:var(--line);}
+.palette-res{max-height:52vh;overflow-y:auto;padding:var(--e2);}
+.pres{display:flex;align-items:center;gap:var(--e3);padding:9px var(--e3);border-radius:var(--r2);
+  cursor:pointer;font-size:13.5px;}
+.pres:hover,.pres.sel{background:var(--accent-bg);}
+.pres .pem{width:26px;text-align:center;font-size:15px;flex-shrink:0;}
+.pres .pt2{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pres .ps{font-size:11.5px;color:var(--muted);flex-shrink:0;}
+.palette-cat{font-size:9.5px;text-transform:uppercase;letter-spacing:1.1px;color:var(--faint);
+  font-weight:var(--w-bold);padding:var(--e3) var(--e3) var(--e1);}
+.palette-pied{border-top:1px solid var(--line);padding:9px var(--e4);font-size:11px;color:var(--faint);}
+.palette-vide{padding:var(--e8);text-align:center;color:var(--muted);font-size:13px;}
+
+.kbd-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;
+  border-bottom:1px solid var(--line);font-size:13px;}
+.kbd-row:last-child{border-bottom:none;}
+.kbd{display:inline-block;padding:2px 7px;border:1px solid var(--line-fort);border-bottom-width:2px;
+  border-radius:var(--r1);font-size:11px;font-family:var(--mono);
+  background:var(--bg);color:var(--ink-2);}
+
+.confetti{position:fixed;top:-12px;width:8px;height:13px;z-index:200;pointer-events:none;
+  animation:confetti 2.4s ease-in forwards;border-radius:1px;}
+.skel{height:70px;border-radius:var(--r4);margin-bottom:var(--e2);
+  background:linear-gradient(90deg,var(--line) 25%,var(--panel) 50%,var(--line) 75%);
+  background-size:700px 100%;animation:shimmer 1.3s infinite linear;}
+
+/* ─────────────────────── DENSITÉ & MOUVEMENT ─────────────────────── */
+
+/* Les trois densités déplacent l'échelle entière d'un cran, elles ne bricolent
+   pas quelques marges : c'est ce qui garde les proportions justes aux trois
+   réglages. Recalées sur la nouvelle base — « Normale » est maintenant déjà
+   dense, « Large » sert à qui veut respirer, « Compacte » aux longues
+   sessions de tri sur petit écran. */
+[data-densite="compacte"]{--e3:8px;--e4:11px;--e5:14px;--e6:18px;--e8:22px;--e10:30px;--e12:38px;}
+[data-densite="compacte"] body{font-size:12.5px;}
+[data-densite="compacte"] .stat .n{font-size:22px;}
+[data-densite="compacte"] .view-head h2{font-size:15px;}
+[data-densite="compacte"] .ptitle{font-size:12.5px;}
+[data-densite="compacte"] .ville{font-size:12px;padding:var(--e1) var(--e2);}
+
+[data-densite="large"]{--e3:14px;--e4:20px;--e5:26px;--e6:34px;--e8:42px;--e10:56px;--e12:70px;}
+[data-densite="large"] body{font-size:15px;}
+[data-densite="large"] .stat .n{font-size:32px;}
+[data-densite="large"] .view-head h2{font-size:21px;}
+[data-densite="large"] .ptitle{font-size:15px;}
+[data-densite="large"] .ville{font-size:14px;}
+
+[data-anim="off"] *,[data-anim="off"] *::before,[data-anim="off"] *::after{
+  animation:none !important;transition:none !important;}
+
+/* Une liste reconstruite par un filtre n'entre pas : elle CHANGE. Rejouer
+   l'entrée de cinquante cartes à chaque case cochée faisait clignoter tout
+   l'écran et retardait la lecture d'une demi-seconde. Le mouvement est
+   réservé à l'arrivée sur la vue — c'est le seul moment où il raconte
+   quelque chose. */
+.grid.sans-entree .card{animation:none;}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;}
+}
+
+/* ═══════════════════════ OUVERTURE — LE BALAYAGE ═══════════════════════
+
+   L'animation raconte ce que fait l'application. Le faisceau passe sur une
+   centaine de points — les offres du marché. La plupart s'allument puis
+   s'éteignent : collectées, examinées, écartées. Trois restent et pulsent,
+   comme la sélection du jour.
+
+   Une ouverture qui ne dit rien du produit est une politesse coûteuse : on la
+   subit chaque jour sans rien y gagner. Celle-ci se regarde une fois et se
+   comprend.
+
+   Tout est en CSS et se cale sur `--r`, le retard propre à chaque point,
+   calculé en JS d'après sa position angulaire. Aucune boucle d'animation :
+   le navigateur tient l'horloge, et couper les animations suffit à tout
+   éteindre.                                                                  */
+
+.intro{position:fixed;inset:0;z-index:9000;background:#080a0f;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:var(--e8);overflow:hidden;cursor:pointer;user-select:none;}
+.intro-sortie{animation:introSortie .42s cubic-bezier(.4,0,1,1) forwards;}
+@keyframes introSortie{to{opacity:0;transform:scale(1.04);}}
+
+/* Le cadran. Carré, pour que les cercles restent des cercles quelle que soit
+   la fenêtre, et borné en vh pour ne pas déborder sur un écran bas. */
+.intro-radar{position:relative;width:min(62vh,62vw);aspect-ratio:1;flex-shrink:0;}
+
+/* Les cercles de portée. Ils se dessinent en s'ouvrant depuis le centre :
+   l'instrument se met en marche avant que le balayage commence. */
+.intro-cercle{position:absolute;left:50%;top:50%;width:var(--taille);height:var(--taille);
+  margin:calc(var(--taille) / -2) 0 0 calc(var(--taille) / -2);
+  border:1px solid rgba(125,211,252,.16);border-radius:50%;
+  animation:radarCercle .7s var(--retard,0s) cubic-bezier(.2,.9,.3,1) backwards;}
+@keyframes radarCercle{from{transform:scale(.2);opacity:0;}}
+
+.intro-croix{position:absolute;inset:0;opacity:.5;
+  background:
+    linear-gradient(to right,transparent calc(50% - .5px),rgba(125,211,252,.14) 50%,transparent calc(50% + .5px)),
+    linear-gradient(to bottom,transparent calc(50% - .5px),rgba(125,211,252,.14) 50%,transparent calc(50% + .5px));
+  animation:radarCercle .7s .22s cubic-bezier(.2,.9,.3,1) backwards;}
+
+/* LE FAISCEAU. Un dégradé conique tournant : une seule règle, aucune image,
+   et le halo décroît tout seul derrière la ligne de tête — exactement le
+   comportement d'un balayage rémanent. */
+.intro-faisceau{position:absolute;inset:0;border-radius:50%;
+  background:conic-gradient(from 0deg,
+    rgba(56,189,248,.42) 0deg,
+    rgba(56,189,248,.16) 18deg,
+    rgba(56,189,248,.04) 46deg,
+    transparent 78deg);
+  mask:radial-gradient(circle,#000 0 96%,transparent 97%);
+  -webkit-mask:radial-gradient(circle,#000 0 96%,transparent 97%);
+  animation:radarTour 2.1s .25s cubic-bezier(.35,0,.25,1) forwards;}
+@keyframes radarTour{from{transform:rotate(-90deg);}to{transform:rotate(272deg);}}
+
+/* LES POINTS. `--r` est le retard propre à chacun : le moment où le faisceau
+   l'atteint. C'est lui qui rend le balayage crédible — un décalage au hasard
+   donnerait des lucioles, pas un radar. */
+.intro-point{position:absolute;width:var(--d);height:var(--d);margin:calc(var(--d) / -2);
+  border-radius:50%;background:#7dd3fc;opacity:0;
+  animation:radarPoint 1.5s var(--r) ease-out backwards;}
+@keyframes radarPoint{
+  0%{opacity:0;transform:scale(.4);}
+  6%{opacity:1;transform:scale(1.9);box-shadow:0 0 10px 2px rgba(125,211,252,.7);}
+  28%{opacity:.5;transform:scale(1);box-shadow:none;}
+  100%{opacity:0;transform:scale(.8);}
+}
+
+/* Les retenues, elles, ne s'éteignent pas : elles restent et respirent. C'est
+   la promesse de l'outil, montrée avant même qu'il s'ouvre. */
+.intro-point.retenu{background:#fbbf24;
+  animation:radarRetenu 1.9s var(--r) cubic-bezier(.2,.9,.3,1) forwards;}
+@keyframes radarRetenu{
+  0%{opacity:0;transform:scale(.4);}
+  8%{opacity:1;transform:scale(2.6);box-shadow:0 0 16px 4px rgba(251,191,36,.75);}
+  30%{transform:scale(1.7);box-shadow:0 0 9px 2px rgba(251,191,36,.5);}
+  100%{opacity:1;transform:scale(1.9);box-shadow:0 0 12px 3px rgba(251,191,36,.6);}
+}
+
+.intro-titre{display:flex;flex-direction:column;align-items:center;gap:var(--e2);
+  text-align:center;animation:radarTitre .9s 1.85s cubic-bezier(.2,.9,.3,1) backwards;}
+@keyframes radarTitre{from{opacity:0;transform:translateY(14px);}}
+
+.intro-nom{font-family:var(--font-titre);font-size:clamp(28px,5.2vw,54px);
+  font-weight:var(--w-bold);letter-spacing:-1px;color:#f1f5f9;line-height:1;}
+.intro-baseline{font-size:clamp(12px,1.5vw,15px);color:#7dd3fc;
+  letter-spacing:2.5px;text-transform:uppercase;}
+
+.intro-passer{position:absolute;right:var(--e5);bottom:var(--e5);z-index:6;
+  background:transparent;border:1px solid rgba(241,245,249,.28);color:rgba(241,245,249,.7);
+  font-family:inherit;font-size:11.5px;font-weight:var(--w-medium);
+  padding:4px 12px;border-radius:var(--r2);cursor:pointer;
+  opacity:0;animation:introPasser .3s .8s forwards;}
+.intro-passer:hover{border-color:#f1f5f9;color:#f1f5f9;}
+@keyframes introPasser{to{opacity:1;}}
+
+/* ─────────────────────── MOBILE ─────────────────────── */
+
+/* Cette section était vide : l'application n'avait jamais été regardée sur un
+   écran étroit. À 375 px, la page mesurait 621 px de large — la barre latérale
+   fixe et le bandeau de commande débordaient, et tout le contenu se lisait à
+   travers un défilement horizontal.
+   Le parti pris : la barre latérale devient un tiroir, le bandeau se replie
+   sur l'essentiel, et rien ne dépasse jamais. */
+
+.mobile-nav{display:none;}
+.mob-serie{margin-left:auto;font-size:12.5px;font-weight:var(--w-semi);}
+
+@media(max-width:900px){
+  /* Rien ne doit pouvoir élargir la page. */
+  html,body{max-width:100%;overflow-x:hidden;}
+
+  /* La barre latérale sort du flux et coulisse par-dessus le contenu.
+     Le cadre à hauteur d'écran est conservé : c'est lui qui permet à la barre
+     du haut de rester en place pendant qu'on parcourt les offres. */
+  .app{display:block;height:100dvh;}
+  .main{height:100%;padding:0 var(--e4);}
+  .view{padding-bottom:var(--e8);margin-right:calc(-1 * var(--e4));padding-right:var(--e4);}
+  .sidebar{position:fixed;top:0;left:0;height:100dvh;z-index:60;
+    transform:translateX(-100%);transition:transform .28s var(--ease-doux);
+    box-shadow:var(--sh4);}
+  .sidebar.open{transform:translateX(0);}
+
+  /* Le voile qui accompagne le tiroir : sans lui, on ne sait pas comment
+     refermer, et on clique au hasard dans la page. */
+  .sidebar.open::after{content:"";position:fixed;inset:0 0 0 var(--sbw);
+    background:rgba(0,0,0,.45);z-index:-1;}
+
+  .main{padding:var(--e4) var(--e4) var(--e10);}
+
+  /* Barre du haut : c'est elle qui ouvre le tiroir. */
+  .mobile-nav{display:flex;align-items:center;gap:var(--e3);
+    position:sticky;top:0;z-index:40;margin:calc(-1 * var(--e4)) calc(-1 * var(--e4)) var(--e4);
+    padding:var(--e3) var(--e4);background:var(--panel);
+    border-bottom:1px solid var(--line);backdrop-filter:blur(10px);}
+  .mobile-nav button{background:transparent;border:none;color:var(--ink);
+    cursor:pointer;display:flex;padding:var(--e1);}
+  .mobile-nav strong{font-size:15px;letter-spacing:-.3px;}
+
+  /* Bandeau de commande : la salutation est du confort, les actions non. */
+  .cmdbar{position:static;flex-direction:column;align-items:stretch;gap:var(--e3);
+    padding:var(--e4);}
+  .cmd-hello{min-width:0;}
+  .cmd-actions{display:grid;grid-template-columns:1fr 1fr;gap:var(--e2);}
+  .cmd-actions .btn{justify-content:center;}
+  #paletteBtn{grid-column:1 / -1;}
+
+  /* Une seule colonne partout : deux colonnes sur 375 px ne sont pas deux
+     colonnes, ce sont deux moitiés illisibles. */
+  .grille-2,.cols2,.cols3{grid-template-columns:1fr;gap:var(--e4);}
+  .stats{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));}
+  .grid.mosaique{grid-template-columns:1fr;}
+  .view-head{align-items:flex-start;}
+  .view-head h2{font-size:26px;}
+
+  /* Barre d'outils : la recherche d'abord, seule sur sa ligne. */
+  .toolbar{gap:var(--e2);}
+  .search{flex:1 1 100%;min-width:0;}
+  .toolbar select{flex:1 1 45%;min-width:0;}
+  .tb-espace{display:none;}
+  .toolbar .btn{flex:1 1 30%;justify-content:center;}
+
+  /* Cartes : les badges tiennent sous le titre plutôt qu'à sa droite. */
+  .head{padding:var(--e3);gap:var(--e2);}
+  .titlebox{flex:1 1 100%;min-width:0;}
+  .ptitle{font-size:15.5px;}
+  .tags{flex:1 1 100%;}
+  .sec{padding:var(--e3);}
+  .track-row{flex-direction:column;align-items:stretch;}
+  .track-field input,.track-field select{width:100%;}
+
+  /* Kanban : une colonne à la fois, qui défile latéralement. */
+  /* Une colonne à la fois, qui défile latéralement. La hauteur d'écran fixée
+     plus haut n'a pas de sens ici : sur un téléphone, elle ne laisserait
+     voir que trois cartes. */
+  .kanban{display:flex;overflow-x:auto;gap:var(--e3);scroll-snap-type:x mandatory;
+    height:auto;min-height:0;align-items:flex-start;}
+  .kcol{min-width:78vw;scroll-snap-align:start;}
+  .kcol-liste{overflow-y:visible;max-height:none;}
+
+  /* Le calendrier d'assiduité a une largeur minimale de 520 px : c'est la
+     seule chose du projet qui ne peut pas rétrécir sans devenir illisible.
+     Elle défile donc DANS son panneau, au lieu d'élargir la page entière. */
+  #heat{overflow-x:auto;}
+
+  /* Options et surcouches. */
+  .opt-row{flex-direction:column;align-items:stretch;gap:var(--e2);}
+  .palette-box,.overlay-box{width:calc(100vw - var(--e5) * 2);max-width:none;}
+  .letter-area{min-height:220px;}
+}
+
+/* Très petits écrans : on retire ce qui n'aide pas à décider. */
+@media(max-width:420px){
+  .cmd-pills{display:none;}
+  .sidebar{width:min(84vw,var(--sbw));}
+  .sidebar.open::after{left:min(84vw,var(--sbw));}
+  .cmd-actions{grid-template-columns:1fr;}
+  .toolbar .btn{flex:1 1 100%;}
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHORÉGRAPHIE
+
+   Ce bloc est volontairement le DERNIER du fichier : il raffine des règles
+   déjà posées plus haut et doit gagner par l'ordre de source. Il ne contient
+   que de l'embellissement — le supprimer entièrement laisse une interface
+   complète et juste, seulement plus sèche.
+
+   Trois principes :
+   · rien ne dure plus d'une seconde et demie ;
+   · rien ne bouge après le premier rendu d'une vue, sauf réaction directe
+     à un geste ;
+   · aucune information n'existe uniquement pendant une animation.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root{
+  --ease-doux:cubic-bezier(.22,1,.36,1);
+  --ease-elan:cubic-bezier(.17,1.14,.33,1);   /* léger dépassement, puis calage */
+}
+
+/* Ni flou, ni changement d'échelle.
+   Le flou force le navigateur à recomposer chaque image de l'animation : sur
+   une vue à douze panneaux, l'entrée saccadait — le mouvement censé donner
+   une impression de fluidité produisait l'inverse. Le léger rétrécissement,
+   lui, rendait le texte flou une fraction de seconde. Reste ce qui suffit :
+   une opacité et un déplacement, plus courts qu'avant. */
+@keyframes entree{from{opacity:0;transform:translateY(10px);}}
+@keyframes lueur{0%{offset-distance:0%;opacity:0;}
+  12%{opacity:1;}82%{opacity:1;}100%{offset-distance:100%;opacity:0;}}
+@keyframes reflet{0%{transform:translateX(-120%) skewX(-18deg);}
+  100%{transform:translateX(320%) skewX(-18deg);}}
+/* La teinte est réglable pour que l'onde serve aussi ailleurs qu'à l'accent —
+   une alerte n'a pas la même couleur qu'une réussite. Sans variable posée,
+   c'est l'accent, comme avant. */
+@keyframes souffle{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--souffle-teinte,var(--accent)) 45%,transparent);}
+  100%{box-shadow:0 0 0 18px transparent;}}
+@keyframes vaEtVient{0%,100%{transform:translateY(0);}50%{transform:translateY(-3px);}}
+
+/* ═════════════════════ CE QUI RESTE EN VIE ═════════════════════
+
+   Tout le reste de cette feuille réserve le mouvement à l'arrivée sur une
+   vue. Les quatre animations ci-dessous tournent en continu, et c'est une
+   exception qui se justifie : une animation permanente se paie en attention,
+   en processeur et en batterie — tous les jours, pendant des heures.
+
+   Elles la méritent parce qu'elles DISENT quelque chose, et qu'on perdrait
+   l'information en les coupant :
+
+     · le battement de la veille s'ARRÊTE quand la collecte est périmée ;
+     · l'onde des relances en retard ne cesse qu'une fois la relance faite ;
+     · le reflet de l'objectif ne s'allume qu'une fois l'objectif atteint ;
+     · l'ambiance de fond est la seule décorative — c'est aussi la plus lente
+       et la plus pâle, et elle ne passe jamais devant du texte.
+
+   Aucune n'anime autre chose que `transform`, `opacity`, ou une ombre sur
+   quelques dizaines de pixels : rien qui force à repeindre la page.
+
+   Elles s'éteignent avec l'interrupteur des Options, avec le réglage système
+   « moins de mouvement », et quand l'onglet passe en arrière-plan — animer
+   ce que personne ne regarde ne coûte que de la batterie.                   */
+
+/* L'AMBIANCE. Deux nappes de couleur qui dérivent derrière toute
+   l'application. Élément à part plutôt que pseudo-élément du corps : `.app`
+   masque ce qui déborde, et l'empilement d'un `::before` sous des panneaux
+   non positionnés dépend de subtilités qu'on ne veut pas relire dans six
+   mois. Ici, la nappe est avant `.app`, `.app` est au-dessus, c'est tout. */
+.ambiance{position:fixed;inset:-25%;z-index:0;pointer-events:none;opacity:.6;
+  background:
+    radial-gradient(38% 44% at 26% 30%,color-mix(in srgb,var(--accent) 15%,transparent),transparent 70%),
+    radial-gradient(34% 40% at 74% 68%,color-mix(in srgb,var(--accent2) 12%,transparent),transparent 72%);
+  animation:ambiance 54s ease-in-out infinite alternate;will-change:transform;}
+@keyframes ambiance{
+  from{transform:translate3d(-2%,-1.5%,0) scale(1);}
+  to{transform:translate3d(2.5%,2%,0) scale(1.12);}}
+
+/* LE BATTEMENT DE LA VEILLE. Le trait vertical du bandeau respire tant que la
+   collecte est fraîche. Périmée, il se fige : l'absence de mouvement est
+   l'information, et elle se remarque sans avoir à lire la date. */
+.veille-banner::before{animation:halo 3.6s ease-in-out infinite;}
+.veille-banner.stale::before{animation:none;opacity:1;}
+
+/* L'ONDE DES RETARDS. Elle part de la pastille toutes les trois secondes et
+   ne s'arrête qu'une fois la relance faite — c'est-à-dire quand la pastille
+   disparaît. Un rappel qu'on ne peut pas faire taire autrement qu'en
+   agissant. */
+.cpill.chaud{position:relative;}
+.cpill.chaud::after{content:"";position:absolute;inset:0;border-radius:inherit;
+  pointer-events:none;--souffle-teinte:var(--hot);
+  animation:souffle 3s var(--ease-doux) infinite;}
+
+/* LE REFLET DE L'OBJECTIF. Il n'existe que sur la pastille verte, donc
+   seulement une fois l'objectif de la semaine atteint. Lent, pour féliciter
+   sans réclamer l'attention. */
+.cpill.vert{position:relative;overflow:hidden;}
+.cpill.vert::after{content:"";position:absolute;top:0;bottom:0;width:40%;
+  pointer-events:none;
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--g1) 20%,transparent),transparent);
+  animation:reflet 7s var(--ease-doux) infinite;}
+
+/* Onglet en arrière-plan : on suspend au lieu de laisser tourner. */
+[data-page="cachee"] .ambiance,
+[data-page="cachee"] .veille-banner::before,
+[data-page="cachee"] .cpill::after{animation-play-state:paused;}
+
+/* ── Entrée en cascade des blocs d'une vue ───────────────────────────── */
+/* Plus courte, et surtout plus resserrée : l'ancienne cascade s'étalait sur
+   890 ms avant que le dernier panneau soit lisible. Un tableau de bord qu'on
+   ouvre vingt fois par jour ne doit pas faire attendre son propre affichage. */
+.view > *{animation:entree .34s var(--ease-doux) backwards;}
+.view > *:nth-child(1){animation-delay:0s}
+.view > *:nth-child(2){animation-delay:.04s}
+.view > *:nth-child(3){animation-delay:.08s}
+.view > *:nth-child(4){animation-delay:.11s}
+.view > *:nth-child(5){animation-delay:.14s}
+.view > *:nth-child(n+6){animation-delay:.16s}
+
+/* ── Tuiles : entrée en cascade, reflet au survol ─────────────────────── */
+.stat{animation:entree .55s var(--ease-elan) backwards;}
+.stat::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:0;
+  background:linear-gradient(100deg,transparent,color-mix(in srgb,var(--ink) 7%,transparent),transparent);
+  width:40%;transition:opacity .2s;}
+.stat:hover::before{opacity:1;animation:reflet 1.05s var(--ease-doux);}
+.stat:hover{transform:translateY(-4px);}
+.prog-tile{animation:entree .55s var(--ease-elan) backwards;}
+.prog-tile:hover .em{animation:vaEtVient 1.4s ease-in-out infinite;}
+
+/* ── Rouleaux de chiffres ─────────────────────────────────────────────── */
+/* Le flou de mouvement est posé par anim.js le temps de la rotation, puis
+   retiré : un chiffre à l'arrêt doit être parfaitement net. */
+.roul-col{transition:filter .28s ease;}
+.roul-tourne .roul-col{filter:blur(.75px);}
+
+/* ── Courbes : la lueur qui parcourt le tracé ─────────────────────────── */
+.comete{opacity:0;offset-rotate:0deg;
+  animation:lueur 1.9s var(--ease-doux) .35s;
+  filter:drop-shadow(0 0 7px currentColor);}
+.gr .trace{animation-duration:1.35s;}
+.gr .surface{animation-duration:1.15s;}
+
+/* ── Graphiques : respirations plus amples ───────────────────────────── */
+.gb-t{animation-duration:.72s;animation-timing-function:var(--ease-elan);}
+.gbh-f{animation-duration:.85s;animation-timing-function:var(--ease-doux);}
+.ge-f{animation-duration:.9s;}
+.gr-donut .part{animation-duration:1.05s;}
+.gr-radar .toile-pleine{animation-duration:1.05s;}
+.gr-heat-col i{animation-duration:.42s;}
+.gr-anneau .arc,.gr-jauge .arc{animation-duration:1.35s;}
+.gr-anneau.atteint::after{content:"";position:absolute;inset:6%;border-radius:50%;
+  pointer-events:none;animation:souffle 1.6s var(--ease-doux) .9s 2;}
+
+/* ── Onglets de villes : le trait suit, la liste se renouvelle ─────────── */
+/* Changer d'onglet remplace toute la liste d'un coup. Sans transition, on
+   ne sait pas si le contenu a changé ou si la page a sauté ; l'entrée en
+   cascade des cartes le raconte, mais seulement une fois qu'elles sont là. */
+@keyframes ongletEntre{from{opacity:0;transform:translateY(6px);}}
+.grid{animation:ongletEntre .32s var(--ease-doux);}
+
+/* Le soulignement de l'onglet actif se dessine depuis le centre, plutôt que
+   d'apparaître d'un bloc : c'est ce qui fait lire le geste comme un
+   déplacement et non comme un rechargement. */
+.ville{position:relative;}
+.ville::after{content:"";position:absolute;left:50%;right:50%;bottom:-1px;height:2px;
+  background:var(--accent);border-radius:2px;
+  transition:left .26s var(--ease-doux),right .26s var(--ease-doux);}
+.ville.active{border-bottom-color:transparent;}
+.ville.active::after{left:var(--e3);right:var(--e3);}
+
+/* Le compte des prioritaires attire l'œil à l'arrivée, une seule fois. */
+.ville .vp{animation:pop .3s var(--ease-elan) backwards;}
+
+/* ── Écarter une offre : la carte s'en va, elle ne disparaît pas ───────── */
+/* Une suppression instantanée laisse un doute : qu'est-ce qui vient de
+   partir ? Le glissement latéral montre laquelle, et dans quel sens. */
+@keyframes ecarte{to{opacity:0;transform:translateX(28px) scale(.97);
+  max-height:0;margin-bottom:0;}}
+.card.part{animation:ecarte .34s var(--ease-doux) forwards;overflow:hidden;
+  pointer-events:none;}
+

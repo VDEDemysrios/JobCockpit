@@ -1,0 +1,161 @@
+# Construit l'exécutable Windows, sur une machine neuve, à partir du dépôt.
+#
+# POURQUOI PASSER PAR UNE CHAÎNE D'INTÉGRATION
+# --------------------------------------------
+# Jusqu'ici l'exécutable publié était celui construit sur l'ordinateur de son
+# auteur. Cela suffit pour l'usage personnel, mais pas pour un fichier qu'on
+# demande à d'autres d'exécuter : rien ne relie ce binaire au code source
+# publié, et personne ne peut le vérifier.
+#
+# Ici, la construction part d'un dépôt propre, sur une machine jetable, et
+# n'utilise que ce qui est commité. C'est aussi la condition posée par
+# SignPath Foundation, qui signe gratuitement les projets open source : elle
+# ne signe que des artefacts produits par une chaîne d'intégration, jamais un
+# fichier téléversé à la main.
+#
+# Déclenchée par une étiquette de version, ou à la demande.
+name: Construire l'exécutable
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # NODE 24, ET CE N'EST PAS ANODIN.
+      #
+      # L'exécutable EST une copie de ce moteur : la version choisie ici est
+      # celle qui tournera chez l'utilisateur. Sous Node 22, `node:sqlite` est
+      # encore expérimental et affiche à chaque démarrage « SQLite is an
+      # experimental feature » — la première ligne que verrait quelqu'un qui
+      # vient d'ouvrir l'application, au-dessus de ses candidatures.
+      #
+      # Le projet accepte Node 20 et plus pour lancer les sources ; ce qu'on
+      # PUBLIE, en revanche, embarque un moteur qui se tait.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      # Les tests AVANT la construction : publier un binaire dont la suite
+      # échoue n'a aucun intérêt, et deux pannes de démarrage ont déjà
+      # traversé cette suite — dont une qui empêchait l'application de se
+      # lancer du tout.
+      - name: Tests
+        run: npm test
+
+      - name: Construire l'exécutable
+        run: npm run exe
+
+      # On vérifie que le binaire produit ici DÉMARRE vraiment. Le test de
+      # démarrage porte sur les sources ; celui-ci porte sur l'exécutable
+      # assemblé, qui est un autre objet — c'est lui qu'on distribue.
+      - name: Vérifier que l'exécutable démarre
+        shell: pwsh
+        run: |
+          # SUR UNE COPIE, jamais dans `dist`. L'application crée sa base de
+          # données au démarrage : la lancer dans le dossier distribuable y
+          # laissait `data.db`, et l'étape suivante — celle qui refuse toute
+          # donnée personnelle dans l'archive — la trouvait et échouait.
+          #
+          # C'est aussi ce que fait un utilisateur : il décompresse ailleurs,
+          # puis lance. L'essai porte donc sur le même geste.
+          Copy-Item dist essai -Recurse
+          $exe = "essai\JobCockpit.exe"
+          $env:PORT = "3999"
+          $p = Start-Process -FilePath $exe -WorkingDirectory "essai" -PassThru `
+                 -RedirectStandardError "essai\erreur.log" -RedirectStandardOutput "essai\sortie.log"
+          # On LAISSE suivre la redirection. Sur une installation neuve, la
+          # racine répond 302 vers l'assistant de premier lancement — et
+          # `-MaximumRedirection 0` fait alors lever une exception à
+          # PowerShell, que le `try` avalait : l'exécutable démarrait très
+          # bien, la vérification concluait le contraire.
+          $ok = $false
+          foreach ($i in 1..30) {
+            Start-Sleep -Seconds 1
+            if ($p.HasExited) { break }
+            try {
+              $r = Invoke-WebRequest "http://127.0.0.1:3999/" -UseBasicParsing -TimeoutSec 5
+              if ($r.StatusCode -eq 200) { $ok = $true; break }
+            } catch { }
+          }
+          if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+          if (-not $ok) {
+            Write-Host "--- sortie ---"; Get-Content "essai\sortie.log" -EA SilentlyContinue
+            Write-Host "--- erreurs ---"; Get-Content "essai\erreur.log" -EA SilentlyContinue
+            throw "L'exécutable construit ne répond pas."
+          }
+          Start-Sleep -Seconds 2
+          Remove-Item essai -Recurse -Force -EA SilentlyContinue
+          Write-Host "L'exécutable démarre et répond."
+
+      # Le fichier ne doit pas se faire passer pour Node.js : un binaire non
+      # signé qui déclare « ProductName: Node.js » et garde « node.exe » comme
+      # nom d'origine est le portrait d'un runtime trojanisé, et c'est ce qui
+      # le faisait mettre en quarantaine.
+      - name: Vérifier l'identité du binaire
+        shell: pwsh
+        run: |
+          $v = (Get-Item "dist\JobCockpit.exe").VersionInfo
+          Write-Host "ProductName      : $($v.ProductName)"
+          Write-Host "OriginalFilename : $($v.OriginalFilename)"
+          if ($v.ProductName -ne "Job Cockpit" -or $v.OriginalFilename -ne "JobCockpit.exe") {
+            throw "Le binaire déclare encore l'identité de Node.js."
+          }
+
+      # Une clé, un profil ou un CV qui partiraient dans l'archive seraient
+      # publiés à chaque version. Sur une machine d'intégration il n'y en a
+      # pas — mais la vérification doit vivre ici, où elle protège aussi les
+      # constructions faites ailleurs.
+      - name: Vérifier qu'aucune donnée personnelle n'est embarquée
+        shell: pwsh
+        run: |
+          # Comparaison EXACTE des noms : sur Windows, -Filter '.env' attrape
+          # aussi '.env.example', héritage des noms courts 8.3.
+          $interdits = @("data.db", "data.db-wal", "data.db-shm", "profile.json", "cv.txt", "cv-source.docx", ".env")
+          $trouves = Get-ChildItem "dist" -Recurse -Force -File |
+                       Where-Object { $interdits -contains $_.Name }
+          if ($trouves) { throw "Le dossier distribuable contient : $($trouves.Name -join ', ')" }
+          Write-Host "Archive propre : ni clés, ni profil, ni CV."
+
+      - name: Empreinte
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist\* -DestinationPath JobCockpit-windows.zip -CompressionLevel Optimal
+          $h = (Get-FileHash JobCockpit-windows.zip -Algorithm SHA256).Hash.ToLower()
+          Write-Host "SHA-256 : $h"
+          "SHA-256 : $h" | Out-File -FilePath empreinte.txt -Encoding utf8
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JobCockpit-windows
+          path: |
+            JobCockpit-windows.zip
+            empreinte.txt
+          retention-days: 30
+
+      # ─────────────────────────────────────────────────────────────────
+      # SIGNATURE — à activer une fois SignPath Foundation accordé.
+      #
+      # L'étape n'est pas écrite tant que le projet n'est pas accepté : un
+      # travail qui échoue à chaque version, en attendant une réponse qui
+      # peut prendre des semaines, apprend seulement à ignorer les alertes.
+      #
+      # Une fois le dossier accepté, ajouter ici l'action
+      # `signpath/github-action-submit-signing-request`, avec l'identifiant
+      # d'organisation et le jeton d'API dans les secrets du dépôt. Le nom
+      # d'éditeur affiché par Windows sera « SignPath Foundation », pas le
+      # tien : c'est le principe du programme, le certificat leur appartient.
+      # ─────────────────────────────────────────────────────────────────

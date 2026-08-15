@@ -1,0 +1,30 @@
+# Ce qui ne doit JAMAIS entrer dans l'image
+# ------------------------------------------
+# Les clés arrivent par les secrets de Fly (`fly secrets set`), jamais par un
+# fichier embarqué : une image se copie, se pousse, et traîne ensuite.
+.env
+.env.*
+!.env.example
+
+# Inutile en production, et lourd
+.git
+.github
+node_modules
+docs
+test
+*.log
+
+# Sauvegardes locales
+_sauvegarde*
+profile/*.sauvegarde-*
+data.db-shm
+data.db-wal
+
+# Outils Windows, sans objet dans un conteneur Linux
+*.cmd
+*.bat
+scripts/collecte-silencieuse.vbs
+
+# `profile/` (profil, CV) et `data.db` sont VOLONTAIREMENT inclus : le premier
+# fait fonctionner l'application, le second sert d'amorce si le volume est
+# vide. L'image est privée à ton compte Fly.

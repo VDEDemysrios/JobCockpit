@@ -1,0 +1,563 @@
+{
+  "_lisezMoi": [
+    "Profil de TEST, versionné avec le dépôt.",
+    "",
+    "La suite lisait profile/profile.json, qui est gitignoré : trois fichiers",
+    "de tests ne passaient donc que sur la machine de leur auteur, et",
+    "échouaient chez quiconque clonait le dépôt.",
+    "",
+    "Ce fichier reprend la structure réelle — quatre villes, les seuils",
+    "éprouvés, les motifs de scoring — mais aucune donnée personnelle."
+  ],
+  "_entretienDeLaBase": [
+    "Deux réglages qui SUPPRIMENT des offres à la fin de chaque collecte.",
+    "Dans les deux cas, une offre portant la moindre trace de travail est",
+    "à l'abri : statut autre que « À postuler », date d'envoi, relance,",
+    "note, épingle, lettre, ou saisie à la main.",
+    "",
+    "  nettoyageAutomatique  enlève les offres du groupe 3 et celles que",
+    "                        l'analyse refuse. Sans lui, une seule collecte",
+    "                        peut en remettre 300 dans une base qu'on vient",
+    "                        de nettoyer.",
+    "",
+    "  sansReponseJours      enlève les offres restées « À postuler » plus",
+    "                        de N jours. L'ancienneté se compte depuis le",
+    "                        jour où l'offre est APPARUE ici, pas depuis sa",
+    "                        date de publication. Mettre 0 désactive.",
+    "",
+    "Les offres ainsi enlevées sont inscrites parmi les « écartées » : sans",
+    "quoi la source les republiant, elles reviendraient six heures plus tard.",
+    "Pour tout remettre en circulation : Options > Offres écartées."
+  ],
+  "nettoyageAutomatique": true,
+  "sansReponseJours": 14,
+  "_sauvegarde": [
+    "Une sauvegarde est faite à la fin de CHAQUE collecte, sans rien à lancer.",
+    "",
+    "  active        false pour l'arrêter.",
+    "  dossier       vide = Documents\\JobCockpit-sauvegardes. Mets ici un",
+    "                dossier synchronisé (OneDrive, Dropbox) si tu veux que",
+    "                ça survive à un disque mort — sinon ça reste local.",
+    "  joursComplets tous les passages sont gardés sur cette durée. C'est là",
+    "                qu'on revient quand on vient de faire une bêtise.",
+    "  garderJours   au-delà, une seule sauvegarde par jour est conservée,",
+    "                jusqu'à cette ancienneté.",
+    "",
+    "Sont copiés : la base, profile.json, .env, et le CV. Autrement dit tout",
+    "ce qui ne se reconstruit pas.",
+    "",
+    "La base est copiée par VACUUM INTO, pas par un copier-coller : en mode",
+    "WAL, copier data.db seul donne un état périmé de plusieurs heures, sans",
+    "aucun avertissement. Le 01/08/2026, un tel copier-coller a produit une",
+    "base de 881 offres au lieu de 279.",
+    "",
+    "  npm run sauvegardes                 voir ce qui existe",
+    "  npm run sauvegardes -- --restaurer 2026-08-01_21h45"
+  ],
+  "sauvegarde": {
+    "active": true,
+    "dossier": "",
+    "joursComplets": 2,
+    "garderJours": 30
+  },
+  "_gemini": [
+    "Le quota gratuit est JOURNALIER et PARTAGÉ entre l'analyse des offres et",
+    "la rédaction des lettres. Sans garde-fou, quatre collectes le vident, et",
+    "au moment où tu veux une lettre il ne reste rien.",
+    "",
+    "  quotaJournalier  estimation du plafond quotidien, tous usages.",
+    "  reserveLettres   nombre d'appels que l'analyse ne touchera JAMAIS.",
+    "                   Bornée à la moitié du quota, sinon plus rien ne",
+    "                   s'analyserait.",
+    "",
+    "L'analyse s'arrête dès qu'elle entamerait la réserve. La rédaction, elle,",
+    "a accès à tout le quota — c'est ce que la réserve protège.",
+    "",
+    "Google ne dit pas combien il reste : ces chiffres sont une estimation.",
+    "D'où la SECONDE protection, qui ne suppose rien — dès que cinq analyses",
+    "d'affilée sont refusées, l'analyse se ferme pour la journée, et ce qui",
+    "reste des autres modèles de la chaîne de repli va aux lettres.",
+    "",
+    "Consommation réelle visible dans Options, et dans le résumé de collecte."
+  ],
+  "gemini": {
+    "quotaJournalier": 200,
+    "reserveLettres": 40
+  },
+  "_zonesProches": [
+    "Une offre est « dans la zone » si sa localisation correspond à la ville",
+    "OU à l'une de ses zonesProches. Les sources renvoient souvent un nom de",
+    "département plutôt qu'une commune (Adzuna a renvoyé « Hauts-de-Seine »),",
+    "ou une commune de banlieue inconnue de nous (« Dammartin-en-Goële »).",
+    "Sans cette liste, ces offres étaient marquées « hors zone » à tort.",
+    "Les codes de département couvrent le cas où la source fournit un code postal."
+  ],
+  "_candidat": [
+    "Coordonnées portées en en-tête des lettres de motivation Word.",
+    "Elles sont déclarées ici plutôt que devinées dans le CV : l'ordre",
+    "d'extraction d'un .docx est imprévisible (la première version avait mis",
+    "« Projets agrivoltaïques » à la place du nom).",
+    "Laisser un champ vide fait chercher la valeur dans le CV en dernier recours."
+  ],
+  "candidat": {
+    "nom": "Camille Durand",
+    "email": "",
+    "telephone": "",
+    "ville": "Nancy"
+  },
+  "villesPrioritaires": [
+    {
+      "nom": "Strasbourg",
+      "codeInsee": "67482",
+      "departement": "67",
+      "departementsProches": [
+        "67",
+        "68"
+      ],
+      "zonesProches": [
+        "bas rhin",
+        "haut rhin",
+        "alsace",
+        "eurometropole de strasbourg"
+      ],
+      "departementsOnglet": [
+        "67"
+      ],
+      "zonesOnglet": [
+        "bas rhin",
+        "eurometropole de strasbourg"
+      ]
+    },
+    {
+      "nom": "Nancy",
+      "codeInsee": "54395",
+      "departement": "54",
+      "departementsProches": [
+        "54",
+        "57",
+        "88",
+        "55"
+      ],
+      "zonesProches": [
+        "meurthe et moselle",
+        "moselle",
+        "vosges",
+        "meuse",
+        "grand nancy",
+        "lorraine"
+      ],
+      "departementsOnglet": [
+        "54"
+      ],
+      "zonesOnglet": [
+        "meurthe et moselle",
+        "grand nancy"
+      ]
+    },
+    {
+      "nom": "Lyon",
+      "codeInsee": "69123",
+      "departement": "69",
+      "departementsProches": [
+        "69",
+        "01",
+        "38",
+        "42"
+      ],
+      "zonesProches": [
+        "rhone",
+        "metropole de lyon",
+        "ain",
+        "isere",
+        "loire",
+        "villeurbanne"
+      ],
+      "departementsOnglet": [
+        "69"
+      ],
+      "zonesOnglet": [
+        "rhone",
+        "metropole de lyon",
+        "villeurbanne"
+      ]
+    },
+    {
+      "nom": "Paris",
+      "codeInsee": "75056",
+      "departement": "75",
+      "departementsProches": [
+        "75",
+        "92",
+        "93",
+        "94",
+        "77",
+        "78",
+        "91",
+        "95"
+      ],
+      "zonesProches": [
+        "hauts de seine",
+        "seine saint denis",
+        "val de marne",
+        "seine et marne",
+        "yvelines",
+        "essonne",
+        "val d oise",
+        "ile de france"
+      ],
+      "departementsOnglet": [
+        "75",
+        "92",
+        "93",
+        "94"
+      ],
+      "zonesOnglet": [
+        "paris",
+        "hauts de seine",
+        "seine saint denis",
+        "val de marne"
+      ]
+    }
+  ],
+  "_flux": [
+    "Flux RSS / Atom à surveiller, en plus des API. C'est le moyen d'ajouter un",
+    "site sans écrire de code : la plupart des job boards français (APEC,",
+    "Welcome to the Jungle, HelloWork) n'ouvrent pas d'API mais publient un flux",
+    "pour chaque recherche enregistrée, et beaucoup d'employeurs en publient un",
+    "pour leur page carrière.",
+    "",
+    "  url          l'adresse du flux. Le jeton {intitule} y est remplacé par",
+    "               chacun de tes intitulés de recherche, encodé pour l'URL.",
+    "               Sans ce jeton, le flux est simplement lu tel quel.",
+    "  nom          libellé affiché dans les journaux de collecte.",
+    "  entreprise   force le nom de l'employeur (utile pour un flux carrière).",
+    "  ville        force la ville (utile pour un flux régional).",
+    "  zone         situe les offres d'un flux filtré par département quand",
+    "               l'entrée ne porte pas d'adresse — c'était le cas de 84 des",
+    "               135 offres du premier essai. Sans elle, elles sont classées",
+    "               « hors zone » et la plupart écartées. L'adresse de l'entrée",
+    "               reste prioritaire quand elle existe.",
+    "               Format : « Bas-Rhin, 67 ». Le libellé doit figurer dans les",
+    "               zonesProches d'une ville prioritaire, ou porter son code de",
+    "               département — sinon il ne situe rien.",
+    "",
+    "Les flux du Service Public se combinent par filière, département et région.",
+    "Le catalogue des filtres est publié ici :",
+    "  https://place-ep-recrute.talent-soft.com//offre-de-emploi/tous-les-flux-rss.aspx",
+    "Un flux ne renvoie que ses 20 entrées les plus récentes : d'où le découpage",
+    "par département, doublé d'un découpage par région pour les limitrophes.",
+    "",
+    "Exemple :",
+    "  { \"nom\": \"Carrières Voltalia\", \"url\": \"https://…/jobs.rss\",",
+    "    \"entreprise\": \"Voltalia\" }",
+    "",
+    "Laisser la liste vide désactive simplement la source."
+  ],
+  "rayonKm": 30,
+  "_intitules": [
+    "COURTS, et c'est capital. Les moteurs d'offres traitent les mots-clés en",
+    "ET : chaque mot supplémentaire réduit le résultat, il ne l'affine pas.",
+    "",
+    "Mesuré sur France Travail le 01/08/2026, sur 7 jours en national :",
+    "  « chargé de développement EnR »          →   0 offre",
+    "  « juriste droit public environnement »   →   0 offre",
+    "  « chef de projet agrivoltaïque »         →   0 offre",
+    "  « énergies renouvelables »               →  60 offres, 22 prioritaires",
+    "  « urbanisme »                            →  80 offres, 14 prioritaires",
+    "",
+    "Les cinq intitulés d'origine, tous en quatre mots ou plus, ne ramenaient",
+    "que 11 offres à eux tous. D'où cette liste, retenue sur son rendement",
+    "RÉEL en offres prioritaires, pas sur ce qu'elle a l'air de vouloir dire.",
+    "",
+    "AFFINÉE le 01/08/2026 sur le TAUX DE SURVIE — la part des offres d'un",
+    "mot-clé qui passe les filtres au lieu d'être supprimée.",
+    "",
+    "ATTENTION : un mot-clé se comporte DIFFÉREMMENT selon la source, et le",
+    "mesurer sur une seule induit en erreur. France Travail exige TOUS les",
+    "mots ; Jooble et Adzuna font de la correspondance floue, où un mot",
+    "générique ramène tout le voisinage. « chef de projet énergie » y attire",
+    "« Chef de projet MOE bâtiment » et « Ingénieur Chef de Projet Fluides ».",
+    "",
+    "Mesuré sur les TROIS sources, taux de survie combiné :",
+    "  chef de projet énergie      99 lues,  60 gardées →  61 %   RETENU",
+    "  agrivoltaïque               21 lues,  12 gardées →  57 %   RETENU",
+    "  chef de projet solaire      74 lues,  36 gardées →  49 %   RETENU",
+    "  urbanisme                  125 lues,  57 gardées →  46 %   RETENU",
+    "  droit des sols              80 lues,  37 gardées →  46 %   RETENU",
+    "  énergies renouvelables     120 lues,  53 gardées →  44 %   RETENU",
+    "  photovoltaïque             120 lues,  47 gardées →  39 %   RETENU",
+    "  ─────────────────────────────────────────────────────────",
+    "  chargé d'affaires énergie   77 lues,  24 gardées →  31 %   retiré",
+    "  éolien                     125 lues,  32 gardées →  26 %   retiré",
+    "  foncier                    118 lues,  29 gardées →  25 %   retiré",
+    "  aménagement du territoire   88 lues,  22 gardées →  25 %   retiré",
+    "  transition écologique       91 lues,  21 gardées →  23 %   retiré",
+    "  chef de projet environnement 91 lues, 19 gardées →  21 %   retiré",
+    "  méthanisation               79 lues,  15 gardées →  19 %   retiré",
+    "",
+    "« foncier » illustre le piège : 40 % de survie sur France Travail, mais",
+    "6 % sur Jooble et 16 % sur Adzuna. Jugé sur la seule première source, il",
+    "aurait été gardé — et aurait continué de remplir la base de géomètres.",
+    "",
+    "GARDER CETTE LISTE COURTE. Chaque mot-clé est interrogé pour chaque ville",
+    "ET en national, sur chaque source : un mot de plus, c'est 5 requêtes de",
+    "plus par source et par collecte. Jooble plafonne à 500 requêtes."
+  ],
+  "_intitulesRetire": [
+    "« droit des sols » retiré le 01/08/2026. Il affichait 100 % de survie sur",
+    "France Travail — mais ce chiffre mesurait « passe le scoring », pas",
+    "« correspond au poste voulu ». Il ramenait des instructeurs municipaux,",
+    "que l'auteur ne veut pas, et que les motifs de titre écartent désormais :",
+    "le garder aurait dépensé des requêtes pour des offres jetées aussitôt.",
+    "",
+    "Leçon : le taux de survie est un bon filtre à bruit, PAS un juge de",
+    "pertinence. Il ne remplace pas la lecture des intitulés obtenus."
+  ],
+  "intitules": [
+    "chef de projet énergie",
+    "chef de projet solaire",
+    "énergies renouvelables",
+    "photovoltaïque",
+    "agrivoltaïque",
+    "urbanisme"
+  ],
+  "fraicheurJours": 7,
+  "scoring": {
+    "positifs": [
+      {
+        "motif": "agrivolta",
+        "poids": 4,
+        "note": "90% du portefeuille actuel — différenciateur rare"
+      },
+      {
+        "motif": "droit public",
+        "poids": 3,
+        "note": "M2 Droit et Gestion des Énergies"
+      },
+      {
+        "motif": "droit de l environnement",
+        "poids": 3,
+        "note": "M2 + stage cabinet — apostrophe devenue espace après normalisation"
+      },
+      {
+        "motif": "energies renouvelables|\\benr\\b",
+        "poids": 3,
+        "note": "portefeuille de 8 projets"
+      },
+      {
+        "motif": "photovolta|solaire|eolien",
+        "poids": 3,
+        "note": "projets solaires, éoliens, flottants"
+      },
+      {
+        "motif": "chef de projet|charge de developpement|charge de projet",
+        "poids": 2,
+        "note": "poste actuel"
+      },
+      {
+        "motif": "gestion de projet",
+        "poids": 2,
+        "note": "poste actuel"
+      },
+      {
+        "motif": "\\benergie",
+        "poids": 2,
+        "note": "secteur d'exercice"
+      },
+      {
+        "motif": "juriste|juridique",
+        "poids": 2,
+        "note": "double compétence droit + gestion de projet"
+      },
+      {
+        "motif": "veille juridique|veille reglementaire|conformite reglementaire|reglementation",
+        "poids": 2,
+        "note": "~50 projets en conformité"
+      },
+      {
+        "motif": "concertation|acceptabilite|parties prenantes",
+        "poids": 2,
+        "note": "concertation élus/collectivités/riverains"
+      },
+      {
+        "motif": "urbanisme",
+        "poids": 2,
+        "note": "stage droit public/urbanisme"
+      },
+      {
+        "motif": "autorisation environnementale|permis de construire",
+        "poids": 2,
+        "note": "procédures projets EnR"
+      },
+      {
+        "motif": "qgis|\\bsig\\b|cartographie",
+        "poids": 2,
+        "note": "8 sites cartographiés"
+      },
+      {
+        "motif": "redaction de contrats|contractuel",
+        "poids": 2,
+        "note": "rédaction de contrats"
+      },
+      {
+        "motif": "collectivite|commune|intercommunal",
+        "poids": 1,
+        "note": "familiarité par la concertation"
+      },
+      {
+        "motif": "budget|financier",
+        "poids": 1,
+        "note": "Budget Sheets, simulations financières"
+      }
+    ],
+    "negatifs": [
+      {
+        "motif": "diplome d ingenieur|ecole d ingenieur",
+        "poids": -3,
+        "note": "profil droit, pas ingénieur"
+      },
+      {
+        "motif": "anglais courant|bilingue|anglais c1",
+        "poids": -2,
+        "note": "anglais professionnel, pas courant"
+      },
+      {
+        "motif": "\\bepc\\b|contract management",
+        "poids": -3,
+        "note": "échelle et métier sans rapport"
+      },
+      {
+        "motif": "experience confirmee|profil confirme",
+        "poids": -3,
+        "note": "~2 ans d'expérience"
+      }
+    ],
+    "eliminatoires": [
+      {
+        "motif": "\\b([5-9]|[1-9]\\d)\\s*(ans|annees)\\b",
+        "note": "exigence d'expérience hors de portée (~2 ans)"
+      },
+      {
+        "motif": "\\bm a\\b|fusion acquisition",
+        "note": "aucune expérience en M&A — « M&A » devient « m a » après normalisation"
+      },
+      {
+        "motif": "genie electrique|chaudronnerie|mecanique|desp|asme",
+        "note": "hors compétences techniques"
+      },
+      {
+        "motif": "habilitation defense|certification amf|\\bamf\\b",
+        "note": "habilitations non détenues"
+      }
+    ],
+    "_socleSecteur": [
+      "Motifs qui disent le MÉTIER, par opposition à ceux qui disent la",
+      "fonction (chef de projet, juriste, budget) ou le contexte (collectivité).",
+      "",
+      "Sans au moins l'un d'eux, une offre plafonne à « possible » : elle reste",
+      "visible, elle cesse simplement de passer devant une offre qui parle",
+      "vraiment d'énergie.",
+      "",
+      "Pourquoi : mesuré le 01/08/2026, 86 des 190 offres prioritaires n'avaient",
+      "AUCUN lien avec le secteur — « Gestionnaire des marchés », « Chef du",
+      "bureau de l'enseignement supérieur ». Elles cumulaient droit public,",
+      "chef de projet et veille juridique, ce qui suffisait à passer 6 points.",
+      "",
+      "Les motifs doivent être RECOPIÉS À L'IDENTIQUE depuis « positifs ».",
+      "Liste vide = règle désactivée."
+    ],
+    "_socleObligatoire": [
+      "Passé à true le 01/08/2026, à la demande de l'auteur : « je préfère",
+      "moins d'offres ciblées que 600 offres ».",
+      "",
+      "Avec false, une offre sans motif de secteur était seulement rétrogradée",
+      "en « possible » — et 256 offres sans le moindre rapport avec le métier",
+      "peuplaient ce groupe : « prévention de la radicalisation », « secrétariat",
+      "particulier de la présidente », « DLPAJ ». Elles restaient à écarter une",
+      "par une.",
+      "",
+      "Avec true, elles sont écartées d'office. Le prix à payer : un poste",
+      "voisin mais formulé sans aucun mot du secteur passe à la trappe."
+    ],
+    "socleObligatoire": true,
+    "socleSecteur": [
+      "agrivolta",
+      "energies renouvelables|\\benr\\b",
+      "photovolta|solaire|eolien",
+      "\\benergie",
+      "droit de l environnement",
+      "urbanisme",
+      "autorisation environnementale|permis de construire",
+      "concertation|acceptabilite|parties prenantes",
+      "qgis|\\bsig\\b|cartographie"
+    ],
+    "_eliminatoiresTitre": [
+      "Motifs cherchés dans le SEUL INTITULÉ du poste, jamais dans la",
+      "description. C'est ce qui les rend utilisables : appliqués au texte",
+      "entier, « alternance » ou « ressources humaines » écartaient de très",
+      "bonnes offres qui ne faisaient que les mentionner en passant.",
+      "Mesuré le 30/07/2026 : 46 offres hors sujet partent, contre 125 avec",
+      "les mêmes motifs appliqués à la description — et « Chef·fe de projet",
+      "junior aménagement et énergie », notée 12, survit."
+    ],
+    "eliminatoiresTitre": [
+      {
+        "motif": "alternance|alternant|apprenti|apprentissage|contrat de professionnalisation",
+        "note": "alternance — ~2 ans d'expérience déjà"
+      },
+      {
+        "motif": "\\bstage\\b|\\bstagiaire\\b",
+        "note": "stage — même raison"
+      },
+      {
+        "motif": "\\binterim",
+        "note": "intérim"
+      },
+      {
+        "motif": "\\bcommercial|\\bvente\\b|business developer|conseiller clientele",
+        "note": "fonction commerciale"
+      },
+      {
+        "motif": "\\bmonteur|\\belectricien|\\binstallateur|\\bcouvreur|\\bplombier|\\bsoudeur|\\bconducteur de travaux|technicien de maintenance|\\bmecanicien",
+        "note": "métier d'exécution technique — profil droit et gestion de projet"
+      },
+      {
+        "motif": "\\binstructeur|instruction des autorisations|\\bvoirie",
+        "note": "instruction municipale — guichet, pas développement de projets"
+      },
+      {
+        "motif": "\\bassistant|\\bsecretaire|\\bgestionnaire administratif",
+        "note": "poste d'assistanat — pas le niveau visé"
+      },
+      {
+        "motif": "ressources humaines|\\brh\\b|\\bpaie\\b",
+        "note": "filière RH, hors trajectoire"
+      },
+      {
+        "motif": "\\bavocat|\\bnotaire|\\bhuissier",
+        "note": "profession réglementée non détenue"
+      },
+      {
+        "motif": "infirmier|soignant|\\bmedecin\\b|puericultrice",
+        "note": "santé"
+      },
+      {
+        "motif": "enseignant|professeur|\\bformateur",
+        "note": "enseignement"
+      }
+    ],
+    "seuils": {
+      "_aVerifier": [
+        "Relevé de 1 à 3 le 30/07/2026. À 1, toute offre décrochant un seul",
+        "motif générique — « chargé de projet » suffisait — échappait au",
+        "groupe 3 et encombrait « à vérifier » : 147 offres, dont des",
+        "alternances RH et des postes d'assistanat. Mesuré avant/après :",
+        "aucune offre du groupe 1 ou 2 n'est perdue par ce relèvement."
+      ],
+      "prioritaire": 6,
+      "possible": 5,
+      "aVerifier": 5,
+      "descriptionMiniCaracteres": 200
+    }
+  }
+}

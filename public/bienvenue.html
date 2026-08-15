@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="vivid" data-densite="normale" data-anim="on">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Job Cockpit — premiers réglages</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="bv-page">
+<!-- La nappe d'ambiance, derrière tout le reste. Décorative, donc masquée
+     aux lecteurs d'écran. -->
+<div class="ambiance" aria-hidden="true"></div>
+
+
+<main class="bv">
+  <h1 class="bv-titre">Job Cockpit</h1>
+  <p class="bv-intro">
+    Trois questions, deux minutes. Tout se modifie ensuite dans
+    <code>profile/profile.json</code> — rien n'est figé.
+  </p>
+
+  <form id="assistant" class="bv-form" autocomplete="off">
+
+    <section class="bv-bloc">
+      <h2>1. Qui signe les lettres ?</h2>
+      <label class="bv-champ">
+        <span>Prénom et nom</span>
+        <input id="nom" required maxlength="80" placeholder="Camille Durand">
+      </label>
+      <label class="bv-champ">
+        <span>Ta ville <em>— en en-tête des lettres</em></span>
+        <input id="villeCandidat" maxlength="60" placeholder="Nantes">
+      </label>
+    </section>
+
+    <section class="bv-bloc">
+      <h2>2. Qu'est-ce que tu cherches ?</h2>
+      <p class="bv-aide">
+        Des intitulés <strong>courts</strong>, et peu nombreux. France Travail
+        exige que <em>tous</em> les mots soient présents : « chargé de
+        développement EnR » ne renvoyait rien là où « énergies renouvelables »
+        renvoyait soixante offres. Deux ou trois suffisent pour commencer.
+      </p>
+      <div id="intitules"></div>
+      <button type="button" class="btn btn-discret" data-ajouter="intitules">+ un intitulé</button>
+    </section>
+
+    <section class="bv-bloc">
+      <h2>3. Où veux-tu travailler ?</h2>
+      <p class="bv-aide">
+        Le code postal sert à déduire le département — c'est lui qui range les
+        offres dans le bon onglet.
+      </p>
+      <div id="villes"></div>
+      <button type="button" class="btn btn-discret" data-ajouter="villes">+ une ville</button>
+    </section>
+
+    <section class="bv-bloc">
+      <h2>4. Tes clés d'accès <em>— facultatif pour l'instant</em></h2>
+      <p class="bv-aide">
+        Sans aucune clé, l'application démarre mais ne collecte rien. La plus
+        utile est <strong>Gemini</strong> : c'est elle qui analyse les offres et
+        rédige les lettres. Les autres s'ajoutent quand tu veux, dans
+        <code>.env</code>.
+      </p>
+      <label class="bv-champ">
+        <span>Google Gemini
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">créer une clé ↗</a></span>
+        <input id="GEMINI_API_KEY" maxlength="200" placeholder="AIza…">
+      </label>
+      <details class="bv-plus">
+        <summary>Les autres sources</summary>
+        <label class="bv-champ">
+          <span>Adzuna — Application ID
+            <a href="https://developer.adzuna.com" target="_blank" rel="noopener">s'inscrire ↗</a></span>
+          <input id="ADZUNA_APP_ID" maxlength="200">
+        </label>
+        <label class="bv-champ"><span>Adzuna — Application Key</span>
+          <input id="ADZUNA_APP_KEY" maxlength="200"></label>
+        <label class="bv-champ">
+          <span>France Travail — client_id
+            <a href="https://francetravail.io" target="_blank" rel="noopener">s'inscrire ↗</a></span>
+          <input id="FRANCE_TRAVAIL_CLIENT_ID" maxlength="200"></label>
+        <label class="bv-champ"><span>France Travail — client_secret</span>
+          <input id="FRANCE_TRAVAIL_CLIENT_SECRET" type="password" maxlength="200"></label>
+        <label class="bv-champ">
+          <span>Jooble
+            <a href="https://fr.jooble.org/api/about" target="_blank" rel="noopener">demander ↗</a></span>
+          <input id="JOOBLE_API_KEY" maxlength="200"></label>
+      </details>
+    </section>
+
+    <section class="bv-bloc">
+      <label class="bv-case">
+        <input type="checkbox" id="ecarterDebutants" checked>
+        <span>Écarter les offres d'alternance, de stage et d'intérim</span>
+      </label>
+    </section>
+
+    <div class="bv-pied">
+      <button type="submit" class="btn btn-primary" id="valider">Créer mon cockpit</button>
+      <span class="bv-message" id="message"></span>
+    </div>
+  </form>
+
+  <p class="bv-note">
+    Tes réponses restent sur cet ordinateur. Elles écrivent deux fichiers :
+    <code>profile/profile.json</code> et <code>.env</code>.
+  </p>
+</main>
+
+<script type="module" src="bienvenue.js"></script>
+</body>
+</html>
