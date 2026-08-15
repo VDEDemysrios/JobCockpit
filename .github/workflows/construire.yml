@@ -139,6 +139,7 @@ jobs:
           "SHA-256 : $h" | Out-File -FilePath empreinte.txt -Encoding utf8
 
       - uses: actions/upload-artifact@v4
+        id: televerser
         with:
           name: JobCockpit-windows
           path: |
@@ -146,16 +147,36 @@ jobs:
             empreinte.txt
           retention-days: 30
 
-      # ─────────────────────────────────────────────────────────────────
-      # SIGNATURE — à activer une fois SignPath Foundation accordé.
+      # ═══════════════════ SIGNATURE ═══════════════════
       #
-      # L'étape n'est pas écrite tant que le projet n'est pas accepté : un
-      # travail qui échoue à chaque version, en attendant une réponse qui
-      # peut prendre des semaines, apprend seulement à ignorer les alertes.
+      # SignPath Foundation signe gratuitement les projets open source, mais
+      # seulement des artefacts produits par une chaîne d'intégration — jamais
+      # un fichier téléversé à la main. D'où l'existence de ce travail.
       #
-      # Une fois le dossier accepté, ajouter ici l'action
-      # `signpath/github-action-submit-signing-request`, avec l'identifiant
-      # d'organisation et le jeton d'API dans les secrets du dépôt. Le nom
-      # d'éditeur affiché par Windows sera « SignPath Foundation », pas le
-      # tien : c'est le principe du programme, le certificat leur appartient.
-      # ─────────────────────────────────────────────────────────────────
+      # L'étape SE SAUTE D'ELLE-MÊME tant que `SIGNPATH_ORG_ID` n'est pas
+      # défini dans les secrets du dépôt. Écrire une étape qui échouerait à
+      # chaque version, pendant les semaines d'instruction du dossier,
+      # n'apprendrait qu'une chose : à ignorer les alertes rouges.
+      #
+      # Le jour de l'accord, il suffit d'ajouter les deux secrets et de
+      # remplacer les trois identifiants ci-dessous par ceux du tableau de
+      # bord SignPath. Aucune autre modification.
+      #
+      # À SAVOIR : l'éditeur affiché par Windows sera « SignPath Foundation »,
+      # pas celui du projet. Le certificat leur appartient.
+      - name: Signature (SignPath Foundation)
+        if: ${{ env.SIGNPATH_ORG_ID != '' }}
+        env:
+          SIGNPATH_ORG_ID: ${{ secrets.SIGNPATH_ORG_ID }}
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORG_ID }}
+          # Les trois valeurs suivantes viennent du tableau de bord SignPath,
+          # après acceptation du dossier. Celles-ci sont des exemples.
+          project-slug: jobcockpit
+          signing-policy-slug: release-signing
+          artifact-configuration-slug: windows-zip
+          github-artifact-id: ${{ steps.televerser.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signe
