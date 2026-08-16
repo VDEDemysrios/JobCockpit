@@ -11,6 +11,7 @@ import { villeDeRattachement } from './zone.js';
 import { peutRediger, noterAppel, etatQuota, LETTRE } from './quota.js';
 import { estConfigure, construireProfil, rendreEnv, CLES_ENV } from './configuration.js';
 import { validerVilles, decrireVille, DEPARTEMENTS, VILLES_MAX } from './villes.js';
+import { verifierOffres, aVerifier } from './liens.js';
 import { enregistrerCv } from './cv.js';
 import {
   lireMeta, ecrireMeta, upsertOffre, transaction, noterActivite,
@@ -104,6 +105,9 @@ export function creerRoutes({ db, collecter, sources, profil }) {
       isManual: Boolean(o.is_manual),
       salaireSource: o.salaire_source,
       villesRepubliees: o.villes_republiees ?? 1,
+      // Le lien a été sondé et répond 404 : l'annonce a été retirée. Signalé
+      // AVANT le clic — c'est tout l'intérêt.
+      lienMort: Boolean(o.lien_mort),
       extrait: o.description ? String(o.description).slice(0, EXTRAIT_MAX) : '',
       analyse: o.analysis_json ? JSON.parse(o.analysis_json) : null,
       aLettre: Boolean(o.a_lettre),
@@ -525,6 +529,62 @@ export function creerRoutes({ db, collecter, sources, profil }) {
    * ajoute — ce sont des évènements ordinaires d'une recherche d'emploi, pas
    * des reconfigurations.
    */
+  /**
+   * VÉRIFIER QUE LES LIENS MÈNENT ENCORE QUELQUE PART.
+   *
+   * Une offre reste listée après avoir été retirée du site qui la publiait.
+   * On la lit, on la juge intéressante, on clique — « cette offre n'est plus
+   * disponible ». Le temps perdu compte peu ; l'élan, beaucoup : c'est
+   * exactement le moment où l'on décidait de postuler.
+   *
+   * Voir `src/liens.js` pour ce qui a été mesuré, et pourquoi seul un 404 ou
+   * un 410 conclut. Dans le doute, l'offre reste : une offre morte laissée
+   * coûte un clic, une offre vivante supprimée ne se retrouve jamais.
+   */
+  routes.post('/liens/verifier', async (req, res) => {
+    const maximum = Math.min(Number(req.body?.maximum) || 40, 120);
+    const derniere = lireMeta(db, 'last_collect_at') ?? new Date().toISOString();
+
+    const candidates = aVerifier(
+      db.prepare('SELECT id, lien, last_seen, lien_verifie_le, lien_mort FROM offers').all(),
+      derniere);
+
+    if (!candidates.length) {
+      return res.json({ ok: true, verifiees: 0, mortes: 0, restantes: 0,
+        message: 'Toutes les offres ont été revues à la dernière collecte : rien à vérifier.' });
+    }
+
+    const resultats = await verifierOffres(candidates, { maximum });
+
+    const marquer = db.prepare(
+      'UPDATE offers SET lien_verifie_le = ?, lien_mort = ? WHERE id = ?');
+    const maintenant = new Date().toISOString();
+    let mortes = 0;
+    transaction(db, () => {
+      for (const r of resultats) {
+        // Seul « morte » écrit un drapeau. « indetermine » note seulement le
+        // passage, pour ne pas re-sonder dans la foulée un site qui nous
+        // refuse l'entrée.
+        const mort = r.etat === 'morte' ? 1 : 0;
+        if (mort) mortes++;
+        marquer.run(maintenant, mort, r.id);
+      }
+    });
+
+    // `sansActivite` : une vérification automatique n'est pas une action de
+    // candidature. La compter gonflerait le calendrier d'assiduité d'un
+    // travail que personne n'a fait.
+    journaliser(db, 'liens-verifies', {
+      sansActivite: true,
+      meta: { verifiees: resultats.length, mortes },
+    });
+    res.json({ ok: true,
+      verifiees: resultats.length,
+      mortes,
+      indetermines: resultats.filter(r => r.etat === 'indetermine').length,
+      restantes: Math.max(0, candidates.length - resultats.length) });
+  });
+
   routes.get('/villes', (req, res) => {
     res.json({
       ok: true,

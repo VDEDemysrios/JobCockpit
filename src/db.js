@@ -153,6 +153,12 @@ export function ajouterColonnesManquantes(db) {
     // De quoi remettre une offre écartée par erreur : l'offre, son suivi et
     // sa lettre, en JSON. Rempli uniquement pour les rejets manuels.
     ['rejetees', 'donnees', 'TEXT'],
+    // Vérification des liens. `lien_mort` n'est posé que sur un 404 ou un 410 :
+    // voir l'en-tête de `src/liens.js` pour ce qui a été mesuré sur les offres
+    // réelles, et pourquoi rien d'autre ne conclut. `lien_verifie_le` évite de
+    // re-sonder ce qu'on vient de voir.
+    ['offers', 'lien_verifie_le', 'TEXT'],
+    ['offers', 'lien_mort', 'INTEGER DEFAULT 0'],
   ];
   for (const [table, colonne, type] of NOUVELLES) {
     const existe = db.prepare(`SELECT COUNT(*) n FROM pragma_table_info(?) WHERE name = ?`)

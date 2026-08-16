@@ -433,6 +433,9 @@ export function rendreCarte(offre, actions) {
       ${pastilleScore(offre)}
       ${fl ? `<span class="fresh ${fl[0]}">${fl[1]}</span>` : ''}
       ${offre.horsZone ? '<span class="badge badge-zone">Hors zone</span>' : ''}
+      ${offre.lienMort
+        ? '<span class="badge badge-mort" title="Le lien a été sondé et répond 404 : l\'annonce a été retirée du site. Rien ne sert d\'ouvrir.">annonce retirée</span>'
+        : ''}
       ${offre.villesRepubliees > 1
         ? `<span class="badge badge-diffuse" title="Le même texte est diffusé dans ${offre.villesRepubliees} villes — souvent un cabinet qui ratisse, rarement un poste ouvert près de chez toi">${offre.villesRepubliees} villes</span>`
         : ''}
@@ -440,7 +443,11 @@ export function rendreCarte(offre, actions) {
       ${badgesSources}
       <span class="status-pill" style="border-color:${STATUS_COL[s.status]};color:${STATUS_COL[s.status]}">${s.status}${due ? ' · en retard' : ''}</span>
       <span class="badge ${g.key}"><i class="pt pt${offre.groupe}"></i> ${g.label}</span>
-      ${offre.lien ? `<a class="link" href="${echapper(offre.lien)}" target="_blank" rel="noopener" data-act="lien">Voir ↗</a>` : ''}
+      ${offre.lien
+        ? `<a class="link${offre.lienMort ? ' link-mort' : ''}" href="${echapper(offre.lien)}"
+              target="_blank" rel="noopener" data-act="lien"
+              ${offre.lienMort ? 'title="L\'annonce a été retirée du site"' : ''}>Voir ↗</a>`
+        : ''}
       <span class="ecarter" data-act="suppr" title="${offre.isManual
         ? 'Supprimer cette offre'
         : 'Écarter définitivement — elle ne reviendra pas aux prochaines collectes'}">✕</span>
