@@ -13,6 +13,9 @@
 // autant ne rien proposer.
 import { echapper } from './format.js';
 import {
+  rendreCombatVue, installerCombat, brancherClavier, quitterCombat,
+} from './jeux/combat.js';
+import {
   nouvellePartie, coupsLegaux, jouer, enEchec, issue, meilleurCoup, notation,
   BLANC, NOIR,
 } from './jeux/echecs-moteur.js';
@@ -279,6 +282,13 @@ function rendreChoix() {
       <span class="jeu-desc">Contre une vraie IA — recherche alpha-bêta,
         trois niveaux. Elle prend ce qui traîne et voit les mats courts.</span>
     </button>
+    <button class="jeu-carte" data-lancer="combat">
+      <span class="jeu-icone">⚔</span>
+      <span class="jeu-nom">Duel</span>
+      <span class="jeu-desc">Six armes, six façons de gagner — chevalier,
+        samouraï, ninja, lancier, lutteur, duelliste. Contre l'IA, au sol,
+        trois rounds, et chacun se bat dans son propre décor.</span>
+    </button>
     <button class="jeu-carte" data-lancer="demineur">
       <span class="jeu-icone">✷</span>
       <span class="jeu-nom">Démineur</span>
@@ -292,12 +302,25 @@ export function rendreJeux() {
   if (!zone()) return;
   if (jeu === 'echecs') return rendreEchecs();
   if (jeu === 'demineur') { zone().innerHTML = rendreDemineur(); return; }
+  if (jeu === 'combat') {
+    // Le jeu tient sa propre vue : on lui donne un conteneur et il s'occupe
+    // de la sélection, du combat et de l'écran de fin.
+    zone().innerHTML = `<div class="panel-box jeu-boite">
+      <h3><span data-ic="eclair" data-ic-taille="14"></span> Duel
+        <button class="chill-vider" data-jeu="quitter">Quitter</button></h3>
+      <div id="combatZone"></div>
+    </div>`;
+    installerCombat();
+    rendreCombatVue();
+    return;
+  }
   rendreChoix();
 }
 
 export function installerJeux() {
   const z = zone();
   if (!z) return;
+  brancherClavier();
 
   z.addEventListener('contextmenu', (e) => {
     const b = e.target.closest('[data-mine]');
@@ -319,7 +342,7 @@ export function installerJeux() {
     const action = e.target.closest('[data-jeu]');
     if (action) {
       const quoi = action.dataset.jeu;
-      if (quoi === 'quitter') { jeu = null; return rendreJeux(); }
+      if (quoi === 'quitter') { quitterCombat(); jeu = null; return rendreJeux(); }
       if (quoi === 'rejouer') { echecs = nouvellePartie(); selection = null; return rendreJeux(); }
       if (quoi === 'annuler') {
         // On remonte de DEUX coups : annuler seulement le sien rendrait la
