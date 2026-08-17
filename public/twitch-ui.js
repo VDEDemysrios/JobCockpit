@@ -331,6 +331,7 @@ const revenir = () => aller(pile.pop() ?? { nom: 'accueil' }, { empiler: false }
  * repartirait de zéro à chaque rafraîchissement de la liste.
  */
 const CLE_MEDIA_TW = 'jc.twitch.media';
+const CLE_CHAINE_TW = 'jc.twitch.chaine';
 const cadre = () => document.getElementById('twitchCadre');
 
 /**
@@ -359,17 +360,61 @@ function poserCadre(url, { titre = 'Twitch' } = {}) {
   const boite = cadre();
   if (!boite) return;
   boite.hidden = false;
-  boite.innerHTML = `<div class="dock-cadre-boite">
+  boite.innerHTML = `<div class="tw-bandeau" id="twitchBandeau"></div>
+    <div class="dock-cadre-boite">
       <iframe class="dock-cadre" src="${echapper(url)}"
         title="Lecteur ${echapper(titre)}" sandbox="${BAC_A_SABLE}"
         allow="autoplay; encrypted-media; picture-in-picture; clipboard-write; fullscreen"
         allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
       <button class="tw-fermer-cadre" data-tw="fermer-cadre" title="Arrêter">×</button>
-    </div>
-    <p class="sp-note tw-note-cadre">Les liens du bandeau Twitch ci-dessus sont
-      inertes : ils sont dans le cadre, donc chez Twitch, et rien d'ici ne peut
-      les détourner. Pour ouvrir une chaîne, clique-la dans la liste en
-      dessous — ou colle son adresse dans la recherche.</p>`;
+    </div>`;
+}
+
+/**
+ * NOTRE BANDEAU, PUISQUE CELUI DE TWITCH EST HORS D'ATTEINTE.
+ *
+ * Le bandeau du lecteur — nom de la chaîne, catégorie, boutons d'abonnement —
+ * est DANS le cadre, donc chez Twitch : rien d'ici ne peut savoir qu'on a
+ * cliqué ni sur quoi. On ne peut ni le détourner ni le retirer, seulement
+ * l'empêcher d'éjecter hors de l'application (voir `BAC_A_SABLE`) — après
+ * quoi ses liens ne font plus rien, ce qui n'est pas mieux.
+ *
+ * La sortie était de l'autre côté : on connaît la chaîne qu'on vient de
+ * lancer, donc on peut afficher NOTRE bandeau au-dessus du cadre, avec les
+ * mêmes informations et des liens qui, eux, ouvrent nos vues. Le geste est
+ * celui que l'utilisateur cherchait — cliquer le nom pour aller à la chaîne,
+ * cliquer la catégorie pour la parcourir — simplement une rangée plus haut.
+ *
+ * Il se remplit SANS toucher au cadre : c'est un frère de l'iframe, pas son
+ * parent, donc l'écrire ne recharge pas la lecture.
+ */
+async function chargerBandeau(login) {
+  const b = document.getElementById('twitchBandeau');
+  if (!b || !login) return;
+  b.innerHTML = `<span class="tw-jeu">${echapper(login)}…</span>`;
+
+  let d;
+  try { d = await API.twitchChaine(login); }
+  catch { b.innerHTML = ''; return; }
+
+  // Le cadre a pu être fermé, ou une autre chaîne lancée, pendant l'appel.
+  const encore = document.getElementById('twitchBandeau');
+  if (!encore || encore !== b) return;
+
+  const c = d.chaine ?? {};
+  const direct = d.direct;
+  b.innerHTML = `
+    ${c.avatar ? `<img class="tw-avatar" src="${echapper(c.avatar)}" alt="">` : ''}
+    <span class="tw-infos">
+      <button class="tw-lien-chaine" data-page-chaine="${echapper(c.login ?? login)}"
+        title="Ouvrir la chaîne ici">${echapper(c.nom ?? login)}</button>
+      <span class="tw-jeu">${echapper(direct?.titre ?? c.description ?? '')}</span>
+    </span>
+    ${direct?.jeuId
+    ? `<button class="tw-retour" data-categorie="${echapper(direct.jeuId)}"
+        title="Parcourir cette catégorie">${echapper(direct.jeu)}</button>` : ''}
+    ${direct ? `<span class="tw-vus">● ${nombre(direct.spectateurs)}</span>`
+    : '<span class="tw-vus hors">rediffusion</span>'}`;
 }
 
 /**
@@ -387,20 +432,33 @@ function poserCadre(url, { titre = 'Twitch' } = {}) {
 const annoncerLecture = (source) =>
   document.dispatchEvent(new CustomEvent('jc:media', { detail: { source } }));
 
-/** Joue un média Twitch dans l'onglet Twitch. Point d'entrée depuis le dock. */
-export function lireTwitch(media) {
+/**
+ * Joue un média Twitch dans l'onglet Twitch. Point d'entrée depuis le dock.
+ *
+ * `login` sert au bandeau. Il n'est pas toujours déductible de l'adresse : une
+ * rediffusion ne porte qu'un numéro de vidéo, et c'est la vue qui sait à quelle
+ * chaîne elle appartient.
+ */
+export function lireTwitch(media, login = null) {
   if (!media?.url) return false;
   montrerPanneau();
   poserCadre(media.url);
   localStorage.setItem(CLE_MEDIA_TW, media.url);
+  localStorage.setItem(CLE_CHAINE_TW, login ?? deduireLogin(media.url) ?? '');
   annoncerLecture('twitch');
+  chargerBandeau(login ?? deduireLogin(media.url));
   return true;
 }
+
+/** Un lien collé porte souvent la chaîne : `player.twitch.tv/?channel=…`. */
+const deduireLogin = (url) =>
+  String(url ?? '').match(/[?&]channel=([A-Za-z0-9_]+)/i)?.[1] ?? null;
 
 function fermerCadre() {
   const boite = cadre();
   if (boite) { boite.innerHTML = ''; boite.hidden = true; }
   localStorage.removeItem(CLE_MEDIA_TW);
+  localStorage.removeItem(CLE_CHAINE_TW);
 }
 
 /** Lance un direct dans le cadre. `autoplay` : on vient de cliquer dessus. */
@@ -408,9 +466,9 @@ const regarderChaine = (login) => lireTwitch({ type: 'Twitch',
   url: `https://player.twitch.tv/?channel=${encodeURIComponent(login)}`
     + `&parent=${parent()}&autoplay=true` });
 
-const regarderVideo = (id) => lireTwitch({ type: 'Twitch',
+const regarderVideo = (id, login = null) => lireTwitch({ type: 'Twitch',
   url: `https://player.twitch.tv/?video=${encodeURIComponent(id)}`
-    + `&parent=${parent()}&autoplay=true` });
+    + `&parent=${parent()}&autoplay=true` }, login);
 
 /**
  * UNE ADRESSE TWITCH OUVRE LA BONNE VUE, PAS LE SITE.
@@ -543,7 +601,12 @@ export function installerTwitch(toast, lancer, montrer) {
     if (chaine) return regarderChaine(chaine.dataset.chaine);
 
     const video = e.target.closest('[data-tw-video]');
-    if (video) return regarderVideo(video.dataset.twVideo);
+    if (video) return regarderVideo(video.dataset.twVideo, contenu.chaine?.login ?? null);
+
+    // Notre bandeau : ouvrir la CHAÎNE, pas la lancer. C'est le geste que le
+    // bandeau de Twitch ne peut pas nous rendre.
+    const page = e.target.closest('[data-page-chaine]');
+    if (page) return aller({ nom: 'chaine', login: page.dataset.pageChaine });
 
     const categorie = e.target.closest('[data-categorie]');
     if (categorie) return aller({ nom: 'categorie', id: categorie.dataset.categorie });
@@ -612,5 +675,8 @@ export function installerTwitch(toast, lancer, montrer) {
   // `autoplay=true` posé par le clic d'origine : retrouver sa place le
   // lendemain matin est utile, se faire parler dessus ne l'est pas.
   const garde = localStorage.getItem(CLE_MEDIA_TW);
-  if (garde) poserCadre(sansDemarrageAuto(garde));
+  if (garde) {
+    poserCadre(sansDemarrageAuto(garde));
+    chargerBandeau(localStorage.getItem(CLE_CHAINE_TW) || deduireLogin(garde));
+  }
 }

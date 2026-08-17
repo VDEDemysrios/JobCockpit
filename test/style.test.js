@@ -396,3 +396,32 @@ test('le cadre Twitch ne peut ni ouvrir de fenêtre ni emporter la page', () => 
   }
   assert.match(tw, /sandbox="\$\{BAC_A_SABLE\}"/, 'le cadre doit porter le bac à sable');
 });
+
+/**
+ * LE BANDEAU EST À NOUS, ET IL SE REMPLIT SANS TOUCHER AU CADRE.
+ *
+ * Le bandeau de Twitch est dans l'iframe : ses liens ne peuvent être ni
+ * détournés ni supprimés, seulement rendus inertes — ce qui ne rend pas le
+ * geste. Le nôtre porte les mêmes informations une rangée plus haut, avec des
+ * boutons qui ouvrent nos vues.
+ *
+ * Il est FRÈRE de l'iframe, jamais son parent : le remplir doit écrire dans
+ * `#twitchBandeau` seul. Repasser par `#twitchCadre` rechargerait la lecture à
+ * chaque fois qu'une chaîne se renseigne, c'est-à-dire juste après l'avoir
+ * lancée.
+ */
+test('le bandeau du lecteur Twitch ouvre nos vues, sans recharger le cadre', () => {
+  const tw = readFileSync(new URL('../public/twitch-ui.js', import.meta.url), 'utf8');
+
+  const remplir = tw.match(/async function chargerBandeau\([\s\S]*?\n}/);
+  assert.ok(remplir, 'chargerBandeau a disparu');
+  assert.ok(!remplir[0].includes('twitchCadre'),
+    'le bandeau se remplit seul : toucher au cadre relancerait la lecture');
+  assert.match(remplir[0], /data-page-chaine=/,
+    'le nom de la chaîne doit ouvrir sa page chez nous');
+  assert.match(remplir[0], /data-categorie=/,
+    'la catégorie doit être parcourable chez nous');
+
+  assert.match(tw, /data-page-chaine[\s\S]{0,200}aller\(\{ nom: 'chaine'/,
+    'le clic sur le nom doit mener à la vue chaîne, pas relancer le direct');
+});

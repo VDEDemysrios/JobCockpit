@@ -2534,11 +2534,22 @@ body.dock-glisse iframe{pointer-events:none;}
    direct dans l'onglet nommé « YouTube » faisait quitter la liste au moment
    précis où l'on hésitait entre deux chaînes. */
 .tw-lecteur{margin-bottom:var(--e3);}
+
+/* NOTRE BANDEAU, AU-DESSUS DU CADRE.
+   Celui de Twitch est dans l'iframe : ses liens sont hors d'atteinte, et le
+   neutraliser ne rend pas le geste. Celui-ci porte les mêmes informations et
+   des boutons qui ouvrent NOS vues — nom de chaîne, catégorie. */
+.tw-bandeau{display:flex;align-items:center;gap:var(--e2);
+  padding:var(--e2) 0;min-height:34px;}
+.tw-bandeau:empty{display:none;}
+.tw-lien-chaine{font-size:12.5px;font-weight:var(--w-semi);color:var(--txt);
+  background:none;border:0;padding:0;cursor:pointer;text-align:left;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.tw-lien-chaine:hover{color:var(--accent);text-decoration:underline;}
 .tw-fermer-cadre{position:absolute;top:6px;right:6px;width:24px;height:24px;
   border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;
   line-height:1;cursor:pointer;opacity:0;transition:opacity .15s;}
 .tw-lecteur:hover .tw-fermer-cadre,.tw-fermer-cadre:focus-visible{opacity:1;}
-.tw-note-cadre{margin:var(--e2) 0 0;}
 
 /* ── L'onglet YouTube ───────────────────────────────────────────────────
    Le cadre garde ses proportions de vidéo, et la NAVIGATION se déroule en
