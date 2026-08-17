@@ -1832,3 +1832,26 @@ ul.mini li{margin-bottom:5px;}
 .ent-pourquoi{color:var(--ink-2);}
 .ent-source{font-size:11.5px;color:var(--muted);font-family:var(--mono);}
 .ent-juger{display:flex;gap:var(--e2);margin-top:var(--e3);}
+
+/* Types de cartes : cinq angles sur le même poste. Le libellé du type est en
+   tête de recto — « Mises en situation » et « Le jargon » ne se lisent pas de
+   la même façon, et le savoir change ce qu'on cherche à répondre. */
+.ent-filtres{display:flex;gap:var(--e2);flex-wrap:wrap;margin:var(--e3) 0;}
+.ent-filtre{font-family:inherit;font-size:11.5px;font-weight:var(--w-medium);
+  color:var(--muted);background:transparent;border:1px solid var(--line-fort);
+  border-radius:var(--r2);padding:3px 10px;cursor:pointer;
+  transition:background .13s,color .13s,border-color .13s;}
+.ent-filtre:hover{background:var(--bg2);color:var(--ink);}
+.ent-filtre.actif{background:var(--accent);border-color:var(--accent);color:#fff;}
+.ent-filtre.actif .ent-n{background:rgba(255,255,255,.25);color:#fff;}
+.ent-n{display:inline-block;margin-left:4px;font-size:10px;
+  background:var(--g0b);color:var(--muted);padding:0 5px;border-radius:var(--r1);
+  font-variant-numeric:tabular-nums;}
+
+.ent-type{display:block;font-size:10px;font-weight:var(--w-medium);
+  text-transform:uppercase;letter-spacing:.6px;color:var(--faint);margin-bottom:2px;}
+
+.ent-fabs{display:flex;gap:var(--e2);flex-wrap:wrap;align-items:center;
+  margin-top:var(--e4);}
+.ent-fabs-t{font-size:11.5px;color:var(--muted);}
+.ent-fab{font-size:11.5px;padding:4px 10px;}

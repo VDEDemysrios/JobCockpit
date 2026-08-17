@@ -45,19 +45,47 @@ function rendreTexte(md) {
  * n'apprend pas du droit approximatif : on le vérifie d'abord, à la source
  * indiquée.
  */
-function rendreNotions(notions) {
+/** Le type affiché en ce moment. « tout » signifie : sans filtre. */
+let typeActif = 'tout';
+
+function rendreNotions(notions, types = {}) {
+  const cles = Object.keys(types);
+  const compte = (t) => notions.filter(n => (n.type ?? 'jargon') === t).length;
+
+  // Les boutons de fabrication, un par angle. Chacun dit ce qu'il produit :
+  // « Le jargon » et « Ce que ça induit » ne s'expliquent pas d'eux-mêmes.
+  const fabriquer = cles.map(t => `
+    <button class="btn ent-fab" data-ent="notions" data-type="${t}"
+            title="${echapper(types[t].aide)}">
+      ${echapper(types[t].libelle)}
+      ${compte(t) ? `<span class="ent-n">${compte(t)}</span>` : ''}
+    </button>`).join('');
+
   if (!notions.length) {
     return `<div class="ent-doc">
       <div class="ent-doc-titre">Réviser le domaine</div>
-      <p class="ent-vide">Tu ne connais pas encore ce métier ? Cette rubrique
-        fabrique des cartes à réviser, tirées de l'annonce : le terme d'un
-        côté, la définition de l'autre, et la source pour vérifier.</p>
-      <button class="btn btn-primary" data-ent="notions">Créer 10 cartes</button>
+      <p class="ent-vide">Tu ne connais pas ce métier ? Chaque bouton fabrique
+        dix cartes sous un angle différent — le vocabulaire, le quotidien réel,
+        des cas concrets, les conséquences d'une décision, les textes. Le recto
+        seul d'abord : tu essaies de répondre, puis tu retournes.</p>
+      <div class="ent-fabs">${fabriquer}</div>
     </div>`;
   }
 
+  const visibles = typeActif === 'tout'
+    ? notions.map((n, i) => ({ n, i }))
+    : notions.map((n, i) => ({ n, i })).filter(x => (x.n.type ?? 'jargon') === typeActif);
+
   const sues = notions.filter(n => n.su).length;
   const aVerifier = notions.filter(n => !n.sur).length;
+
+  const filtres = [
+    `<button class="ent-filtre${typeActif === 'tout' ? ' actif' : ''}"
+             data-filtre="tout">Tout <span class="ent-n">${notions.length}</span></button>`,
+    ...cles.filter(t => compte(t)).map(t => `
+      <button class="ent-filtre${typeActif === t ? ' actif' : ''}" data-filtre="${t}">
+        ${echapper(types[t].libelle)} <span class="ent-n">${compte(t)}</span></button>`),
+  ].join('');
 
   return `<div class="ent-doc">
     <div class="ent-doc-titre">Réviser le domaine
@@ -66,17 +94,20 @@ function rendreNotions(notions) {
     ${aVerifier ? `<p class="ent-avert">${aVerifier} carte${aVerifier > 1 ? 's' : ''}
       ${aVerifier > 1 ? 'sont marquées' : 'est marquée'} « à vérifier » : le modèle
       ne répond pas de leur exactitude. Va voir la source avant de l'apprendre —
-      une procédure fausse récitée en entretien ne se rattrape pas.</p>` : ''}
+      une règle fausse récitée en entretien ne se rattrape pas.</p>` : ''}
+
+    <div class="ent-filtres">${filtres}</div>
 
     <div class="ent-cartes">
-      ${notions.map((n, i) => `
+      ${visibles.map(({ n, i }) => `
         <div class="ent-carte${n.su ? ' su' : ''}${n.sur ? '' : ' douteuse'}" data-carte="${i}">
           <div class="ent-terme">
+            <span class="ent-type">${echapper(types[n.type ?? 'jargon']?.libelle ?? '')}</span>
             ${echapper(n.terme)}
             ${n.sur ? '' : '<span class="ent-drapeau">à vérifier</span>'}
           </div>
           <div class="ent-reponse" hidden>
-            <p>${echapper(n.definition)}</p>
+            <p>${echapper(n.definition).replace(/\n/g, '<br>')}</p>
             ${n.pourquoi ? `<p class="ent-pourquoi">${echapper(n.pourquoi)}</p>` : ''}
             ${n.source ? `<p class="ent-source">Source : ${echapper(n.source)}</p>` : ''}
             <div class="ent-juger">
@@ -84,10 +115,13 @@ function rendreNotions(notions) {
               <button class="btn" data-juger="${i}" data-su="1">Je sais</button>
             </div>
           </div>
-        </div>`).join('')}
+        </div>`).join('') || '<p class="ent-vide">Aucune carte de ce type pour l\'instant.</p>'}
     </div>
 
-    <button class="btn" data-ent="notions">10 cartes de plus</button>
+    <div class="ent-fabs">
+      <span class="ent-fabs-t">Fabriquer 10 cartes :</span>
+      ${fabriquer}
+    </div>
   </div>`;
 }
 
@@ -132,7 +166,7 @@ function rendreFil(etat) {
       <button class="btn btn-discret" data-ent="reset">Recommencer</button>
     </div>
 
-    ${rendreNotions(etat.notions ?? [])}
+    ${rendreNotions(etat.notions ?? [], etat.typesNotions ?? {})}
 
     ${etat.debrief ? `<div class="ent-doc"><div class="ent-doc-titre">Débriefing</div>
       ${rendreTexte(etat.debrief)}</div>` : ''}
@@ -229,6 +263,13 @@ export function installerEntretien(toast) {
       return;
     }
 
+    const filtre = e.target.closest('[data-filtre]');
+    if (filtre) {
+      typeActif = filtre.dataset.filtre;
+      afficher(await API.entretien(offreEnCours.id));
+      return;
+    }
+
     const bouton = e.target.closest('[data-ent]');
     if (!bouton || !offreEnCours) return;
     const quoi = bouton.dataset.ent;
@@ -251,7 +292,7 @@ export function installerEntretien(toast) {
       const avant = bouton.textContent;
       bouton.textContent = 'Fabrication des cartes…';
       try {
-        const r = await API.entretienNotions(offreEnCours.id);
+        const r = await API.entretienNotions(offreEnCours.id, bouton.dataset.type);
         afficher(await API.entretien(offreEnCours.id));
         toast(`${r.ajoutees} carte${r.ajoutees > 1 ? 's' : ''} à réviser`);
       } catch (err) {

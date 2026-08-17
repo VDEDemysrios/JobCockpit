@@ -13,7 +13,8 @@ import { estConfigure, construireProfil, rendreEnv, CLES_ENV } from './configura
 import { validerVilles, decrireVille, DEPARTEMENTS, VILLES_MAX } from './villes.js';
 import { verifierOffres, aVerifier } from './liens.js';
 import {
-  promptQuestion, promptDebrief, promptFiche, promptNotions, QUESTIONS_PAR_SEANCE,
+  promptQuestion, promptDebrief, promptFiche, promptNotions,
+  TYPES_NOTIONS, QUESTIONS_PAR_SEANCE,
 } from './entretien.js';
 import { demander, estConfigure as geminiPret, extraireJson } from './gemini.js';
 import { enregistrerCv } from './cv.js';
@@ -631,6 +632,8 @@ export function creerRoutes({ db, collecter, sources, profil }) {
     res.json({ ok: true, ...e,
       titre: o.offre.titre, entreprise: o.offre.entreprise,
       questionsParSeance: QUESTIONS_PAR_SEANCE,
+      typesNotions: Object.fromEntries(
+        Object.entries(TYPES_NOTIONS).map(([k, v]) => [k, { libelle: v.libelle, aide: v.aide }])),
       geminiPret: geminiPret(),
       // Sans analyse, le jury n'a pas les manques à viser : la séance
       // resterait polie et n'apprendrait rien. On le dit plutôt que de la
@@ -742,12 +745,15 @@ export function creerRoutes({ db, collecter, sources, profil }) {
     const o = offrePourEntretien(req.params.id);
     if (!o) return res.status(404).json({ ok: false, error: 'Offre introuvable.' });
 
+    const type = TYPES_NOTIONS[req.body?.type] ? req.body.type : 'jargon';
     const e = lireEntretien(req.params.id);
-    const deja = e.notions.map(n => n.terme);
+    // On n'évite que les doublons DU MÊME TYPE : « déféré préfectoral » a sa
+    // place à la fois dans le jargon et dans les textes, vu sous deux angles.
+    const deja = e.notions.filter(n => (n.type ?? 'jargon') === type).map(n => n.terme);
 
     let brut;
     try {
-      brut = await demander(promptNotions(o.offre, o.analyse, deja));
+      brut = await demander(promptNotions(o.offre, o.analyse, deja, type));
     } catch (erreur) {
       return res.status(502).json({ ok: false, error: `Gemini : ${erreur.message}` });
     }
@@ -771,6 +777,7 @@ export function creerRoutes({ db, collecter, sources, profil }) {
         source: String(c.source ?? '').slice(0, 200),
         sur: c.sur !== false,
         su: false,
+        type,
       }));
 
     e.notions = [...e.notions, ...nouvelles];

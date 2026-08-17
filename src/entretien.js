@@ -52,14 +52,71 @@ export const QUESTIONS_PAR_SEANCE = 8;
  * si le modèle en répond. Ce qui n'est pas sûr est affiché comme tel, et se
  * vérifie avant d'être appris.
  */
-export function promptNotions(offre, analyse, dejaVues = []) {
+export const TYPES_NOTIONS = {
+  jargon: {
+    libelle: 'Le jargon',
+    aide: 'Les mots que tout le monde emploie sans les expliquer',
+    recto: 'le mot ou le sigle, tel qu\'un professionnel le dit',
+    verso: 'ce que ça veut dire, en deux phrases, sans jargon non expliqué',
+    consigne: `Prends les termes SANS LESQUELS on ne comprend pas une phrase du
+métier — ceux qu'un professionnel emploie sans jamais les définir, parce qu'il
+suppose qu'on les connaît. Sigles compris.`,
+  },
+  metier: {
+    libelle: 'Le métier',
+    aide: 'Ce que la personne fait vraiment, au quotidien',
+    recto: 'une question sur le métier réel',
+    verso: 'la réponse, concrète, telle qu\'un titulaire du poste la donnerait',
+    consigne: `Décris le métier RÉEL, pas la fiche de poste reformulée : à quoi
+ressemble une semaine, avec qui on travaille, ce qui prend le plus de temps, ce
+qui coince, comment on sait qu'on a bien fait son travail. Ce qu'un candidat ne
+peut pas deviner depuis l'annonce.`,
+  },
+  situation: {
+    libelle: 'Mises en situation',
+    aide: 'Un cas concret, et ce qu\'il faut faire',
+    recto: 'une situation concrète que le poste rencontre vraiment, en deux ou trois phrases',
+    verso: 'ce qu\'il faut faire, dans quel ordre, avec les délais si applicable',
+    consigne: `Écris des cas que ce poste rencontre pour de vrai, du plus
+courant au plus délicat. Ce sont les questions que les jurys adorent : « un
+dossier arrive dans tel état, que faites-vous ? ». La réponse doit être une
+MARCHE À SUIVRE, avec l'ordre des étapes et les délais quand il y en a.`,
+  },
+  consequence: {
+    libelle: 'Ce que ça induit',
+    aide: 'Les conséquences d\'une décision, ou d\'une absence de décision',
+    recto: 'une décision, un choix ou une omission propre à ce poste',
+    verso: 'ce qu\'elle entraîne — juridiquement, pour l\'usager, pour le service',
+    consigne: `Montre les CONSÉQUENCES. Que se passe-t-il si on laisse passer un
+délai, si on valide un acte irrégulier, si on refuse à tort ? Qui en pâtit, qui
+est engagé, qu'est-ce qui devient contestable et par qui. C'est ce qui
+distingue quelqu'un qui a compris l'enjeu de quelqu'un qui récite une
+procédure.`,
+  },
+  texte: {
+    libelle: 'Les textes',
+    aide: 'Les références à connaître, et ce qu\'elles disent',
+    recto: 'la référence exacte — code, article, loi, décret',
+    verso: 'ce qu\'il dit, en une ou deux phrases, et ce qu\'il change en pratique',
+    consigne: `Les textes qu'on cite dans ce métier. Pour chacun : la référence
+exacte en recto, et en verso ce qu'il dit ET ce qu'il change concrètement.
+C'est ici que l'exactitude compte le plus : un numéro d'article faux cité
+devant un jury juridique est pire que de dire qu'on ne le connaît pas.`,
+  },
+};
+
+export function promptNotions(offre, analyse, dejaVues = [], type = 'jargon') {
+  const t = TYPES_NOTIONS[type] ?? TYPES_NOTIONS.jargon;
   const eviter = dejaVues.length
-    ? `\n\nNE REPRENDS PAS ces notions, déjà produites :\n${dejaVues.map(t => `- ${t}`).join('\n')}`
+    ? `\n\nNE REPRENDS PAS ces cartes, déjà produites :\n${dejaVues.map(x => `- ${x}`).join('\n')}`
     : '';
 
   return `Tu prépares des cartes de révision pour un candidat convoqué en
 entretien sur le poste ci-dessous. Il part de ZÉRO sur le domaine : il faut
 lui donner le socle qu'un professionnel du métier tient pour évident.
+
+# LE TYPE DE CARTES DEMANDÉ : ${t.libelle.toUpperCase()}
+${t.consigne}
 
 # LE POSTE
 Intitulé : ${offre.titre ?? ''}
@@ -76,19 +133,19 @@ Un tableau JSON de 10 cartes, et RIEN d'autre — pas de texte avant ou après.
 
 Chaque carte :
 {
-  "terme": "le mot ou la procédure, tel qu'un professionnel le dit",
-  "definition": "deux phrases maximum, en français simple, sans jargon non expliqué",
+  "terme": "${t.recto}",
+  "definition": "${t.verso}",
   "pourquoi": "une phrase : pourquoi ça compte POUR CE POSTE précisément",
   "source": "où vérifier — article de code, nom du texte, ou site officiel",
   "sur": true ou false
 }
 
 Comment choisir les dix :
-- Commence par ce sans quoi on ne comprend pas une phrase du métier.
-- Va du général au particulier : d'abord le cadre, ensuite les procédures,
-  enfin les délais et les seuils.
-- Chaque notion doit être RÉELLEMENT utile en entretien pour ce poste. Pas de
+- Va du général au particulier : d'abord ce qui cadre, ensuite le détail.
+- Chaque carte doit être RÉELLEMENT utile en entretien pour ce poste. Pas de
   culture générale administrative.
+- Le recto doit pouvoir être lu SEUL, et donner envie de chercher la réponse
+  avant de retourner la carte.
 
 LE CHAMP "sur" EST LE PLUS IMPORTANT :
 - true seulement si tu réponds de l'exactitude de la définition ET de la

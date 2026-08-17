@@ -77,7 +77,7 @@ export const API = {
   entretienReset:    (id)      => appeler(`/api/entretien/${id}`, { method: 'DELETE' }),
   // Cartes à réviser : chaque appel en AJOUTE dix sans reprendre les
   // précédentes, pour réviser sur plusieurs jours.
-  entretienNotions:  (id)      => appeler(`/api/entretien/${id}/notions`, { method: 'POST', body: {} }),
+  entretienNotions:  (id, type) => appeler(`/api/entretien/${id}/notions`, { method: 'POST', body: { type } }),
   entretienNotionSue:(id, i, su) =>
     appeler(`/api/entretien/${id}/notions/${i}`, { method: 'PATCH', body: { su } }),
 
