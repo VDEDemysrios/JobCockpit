@@ -2069,3 +2069,48 @@ ul.mini li{margin-bottom:5px;}
 .dm-case.v1{color:#1976d2;} .dm-case.v2{color:#388e3c;} .dm-case.v3{color:#d32f2f;}
 .dm-case.v4{color:#512da8;} .dm-case.v5{color:#8d4e00;} .dm-case.v6{color:#0097a7;}
 .dm-case.v7{color:#424242;} .dm-case.v8{color:#757575;}
+
+/* ── Spotify, compte lié ────────────────────────────────────────────────
+   Distinct du lecteur intégré : celui-ci cherche dans le catalogue et pilote
+   la lecture. Aucun secret demandé — PKCE ne réclame qu un client_id. */
+.chill-spotify{grid-column:1/-1;}
+.sp-vide{font-size:13px;color:var(--muted);line-height:1.6;}
+.sp-vide p{margin:0 0 var(--e3);}
+.sp-etapes{margin:0 0 var(--e3);padding-left:var(--e5);font-size:12.5px;}
+.sp-etapes li{margin-bottom:6px;}
+.sp-etapes code,.sp-vide code{font-family:var(--mono);font-size:11.5px;
+  background:var(--bg2);padding:1px 5px;border-radius:3px;word-break:break-all;}
+.sp-note{font-size:12px;color:var(--faint);}
+.sp-tete{display:flex;align-items:center;gap:var(--e2);margin-bottom:var(--e3);}
+.sp-lie{font-size:11px;font-weight:var(--w-semi);text-transform:uppercase;
+  letter-spacing:.6px;color:var(--g1);background:var(--g1b);padding:2px 8px;border-radius:var(--r1);}
+.sp-piste{display:flex;gap:var(--e4);align-items:center;}
+.sp-pochette{width:72px;height:72px;border-radius:var(--r2);object-fit:cover;flex:0 0 auto;}
+.sp-infos{flex:1;min-width:0;}
+.sp-titre{font-size:14px;font-weight:var(--w-semi);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sp-artistes{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sp-appareil{font-size:11px;color:var(--faint);margin-top:2px;}
+.sp-jauge{height:3px;background:var(--line);border-radius:2px;margin-top:8px;overflow:hidden;}
+.sp-jauge span{display:block;height:100%;background:var(--g1);transition:width 1s linear;}
+.sp-temps{font-size:10.5px;color:var(--faint);margin-top:3px;font-variant-numeric:tabular-nums;}
+.sp-rien{font-size:12.5px;color:var(--muted);padding:var(--e3) 0;}
+.sp-commandes{display:flex;justify-content:center;gap:var(--e3);margin:var(--e4) 0;}
+.sp-cmd{width:38px;height:38px;border-radius:50%;border:1px solid var(--line-fort);
+  background:var(--panel);color:var(--ink);font-size:14px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:background .13s;}
+.sp-cmd:hover{background:var(--bg2);}
+.sp-grand{width:46px;height:46px;font-size:17px;background:var(--g1);border-color:var(--g1);color:#fff;}
+.sp-grand:hover{filter:brightness(1.08);background:var(--g1);}
+.sp-chercher{display:flex;gap:var(--e2);margin-bottom:var(--e3);flex-wrap:wrap;}
+.sp-chercher input{flex:1;min-width:160px;font-family:inherit;font-size:12.5px;
+  color:var(--ink);background:var(--panel);border:1px solid var(--line-fort);
+  border-radius:var(--r2);padding:5px var(--e3);}
+.sp-liste{list-style:none;margin:0;padding:0;max-height:38vh;overflow-y:auto;}
+.sp-liste button{display:flex;align-items:center;gap:var(--e3);width:100%;text-align:left;
+  font-family:inherit;background:transparent;border:0;padding:5px var(--e2);
+  border-radius:var(--r2);cursor:pointer;color:var(--ink);}
+.sp-liste button:hover{background:var(--bg2);}
+.sp-liste img,.sp-vignette{width:36px;height:36px;border-radius:var(--r1);
+  object-fit:cover;flex:0 0 auto;background:var(--bg2);}
+.sp-l-titre{font-size:12.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sp-l-artiste{font-size:11.5px;color:var(--muted);max-width:34%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}

@@ -73,6 +73,17 @@ export const API = {
   // n'a pas à laisser de trace dans la base.
   chat:              (messages) => appeler('/api/chat', { method: 'POST', body: { messages } }),
 
+  // Spotify, par le flux PKCE. Tout passe par LE SERVEUR : les jetons ne
+  // descendent jamais dans la page, et la politique de sécurité reste close.
+  spotifyEtat:       ()        => appeler('/api/spotify/etat'),
+  spotifyConnexion:  ()        => appeler('/api/spotify/connexion', { method: 'POST', body: {} }),
+  spotifyDeconnexion:()        => appeler('/api/spotify/deconnexion', { method: 'POST', body: {} }),
+  spotifyLecture:    ()        => appeler('/api/spotify/lecture'),
+  spotifyCommande:   (action, uri) =>
+    appeler('/api/spotify/commande', { method: 'POST', body: { action, uri } }),
+  spotifyRecherche:  (q)       => appeler(`/api/spotify/recherche?q=${encodeURIComponent(q)}`),
+  spotifyPlaylists:  ()        => appeler('/api/spotify/playlists'),
+
   entretiens:        ()        => appeler('/api/entretiens'),
   entretien:         (id)      => appeler(`/api/entretien/${id}`),
   entretienRepondre: (id, reponse) =>

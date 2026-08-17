@@ -25,6 +25,7 @@
 import { API } from './api.js';
 import { echapper } from './format.js';
 import { versLecteur } from './media.js';
+import { rendreSpotify, installerSpotify, ouvrirSpotify } from './spotify-ui.js';
 
 const CLE_FIL = 'bp_chill_fil';
 const CLE_MEDIA = 'bp_chill_media';
@@ -96,6 +97,14 @@ export function rendreChill() {
         </form>
       </div>
 
+      <!-- SPOTIFY, COMPTE LIÉ. Distinct du lecteur intégré juste en dessous :
+           celui-ci joue ce qu'on lui colle, celui-là cherche dans le catalogue
+           et pilote la lecture. -->
+      <div class="panel-box chill-spotify">
+        <h3><span data-ic="etoile" data-ic-taille="14"></span> Spotify</h3>
+        <div id="spotifyPanneau"></div>
+      </div>
+
       <!-- Le lecteur se REDIMENSIONNE : on ne regarde pas un direct et on
            n'écoute pas un album dans la même fenêtre. La taille est retenue. -->
       <div class="panel-box chill-media" id="chillMediaBox">
@@ -128,6 +137,12 @@ export function rendreChill() {
     localStorage.setItem('bp_chill_taille', boite.style.height || '');
   });
 
+  // Le panneau vient d'être recréé : on le repeint avec l'état connu, puis on
+  // redemande l'état réel — le morceau a pu changer pendant qu'on était
+  // ailleurs, et afficher un titre périmé est pire que de n'afficher rien.
+  rendreSpotify();
+  ouvrirSpotify();
+
   const f = document.getElementById('chillFil');
   if (f) f.scrollTop = f.scrollHeight;
 }
@@ -136,6 +151,7 @@ export function rendreChill() {
 export function installerChill(toast) {
   const zone = document.getElementById('chillZone');
   if (!zone) return;
+  installerSpotify(toast);
 
   zone.addEventListener('change', (e) => {
     if (e.target.id !== 'chillCompte') return;

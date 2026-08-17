@@ -18,6 +18,10 @@ import {
 } from './entretien.js';
 import { demander, demanderAncre, estConfigure as geminiPret, extraireJson } from './gemini.js';
 import { promptChat, resumeEtat } from './chat.js';
+import {
+  fabriquerDefi, urlAutorisation, echangerCode, rafraichir, estExpire,
+  appeler as appelerSpotify, resumeLecture,
+} from './spotify.js';
 import { enregistrerCv } from './cv.js';
 import {
   lireMeta, ecrireMeta, upsertOffre, transaction, noterActivite,
@@ -651,6 +655,155 @@ export function creerRoutes({ db, collecter, sources, profil }) {
     if (!o) return null;
     return { offre: o, analyse: o.analysis_json ? JSON.parse(o.analysis_json) : null };
   }
+
+  // --- Spotify -------------------------------------------------------------
+  //
+  // Flux PKCE : aucun `client_secret`, seulement un `client_id` qui est public
+  // par conception. L'échange et les appels passent par LE SERVEUR — les
+  // jetons ne descendent jamais dans la page, et la politique de sécurité
+  // n'a pas à s'ouvrir vers un tiers.
+
+  /** Le vérificateur en attente, entre la redirection et le retour. */
+  let attenteSpotify = null;
+
+  const clientSpotify = () => process.env.SPOTIFY_CLIENT_ID ?? '';
+  const REDIRECTION = 'http://127.0.0.1:3000/spotify/retour';
+
+  const lireJetons = () => {
+    const brut = lireMeta(db, 'spotify_jetons');
+    try { return brut ? JSON.parse(brut) : null; } catch { return null; }
+  };
+  const ecrireJetons = (j) => ecrireMeta(db, 'spotify_jetons', j ? JSON.stringify(j) : '');
+
+  /** Un jeton valide, renouvelé si besoin. Null si non connecté. */
+  async function jetonValide() {
+    let j = lireJetons();
+    if (!j?.acces) return null;
+    if (!estExpire(j)) return j.acces;
+    if (!j.refresh) return null;
+    j = await rafraichir({ clientId: clientSpotify(), refresh: j.refresh });
+    ecrireJetons(j);
+    return j.acces;
+  }
+
+  /** Appel relayé, avec UNE reprise si le jeton vient d'expirer. */
+  async function spotify(chemin, options = {}) {
+    const acces = await jetonValide();
+    if (!acces) throw Object.assign(new Error('Spotify non connecté.'), { statut: 401 });
+    try {
+      return await appelerSpotify(chemin, { ...options, acces });
+    } catch (e) {
+      if (!e.expire) throw e;
+      ecrireJetons(null);
+      throw Object.assign(new Error('Session Spotify expirée — reconnecte-toi.'), { statut: 401 });
+    }
+  }
+
+  routes.get('/spotify/etat', async (req, res) => {
+    if (!clientSpotify()) {
+      return res.json({ ok: true, configure: false, connecte: false,
+        aide: 'Ajoute SPOTIFY_CLIENT_ID dans .env — il est public, pas de secret à fournir.' });
+    }
+    const j = lireJetons();
+    if (!j?.acces) return res.json({ ok: true, configure: true, connecte: false });
+
+    try {
+      const d = await spotify('/me/player');
+      res.json({ ok: true, configure: true, connecte: true, lecture: resumeLecture(d) });
+    } catch (e) {
+      res.json({ ok: true, configure: true, connecte: e.statut !== 401, erreur: e.message });
+    }
+  });
+
+  /** L'adresse d'autorisation. Le vérificateur reste ici, c'est tout l'intérêt. */
+  routes.post('/spotify/connexion', (req, res) => {
+    if (!clientSpotify()) {
+      return res.status(400).json({ ok: false,
+        error: 'SPOTIFY_CLIENT_ID absent du .env.' });
+    }
+    const { verificateur, defi } = fabriquerDefi();
+    const etat = Math.random().toString(36).slice(2);
+    attenteSpotify = { verificateur, etat };
+
+    res.json({ ok: true, url: urlAutorisation({
+      clientId: clientSpotify(), redirection: REDIRECTION, defi, etat }) });
+  });
+
+  routes.post('/spotify/deconnexion', (req, res) => {
+    ecrireJetons(null);
+    res.json({ ok: true });
+  });
+
+  routes.get('/spotify/lecture', async (req, res) => {
+    try { res.json({ ok: true, lecture: resumeLecture(await spotify('/me/player')) }); }
+    catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
+  });
+
+  routes.post('/spotify/commande', async (req, res) => {
+    const ACTIONS = {
+      lire: { chemin: '/me/player/play', methode: 'PUT' },
+      pause: { chemin: '/me/player/pause', methode: 'PUT' },
+      suivant: { chemin: '/me/player/next', methode: 'POST' },
+      precedent: { chemin: '/me/player/previous', methode: 'POST' },
+    };
+    const a = ACTIONS[req.body?.action];
+    if (!a) return res.status(400).json({ ok: false, error: 'Action inconnue.' });
+
+    try {
+      // Une URI donnée démarre CE morceau ; sans elle, on reprend où on en
+      // était. Les deux cas passent par la même commande côté Spotify.
+      const corps = (req.body?.action === 'lire' && req.body?.uri)
+        ? { uris: [req.body.uri] } : undefined;
+      await spotify(a.chemin, { methode: a.methode, corps });
+      res.json({ ok: true });
+    } catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
+  });
+
+  routes.get('/spotify/recherche', async (req, res) => {
+    const q = String(req.query.q ?? '').trim();
+    if (!q) return res.json({ ok: true, resultats: [] });
+    try {
+      const d = await spotify(`/search?q=${encodeURIComponent(q)}&type=track&limit=12`);
+      res.json({ ok: true, resultats: (d?.tracks?.items ?? []).map(t => ({
+        uri: t.uri, titre: t.name,
+        artistes: (t.artists ?? []).map(a => a.name).join(', '),
+        album: t.album?.name ?? '',
+        pochette: t.album?.images?.at(-1)?.url ?? null,
+      })) });
+    } catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
+  });
+
+  /** Les playlists de l'utilisateur, pour lancer sans chercher. */
+  routes.get('/spotify/playlists', async (req, res) => {
+    try {
+      const d = await spotify('/me/playlists?limit=24');
+      res.json({ ok: true, playlists: (d?.items ?? []).map(p => ({
+        uri: p.uri, nom: p.name, pistes: p.tracks?.total ?? 0,
+        pochette: p.images?.at(-1)?.url ?? null,
+      })) });
+    } catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
+  });
+
+  // Le retour d'autorisation. Hors de `/api` : c'est Spotify qui envoie le
+  // navigateur ici, pas notre code.
+  routes.retourSpotify = async (req, res) => {
+    const { code, state, error } = req.query;
+    if (error) return res.redirect(`/?spotify=refus`);
+    if (!code || !attenteSpotify || state !== attenteSpotify.etat) {
+      return res.redirect('/?spotify=invalide');
+    }
+    try {
+      const jetons = await echangerCode({
+        clientId: clientSpotify(), redirection: REDIRECTION,
+        code, verificateur: attenteSpotify.verificateur,
+      });
+      ecrireJetons(jetons);
+      attenteSpotify = null;
+      res.redirect('/?spotify=ok');
+    } catch (e) {
+      res.redirect(`/?spotify=echec&m=${encodeURIComponent(e.message)}`);
+    }
+  };
 
   /**
    * LA DISCUSSION DE LA VUE « CHILL ».

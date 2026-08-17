@@ -154,7 +154,12 @@ const auth = creerAuth({ motDePasse: MOT_DE_PASSE, securise: publique });
 auth.monter(app, PUBLIC);
 app.use(auth.protection);
 
-app.use('/api', creerRoutes({ db, collecter, sources: SOURCES, profil }));
+const routesApi = creerRoutes({ db, collecter, sources: SOURCES, profil });
+app.use('/api', routesApi);
+
+// Le retour d'autorisation Spotify. Hors de /api : c'est le navigateur qui
+// arrive ici, envoyé par Spotify, pas notre code qui appelle une API.
+app.get('/spotify/retour', (req, res) => routesApi.retourSpotify(req, res));
 
 // PREMIER LANCEMENT : L'ASSISTANT AVANT LE TABLEAU DE BORD.
 //
