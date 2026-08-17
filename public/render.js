@@ -414,6 +414,23 @@ export function rendreCarte(offre, actions) {
     <div class="letter-zone"></div>
   </div>`;
 
+  // PRÉPARATION D'ENTRETIEN — seulement une fois la candidature partie.
+  //
+  // La proposer sur une offre où l'on n'a pas postulé serait mettre la
+  // charrue devant les bœufs, et encombrer chaque carte d'un bouton dont
+  // ce n'est pas le moment. Elle apparaît quand elle sert.
+  if (postule) {
+    detail += `<div class="sec">
+      <div class="lbl fix">${icone('cible', 13)} PRÉPARATION D'ENTRETIEN</div>
+      <div class="letter-actions">
+        <button class="btn btn-primary" data-act="entretien">${icone('cible', 14)} S'entraîner</button>
+        <button class="btn" data-act="fiche">${icone('liste', 14)} Fiche de révision</button>
+      </div>
+      <div class="d">Un jury pose les questions, tu réponds, et il vise ce que
+        l'analyse a repéré comme tes points faibles. Débriefing à la fin.</div>
+    </div>`;
+  }
+
   const badgesSources = (offre.sources ?? [])
     .map(s2 => `<span class="badge badge-src">${SOURCE_LABEL[s2] ?? s2}</span>`).join('');
 

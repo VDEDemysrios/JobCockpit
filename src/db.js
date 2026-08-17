@@ -61,6 +61,23 @@ CREATE TABLE IF NOT EXISTS letters (
   edited       INTEGER DEFAULT 0
 );
 
+-- Préparation d'entretien : une séance par offre, conservée.
+--
+-- Elle est GARDÉE plutôt que jetée à la fermeture : on prépare un entretien
+-- sur plusieurs jours, en reprenant là où on s'était arrêté, et le débriefing
+-- de la veille est exactement ce qu'on veut relire le matin même. La colonne
+-- echanges tient le fil complet en JSON : questions du jury et réponses, dans
+-- l'ordre. (Pas d'accent grave dans ce commentaire : il est à l'intérieur
+-- d'un gabarit JavaScript, qu'il refermerait.)
+CREATE TABLE IF NOT EXISTS entretiens (
+  offer_id   TEXT PRIMARY KEY,
+  echanges   TEXT,
+  debrief    TEXT,
+  fiche      TEXT,
+  cree_le    TEXT,
+  maj_le     TEXT
+);
+
 CREATE TABLE IF NOT EXISTS meta (
   cle    TEXT PRIMARY KEY,
   valeur TEXT

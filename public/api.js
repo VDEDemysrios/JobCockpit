@@ -67,6 +67,15 @@ export const API = {
     if (!reponse.ok || !data.ok) throw new Error(data.error ?? `Erreur ${reponse.status}`);
     return data;
   },
+  // Préparation d'entretien. L'application menait jusqu'à la candidature puis
+  // s'arrêtait — or c'est l'entretien qui décide.
+  entretien:         (id)      => appeler(`/api/entretien/${id}`),
+  entretienRepondre: (id, reponse) =>
+    appeler(`/api/entretien/${id}/repondre`, { method: 'POST', body: { reponse } }),
+  entretienDebrief:  (id)      => appeler(`/api/entretien/${id}/debrief`, { method: 'POST', body: {} }),
+  entretienFiche:    (id)      => appeler(`/api/entretien/${id}/fiche`, { method: 'POST', body: {} }),
+  entretienReset:    (id)      => appeler(`/api/entretien/${id}`, { method: 'DELETE' }),
+
   // Les villes prioritaires, réglables APRÈS la première configuration : on
   // déménage, on abandonne une ville, on en ajoute une. Ce sont des évènements
   // ordinaires d'une recherche d'emploi, pas des reconfigurations.

@@ -9,6 +9,7 @@ import { ouvrirSurcouche, fermerSurcouche } from './surcouche.js';
 import { installerDepotCv } from './depot-cv.js';
 import { lancerTutoriel } from './tutoriel.js';
 import { installerEditeurVilles, enregistrerVilles } from './villes.js';
+import { ouvrirEntretien, ouvrirFiche, installerEntretien } from './entretien.js';
 import {
   rendreCarte, rendreKanban, rendreAgenda, relanceDue, rendreFocus, rendreTroisDuJour,
   actionsDuJour, celebrer,
@@ -761,6 +762,16 @@ function brancherCarte(carte, offre) {
     e.preventDefault();
     ouvrirLettre(carte, offre, e.currentTarget);
   });
+
+  carte.querySelector('[data-act="entretien"]')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    ouvrirEntretien(offre, toast);
+  });
+
+  carte.querySelector('[data-act="fiche"]')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    ouvrirFiche(offre, toast);
+  });
 }
 
 /** Les statistiques sont calculées côté serveur : on les redemande après coup. */
@@ -1248,6 +1259,7 @@ function signalerVillesModifiees(modifie = true) {
 }
 
 installerEditeurVilles({ signaler: signalerVillesModifiees });
+installerEntretien(toast);
 
 document.getElementById('villesSave').addEventListener('click', async (e) => {
   e.target.disabled = true;

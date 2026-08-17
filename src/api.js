@@ -8,10 +8,14 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { normaliser } from './hash.js';
 import { villeDeRattachement } from './zone.js';
-import { peutRediger, noterAppel, etatQuota, LETTRE } from './quota.js';
+import { peutRediger, noterAppel, etatQuota, LETTRE, ENTRETIEN } from './quota.js';
 import { estConfigure, construireProfil, rendreEnv, CLES_ENV } from './configuration.js';
 import { validerVilles, decrireVille, DEPARTEMENTS, VILLES_MAX } from './villes.js';
 import { verifierOffres, aVerifier } from './liens.js';
+import {
+  promptQuestion, promptDebrief, promptFiche, QUESTIONS_PAR_SEANCE,
+} from './entretien.js';
+import { demander, estConfigure as geminiPret } from './gemini.js';
 import { enregistrerCv } from './cv.js';
 import {
   lireMeta, ecrireMeta, upsertOffre, transaction, noterActivite,
@@ -583,6 +587,146 @@ export function creerRoutes({ db, collecter, sources, profil }) {
       mortes,
       indetermines: resultats.filter(r => r.etat === 'indetermine').length,
       restantes: Math.max(0, candidates.length - resultats.length) });
+  });
+
+  // --- Préparation d'entretien -----------------------------------------
+  //
+  // L'application menait jusqu'à la candidature, puis s'arrêtait. Or c'est
+  // l'entretien qui décide, et c'est là qu'on est le plus seul.
+
+  /** La séance en cours pour une offre, ou une séance vide. */
+  function lireEntretien(id) {
+    const l = db.prepare('SELECT * FROM entretiens WHERE offer_id = ?').get(id);
+    return {
+      echanges: l?.echanges ? JSON.parse(l.echanges) : [],
+      debrief: l?.debrief ?? null,
+      fiche: l?.fiche ?? null,
+    };
+  }
+
+  function ecrireEntretien(id, { echanges, debrief, fiche }) {
+    const now = new Date().toISOString();
+    db.prepare(`
+      INSERT INTO entretiens (offer_id, echanges, debrief, fiche, cree_le, maj_le)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(offer_id) DO UPDATE SET
+        echanges = excluded.echanges, debrief = excluded.debrief,
+        fiche = excluded.fiche, maj_le = excluded.maj_le
+    `).run(id, JSON.stringify(echanges ?? []), debrief ?? null, fiche ?? null, now, now);
+  }
+
+  /** L'offre et son analyse, telles que les prompts les attendent. */
+  function offrePourEntretien(id) {
+    const o = db.prepare('SELECT * FROM offers WHERE id = ?').get(id);
+    if (!o) return null;
+    return { offre: o, analyse: o.analysis_json ? JSON.parse(o.analysis_json) : null };
+  }
+
+  routes.get('/entretien/:id', (req, res) => {
+    const o = offrePourEntretien(req.params.id);
+    if (!o) return res.status(404).json({ ok: false, error: 'Offre introuvable.' });
+    const e = lireEntretien(req.params.id);
+    res.json({ ok: true, ...e,
+      titre: o.offre.titre, entreprise: o.offre.entreprise,
+      questionsParSeance: QUESTIONS_PAR_SEANCE,
+      geminiPret: geminiPret(),
+      // Sans analyse, le jury n'a pas les manques à viser : la séance
+      // resterait polie et n'apprendrait rien. On le dit plutôt que de la
+      // laisser se dérouler à vide.
+      analysePresente: Boolean(o.analyse),
+    });
+  });
+
+  /**
+   * Le tour suivant : on enregistre la réponse du candidat, le jury relance.
+   *
+   * L'historique complet repart à chaque appel — `demander()` ne tient pas de
+   * conversation. C'est plus coûteux en jetons, mais c'est ce qui permet au
+   * jury de creuser une réponse évasive donnée trois questions plus tôt.
+   */
+  routes.post('/entretien/:id/repondre', async (req, res) => {
+    if (!geminiPret()) {
+      return res.status(400).json({ ok: false,
+        error: 'La clé Gemini est nécessaire pour la préparation d\'entretien.' });
+    }
+    const o = offrePourEntretien(req.params.id);
+    if (!o) return res.status(404).json({ ok: false, error: 'Offre introuvable.' });
+
+    const e = lireEntretien(req.params.id);
+    const reponse = String(req.body?.reponse ?? '').trim();
+    if (reponse) e.echanges.push({ role: 'candidat', texte: reponse.slice(0, 4000) });
+
+    let question;
+    try {
+      question = await demander(promptQuestion(o.offre, o.analyse, cv(), e.echanges));
+    } catch (erreur) {
+      return res.status(502).json({ ok: false, error: `Gemini : ${erreur.message}` });
+    }
+    noterAppel(db, ENTRETIEN);
+
+    e.echanges.push({ role: 'jury', texte: String(question).trim() });
+    ecrireEntretien(req.params.id, e);
+
+    const posees = e.echanges.filter(x => x.role === 'jury').length;
+    res.json({ ok: true, echanges: e.echanges, posees,
+      terminee: posees >= QUESTIONS_PAR_SEANCE });
+  });
+
+  /** Le débriefing : ce qui a tenu, ce qui s'est effondré, quoi réviser. */
+  routes.post('/entretien/:id/debrief', async (req, res) => {
+    if (!geminiPret()) {
+      return res.status(400).json({ ok: false, error: 'La clé Gemini est nécessaire.' });
+    }
+    const o = offrePourEntretien(req.params.id);
+    if (!o) return res.status(404).json({ ok: false, error: 'Offre introuvable.' });
+
+    const e = lireEntretien(req.params.id);
+    if (e.echanges.filter(x => x.role === 'candidat').length < 2) {
+      return res.status(400).json({ ok: false,
+        error: 'Réponds à deux questions au moins : il n\'y a rien à débriefer avant.' });
+    }
+
+    let texte;
+    try {
+      texte = await demander(promptDebrief(o.offre, o.analyse, cv(), e.echanges));
+    } catch (erreur) {
+      return res.status(502).json({ ok: false, error: `Gemini : ${erreur.message}` });
+    }
+    noterAppel(db, ENTRETIEN);
+
+    e.debrief = String(texte).trim();
+    ecrireEntretien(req.params.id, e);
+    journaliser(db, 'entretien-debrief', { offerId: req.params.id });
+    res.json({ ok: true, debrief: e.debrief });
+  });
+
+  /** La fiche : ce qu'il faut savoir, et que le CV n'apprend pas. */
+  routes.post('/entretien/:id/fiche', async (req, res) => {
+    if (!geminiPret()) {
+      return res.status(400).json({ ok: false, error: 'La clé Gemini est nécessaire.' });
+    }
+    const o = offrePourEntretien(req.params.id);
+    if (!o) return res.status(404).json({ ok: false, error: 'Offre introuvable.' });
+
+    let texte;
+    try {
+      texte = await demander(promptFiche(o.offre, o.analyse, cv()));
+    } catch (erreur) {
+      return res.status(502).json({ ok: false, error: `Gemini : ${erreur.message}` });
+    }
+    noterAppel(db, ENTRETIEN);
+
+    const e = lireEntretien(req.params.id);
+    e.fiche = String(texte).trim();
+    ecrireEntretien(req.params.id, e);
+    res.json({ ok: true, fiche: e.fiche });
+  });
+
+  /** Repartir de zéro, en gardant la fiche : elle ne dépend pas de la séance. */
+  routes.delete('/entretien/:id', (req, res) => {
+    const e = lireEntretien(req.params.id);
+    ecrireEntretien(req.params.id, { echanges: [], debrief: null, fiche: e.fiche });
+    res.json({ ok: true });
   });
 
   routes.get('/villes', (req, res) => {

@@ -25,6 +25,14 @@
 
 export const ANALYSE = 'analyse';
 export const LETTRE = 'lettre';
+/**
+ * Préparation d'entretien. Compté à part pour une raison simple : le jour où
+ * l'on prépare un entretien, on enchaîne dix ou quinze appels d'affilée. Les
+ * mêler aux analyses ferait croire à une collecte devenue folle, et les mêler
+ * aux lettres viderait la réserve qui protège la seule chose qu'on ne peut
+ * pas remettre à demain.
+ */
+export const ENTRETIEN = 'entretien';
 
 /** Valeurs par défaut, si `profile.json` ne dit rien. */
 const DEFAUTS = { quotaJournalier: 200, reserveLettres: 40 };

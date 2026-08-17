@@ -1747,3 +1747,61 @@ ul.mini li{margin-bottom:5px;}
 .card.part{animation:ecarte .34s var(--ease-doux) forwards;overflow:hidden;
   pointer-events:none;}
 
+
+/* ═══════════════════ ENTRETIEN BLANC ═══════════════════
+
+   Une répétition demande de l'attention pleine. La surcouche rend le reste
+   de l'application inerte, et il ne reste que la question posée.
+
+   LE CHAMP EST DEVANT, LA SUITE VIENT APRÈS.
+   La tentation, en préparant un entretien, est de lire les questions pour se
+   rassurer sans jamais formuler de réponse — or c'est formuler qui prépare.
+   La question suivante n'arrive donc qu'une fois la précédente répondue.   */
+
+#entretien .ent-tete,#entretien .ent-fil,#entretien .ent-saisie,
+#entretien .ent-pied,#entretien .ent-doc,#entretien .ent-avert{
+  max-width:min(820px,92vw);margin-left:auto;margin-right:auto;}
+
+#entretien{overflow-y:auto;padding:var(--e8) 0 var(--e12);}
+.ent-tete{display:flex;align-items:center;gap:var(--e4);margin-bottom:var(--e5);}
+.ent-tete h2{margin:0;font-size:19px;}
+.ent-poste{font-size:12.5px;color:var(--muted);margin-top:2px;}
+.ent-compte{margin-left:auto;font-size:12px;color:var(--muted);
+  font-variant-numeric:tabular-nums;}
+
+.ent-avert{font-size:12.5px;color:var(--g2);background:var(--g2b);
+  border:1px solid var(--g2);border-radius:var(--r2);padding:var(--e3);
+  line-height:1.55;margin:0 auto var(--e4);}
+
+.ent-fil{display:flex;flex-direction:column;gap:var(--e4);
+  max-height:52vh;overflow-y:auto;padding-right:var(--e2);}
+.ent-vide{font-size:13px;color:var(--muted);line-height:1.6;margin:0;}
+
+.ent-tour{padding:var(--e3) var(--e4);border-radius:var(--r3);}
+.ent-qui{font-size:10.5px;font-weight:var(--w-semi);text-transform:uppercase;
+  letter-spacing:.7px;color:var(--muted);margin-bottom:4px;}
+.ent-texte{font-size:13.5px;line-height:1.6;}
+/* Le jury à gauche sur fond franc, le candidat décalé à droite : on voit d'un
+   coup d'œil qui parle, sans lire l'étiquette. */
+.ent-jury{background:var(--panel);border:1px solid var(--line);}
+.ent-candidat{background:var(--accent-bg);border:1px solid var(--accent);
+  margin-left:12%;}
+.ent-candidat .ent-qui{color:var(--accent-ink);}
+
+.ent-saisie{display:flex;gap:var(--e3);align-items:flex-end;margin-top:var(--e5);}
+.ent-saisie textarea{flex:1;font-family:inherit;font-size:13.5px;color:var(--ink);
+  background:var(--panel);border:1px solid var(--line-fort);border-radius:var(--r3);
+  padding:var(--e3);resize:vertical;line-height:1.55;}
+.ent-attente{font-size:13px;color:var(--muted);padding:var(--e4);text-align:center;}
+
+.ent-pied{display:flex;gap:var(--e3);margin-top:var(--e5);flex-wrap:wrap;}
+
+.ent-doc{margin-top:var(--e8);background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--r3);padding:var(--e5);font-size:13.5px;line-height:1.65;}
+.ent-doc-titre{font-size:11px;font-weight:var(--w-semi);text-transform:uppercase;
+  letter-spacing:.7px;color:var(--muted);margin-bottom:var(--e3);}
+.ent-doc h3{font-size:14.5px;margin:var(--e5) 0 var(--e2);}
+.ent-doc h4{font-size:13px;margin:var(--e4) 0 var(--e1);color:var(--ink-2);}
+.ent-doc ul{margin:var(--e2) 0;padding-left:var(--e5);}
+.ent-doc li{margin-bottom:4px;}
+.ent-doc p{margin:0 0 var(--e3);}
