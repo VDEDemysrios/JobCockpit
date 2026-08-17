@@ -37,7 +37,7 @@
 import { versLecteur, sansDemarrageAuto } from './media.js';
 import { echapper } from './format.js';
 import { installerSpotify, ouvrirSpotify } from './spotify-ui.js';
-import { installerTwitch, ouvrirTwitch } from './twitch-ui.js';
+import { installerTwitch, ouvrirTwitch, lireTwitch } from './twitch-ui.js';
 import { installerYoutube, ouvrirYoutube } from './youtube-ui.js';
 
 const CLE_CADRE = 'bp_dock_cadre';     // position et taille
@@ -225,7 +225,15 @@ export function jouerMedia(saisie) {
     signaler('Lien non reconnu — YouTube, Twitch ou Spotify.', 'erreur');
     return false;
   }
+
+  // TWITCH SE REGARDE DANS L'ONGLET TWITCH. Ce cadre-ci est celui de l'onglet
+  // YouTube : y envoyer un direct faisait basculer d'onglet pour rien, et
+  // laissait la liste des chaînes derrière soi au moment précis où l'on
+  // hésitait entre deux. L'onglet Twitch a le sien depuis.
+  if (media.type === 'Twitch') return lireTwitch(media);
+
   ecrire(CLE_MEDIA, media);
+  document.dispatchEvent(new CustomEvent('jc:media', { detail: { source: 'lecteur' } }));
   ouvrirDock('lecteur');
   rendreCadre();
   return true;
@@ -385,6 +393,17 @@ export function installerDock(toast) {
       rendreCadre();
       signaler('Domaine YouTube changé — recolle le lien.');
     }
+  });
+
+  // L'onglet Twitch s'est mis à jouer : ce cadre-ci se tait. Deux bandes-son
+  // superposées obligeaient à aller couper la première à la main, sur un
+  // onglet qu'on venait justement de quitter.
+  document.addEventListener('jc:media', (e) => {
+    if (e.detail?.source === 'lecteur') return;
+    localStorage.removeItem(CLE_MEDIA);
+    el('dockCadre').innerHTML = '';
+    el('dockResume').textContent = '';
+    rendreCadre();
   });
 
   dock.addEventListener('submit', (e) => {

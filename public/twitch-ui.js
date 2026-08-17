@@ -27,7 +27,7 @@
 // avoir de raison d'aller sur le site.
 import { API } from './api.js';
 import { echapper } from './format.js';
-import { destinationTwitch } from './media.js';
+import { destinationTwitch, sansDemarrageAuto } from './media.js';
 
 let etat = { configure: false, connecte: false, login: '' };
 let vue = { nom: 'accueil' };
@@ -316,12 +316,71 @@ async function aller(destination, { empiler = true } = {}) {
 
 const revenir = () => aller(pile.pop() ?? { nom: 'accueil' }, { empiler: false });
 
+// ────────────────────────────────────────────── le cadre, ICI et pas ailleurs
+
+/**
+ * ON REGARDE TWITCH DANS L'ONGLET TWITCH.
+ *
+ * Cliquer sur un direct basculait sur l'onglet nommé « YouTube », parce que
+ * le lecteur était unique et partagé. On quittait donc Twitch pour regarder
+ * Twitch, en perdant au passage la liste où l'on était en train de choisir.
+ *
+ * Le cadre est posé dans le balisage (`#twitchCadre`), HORS du panneau que
+ * `rendreTwitch()` réécrit. C'est la même règle que pour le dock entier :
+ * réécrire le HTML autour d'une `<iframe>` la recharge, et le direct
+ * repartirait de zéro à chaque rafraîchissement de la liste.
+ */
+const CLE_MEDIA_TW = 'jc.twitch.media';
+const cadre = () => document.getElementById('twitchCadre');
+
+function poserCadre(url, { titre = 'Twitch' } = {}) {
+  const boite = cadre();
+  if (!boite) return;
+  boite.hidden = false;
+  boite.innerHTML = `<iframe class="dock-cadre" src="${echapper(url)}"
+    title="Lecteur ${echapper(titre)}" allow="autoplay; encrypted-media;
+    picture-in-picture; clipboard-write; fullscreen"
+    allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    <button class="tw-fermer-cadre" data-tw="fermer-cadre" title="Arrêter">×</button>`;
+}
+
+/**
+ * DEUX CADRES QUI PARLENT EN MÊME TEMPS, ÇA N'ARRIVE PAS.
+ *
+ * L'onglet YouTube et l'onglet Twitch ont maintenant chacun le leur, et tous
+ * deux continuent de jouer quand on regarde ailleurs — c'est voulu, c'est ce
+ * qui permet de garder le son en travaillant. Sauf que lancer un direct
+ * par-dessus une vidéo donnait deux bandes-son superposées, et il fallait
+ * aller couper la première à la main.
+ *
+ * L'annonce passe par un évènement plutôt que par un appel direct : `dock.js`
+ * importe déjà ce module, l'inverse formerait un cycle.
+ */
+const annoncerLecture = (source) =>
+  document.dispatchEvent(new CustomEvent('jc:media', { detail: { source } }));
+
+/** Joue un média Twitch dans l'onglet Twitch. Point d'entrée depuis le dock. */
+export function lireTwitch(media) {
+  if (!media?.url) return false;
+  montrerPanneau();
+  poserCadre(media.url);
+  localStorage.setItem(CLE_MEDIA_TW, media.url);
+  annoncerLecture('twitch');
+  return true;
+}
+
+function fermerCadre() {
+  const boite = cadre();
+  if (boite) { boite.innerHTML = ''; boite.hidden = true; }
+  localStorage.removeItem(CLE_MEDIA_TW);
+}
+
 /** Lance un direct dans le cadre. `autoplay` : on vient de cliquer dessus. */
-const regarderChaine = (login) => jouer({ type: 'Twitch',
+const regarderChaine = (login) => lireTwitch({ type: 'Twitch',
   url: `https://player.twitch.tv/?channel=${encodeURIComponent(login)}`
     + `&parent=${parent()}&autoplay=true` });
 
-const regarderVideo = (id) => jouer({ type: 'Twitch',
+const regarderVideo = (id) => lireTwitch({ type: 'Twitch',
   url: `https://player.twitch.tv/?video=${encodeURIComponent(id)}`
     + `&parent=${parent()}&autoplay=true` });
 
@@ -466,6 +525,7 @@ export function installerTwitch(toast, lancer, montrer) {
     if (b.dataset.tw === 'connexion') return connecter();
     if (b.dataset.tw === 'annuler') return annuler();
     if (b.dataset.tw === 'retour') return revenir();
+    if (b.dataset.tw === 'fermer-cadre') return fermerCadre();
     if (b.dataset.tw === 'accueil') return aller({ nom: 'accueil' }, { empiler: false });
     if (b.dataset.tw === 'copier') {
       const ok = await copierCode();
@@ -514,4 +574,15 @@ export function installerTwitch(toast, lancer, montrer) {
     e.preventDefault();
     ouvrirLienTwitch(a.href);
   });
+
+  // Quelqu'un d'autre s'est mis à jouer : on se tait.
+  document.addEventListener('jc:media', (e) => {
+    if (e.detail?.source !== 'twitch') fermerCadre();
+  });
+
+  // ROUVRIR NE DOIT RIEN LANCER. On restaure ce qu'on regardait, sans le
+  // `autoplay=true` posé par le clic d'origine : retrouver sa place le
+  // lendemain matin est utile, se faire parler dessus ne l'est pas.
+  const garde = localStorage.getItem(CLE_MEDIA_TW);
+  if (garde) poserCadre(sansDemarrageAuto(garde));
 }

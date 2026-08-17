@@ -75,18 +75,28 @@ function rendreNonConfigure() {
   </div>`;
 }
 
+/**
+ * UNE VIGNETTE, PAS UNE LIGNE DE TEXTE.
+ *
+ * La liste rendait une vidéo en 78 pixels de large : à cette taille, une
+ * vignette de YouTube ne montre rien, et on choisissait donc au titre — comme
+ * dans un tableur. La grille reprend la forme que tout le monde connaît
+ * (image large, titre sur deux lignes, chaîne et vues en dessous, durée dans
+ * un coin), et les colonnes s'ajustent à la largeur du lecteur, qui est
+ * redimensionnable.
+ */
 function rendreVideo(v) {
   return `<li>
-    <button data-video="${echapper(v.id)}" title="${echapper(v.titre)}">
-      ${v.vignette
+    <button class="yt-carte" data-video="${echapper(v.id)}" title="${echapper(v.titre)}">
+      <span class="yt-cadre-vignette">
+        ${v.vignette
     ? `<img class="yt-vignette" src="${echapper(v.vignette)}" alt="" loading="lazy">`
-    : '<span class="sp-vignette yt-vignette"></span>'}
-      <span class="sp-l-infos">
-        <span class="yt-titre">${echapper(v.titre)}</span>
-        <span class="sp-l-artiste">${echapper(v.chaine)}${
-  v.vues ? ` · ${nombre(v.vues)}` : ''}</span>
+    : '<span class="yt-vignette"></span>'}
+        ${v.secondes ? `<span class="yt-duree">${minutes(v.secondes)}</span>` : ''}
       </span>
-      ${v.secondes ? `<span class="sp-temps">${minutes(v.secondes)}</span>` : ''}
+      <span class="yt-carte-titre">${echapper(v.titre)}</span>
+      <span class="yt-carte-meta">${echapper(v.chaine)}${
+  v.vues ? ` · ${nombre(v.vues)}` : ''}</span>
     </button>
   </li>`;
 }
@@ -98,28 +108,29 @@ export function rendreYoutube() {
   if (!etat.configure) { z.innerHTML = rendreNonConfigure(); return; }
 
   z.innerHTML = `
-    <form class="sp-chercher" id="ytForm">
-      <input id="ytQ" placeholder="Chercher sur YouTube…" autocomplete="off"
-        value="${echapper(recherche)}">
+    <form class="sp-chercher yt-chercher" id="ytForm">
+      <input id="ytQ" placeholder="Rechercher une vidéo, une chaîne, un sujet…"
+        autocomplete="off" value="${echapper(recherche)}">
       <button class="btn" type="submit">Chercher</button>
-      <button class="btn" type="button" data-yt="accueil">Accueil</button>
+      ${recherche ? '<button class="btn" type="button" data-yt="accueil">Accueil</button>' : ''}
     </form>
 
     <div class="tw-titre">${recherche
     ? `Résultats pour « ${echapper(recherche)} »`
-    : `Populaires en ce moment · ${echapper(etat.pays)}`}
+    : `Tendances · ${echapper(etat.pays)}`}
       <button class="sp-lien-note" data-yt="ouvrir-site">ouvrir youtube.com</button>
     </div>
 
     ${panne ? `<div class="sp-alerte"><p>${echapper(panne)}</p></div>` : ''}
     ${videos.length
-    ? `<ul class="sp-liste yt-liste">${videos.map(rendreVideo).join('')}</ul>`
+    ? `<ul class="yt-grille">${videos.map(rendreVideo).join('')}</ul>`
     : `<div class="sp-rien">${charge ? 'Rien à afficher.' : 'Chargement…'}</div>`}
 
     <p class="sp-note yt-pourquoi">L'accueil de YouTube lui-même ne peut pas
-      s'afficher ici : le site refuse d'être mis en cadre. La liste ci-dessus
-      vient de l'API officielle, et la lecture, elle, se fait bien dans le
-      lecteur.</p>`;
+      s'afficher ici : le site refuse d'être mis en cadre. Ces vignettes
+      viennent de l'API officielle — les tendances du pays, c'est-à-dire ce que
+      voit un visiteur non connecté — et la lecture, elle, se fait bien dans le
+      cadre ci-dessus.</p>`;
 }
 
 async function charger(quoi) {

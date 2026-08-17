@@ -512,7 +512,16 @@
       <div id="youtubePanneau"></div>
     </div>
     <div class="dock-page" data-page="spotify"><div id="spotifyPanneau"></div></div>
-    <div class="dock-page" data-page="twitch"><div id="twitchPanneau"></div></div>
+    <!-- Twitch a SON cadre, et il est hors du panneau qu'on redessine.
+         Regarder un direct envoyait jusqu'ici dans l'onglet nommé YouTube —
+         on quittait Twitch pour regarder Twitch. Le cadre est posé ici, et
+         `rendreTwitch()` ne le touche jamais : réécrire le HTML autour d'une
+         `<iframe>` la recharge, et le direct repartirait de zéro à chaque
+         rafraîchissement de la liste. -->
+    <div class="dock-page" data-page="twitch">
+      <div class="dock-cadre-boite tw-cadre" id="twitchCadre" hidden></div>
+      <div id="twitchPanneau"></div>
+    </div>
   </div>
 
   <div class="dock-poignee" id="dockPoignee" title="Redimensionner"></div>

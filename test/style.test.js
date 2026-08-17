@@ -316,3 +316,53 @@ test('les animations continues se suspendent quand l\'onglet est caché', () => 
   assert.match(css, /\[data-page="cachee"\][\s\S]{0,220}animation-play-state:\s*paused/,
     'la suspension en arrière-plan a disparu');
 });
+
+/**
+ * ON REGARDE TWITCH DANS L'ONGLET TWITCH.
+ *
+ * Deux règles portent ça, et aucune ne se signale par une erreur si elle
+ * saute.
+ *
+ * 1. Le cadre est posé DANS la page Twitch et HORS de `#twitchPanneau`. Ce
+ *    panneau est réécrit à chaque rendu — au retour d'une catégorie, à chaque
+ *    actualisation de la liste — et réécrire le HTML autour d'une `<iframe>`
+ *    la recharge. Le direct repartirait de zéro sans que rien ne l'explique.
+ * 2. Un média Twitch ne part pas dans le cadre partagé. Il y allait, ce qui
+ *    faisait basculer sur l'onglet nommé « YouTube » pour regarder Twitch, en
+ *    abandonnant la liste où l'on était en train de choisir.
+ */
+test('Twitch se regarde dans son onglet, et son cadre survit aux rendus', () => {
+  const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  const page = html.match(/<div class="dock-page" data-page="twitch">[\s\S]*?<\/div>\s*<\/div>/);
+  assert.ok(page, 'la page Twitch du lecteur a disparu');
+  assert.match(page[0], /id="twitchCadre"/, 'l\'onglet Twitch doit avoir son propre cadre');
+  assert.ok(page[0].indexOf('twitchCadre') < page[0].indexOf('twitchPanneau'),
+    'le cadre est hors du panneau redessiné, sinon chaque rendu recharge la lecture');
+
+  const dock = readFileSync(new URL('../public/dock.js', import.meta.url), 'utf8');
+  assert.match(dock, /media\.type === 'Twitch'[\s\S]{0,80}lireTwitch/,
+    'un média Twitch part dans l\'onglet Twitch, pas dans le cadre partagé');
+
+  const tw = readFileSync(new URL('../public/twitch-ui.js', import.meta.url), 'utf8');
+  const corps = tw.match(/export function rendreTwitch\(\)[\s\S]*?\n}/);
+  assert.ok(corps, 'rendreTwitch a disparu');
+  assert.ok(!corps[0].includes('twitchCadre') && !corps[0].includes('cadre()'),
+    'rendreTwitch ne doit jamais toucher au cadre : il le rechargerait');
+  assert.equal((tw.match(/getElementById\('twitchCadre'\)/g) ?? []).length, 1,
+    'un seul point d\'accès au cadre — plusieurs finissent par diverger');
+});
+
+/**
+ * DEUX CADRES NE PARLENT PAS EN MÊME TEMPS. Chacun garde sa lecture en
+ * changeant d'onglet — c'est tout l'intérêt du lecteur — mais lancer un direct
+ * par-dessus une vidéo donnait deux bandes-son superposées, à couper à la main
+ * sur un onglet qu'on venait de quitter.
+ */
+test('lancer d\'un côté fait taire l\'autre', () => {
+  const dock = readFileSync(new URL('../public/dock.js', import.meta.url), 'utf8');
+  const tw = readFileSync(new URL('../public/twitch-ui.js', import.meta.url), 'utf8');
+  for (const [nom, source] of [['dock.js', dock], ['twitch-ui.js', tw]]) {
+    assert.match(source, /addEventListener\('jc:media'/, `${nom} n'écoute plus l'annonce`);
+    assert.match(source, /CustomEvent\('jc:media'/, `${nom} n'annonce plus sa lecture`);
+  }
+});
