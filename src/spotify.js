@@ -305,6 +305,32 @@ export function corpsDeLecture({ uri, depart } = {}) {
   return corps;
 }
 
+/**
+ * LA FILE QUI RÉPÈTE DIX FOIS LE MÊME MORCEAU.
+ *
+ * Quand un morceau est lancé SEUL — sans playlist, sans album, donc sans
+ * contexte — Spotify n'a rien à annoncer après lui. Son API ne répond pas une
+ * file vide pour autant : elle renvoie **dix fois le morceau en cours**.
+ * Constaté tel quel, `queue` de longueur 10 pour une seule URI distincte,
+ * pendant que `context` valait `null`.
+ *
+ * Affiché brut, ça donne « Ce qui vient : le même titre, dix fois » — ce qui
+ * est faux, et ce qui a l'air d'un défaut d'affichage alors que la donnée
+ * arrive comme ça.
+ *
+ * La règle est volontairement étroite : on ne conclut que si TOUTES les
+ * entrées valent le morceau en cours. Une file où l'on a glissé deux fois le
+ * même titre parmi d'autres reste affichée telle quelle — c'est un choix de
+ * l'utilisateur, pas un artefact.
+ */
+export function resumeFile(d) {
+  const courant = d?.currently_playing?.uri ?? null;
+  const pistes = (d?.queue ?? []).filter(t => t?.uri);
+  const boucle = Boolean(courant && pistes.length
+    && pistes.every(t => t.uri === courant));
+  return { boucle, pistes: boucle ? [] : pistes };
+}
+
 /** Les appareils joignables. Sans l'un d'eux actif, Spotify refuse tout ordre. */
 export function resumeAppareils(d) {
   return (d?.devices ?? []).map(a => ({

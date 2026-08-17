@@ -21,7 +21,7 @@ import { promptChat, resumeEtat } from './chat.js';
 import {
   fabriquerDefi, urlAutorisation, echangerCode, rafraichir, estExpire,
   appeler as appelerSpotify, resumeLecture, corpsDeLecture, resumeAppareils,
-  porteesManquantes, fusionnerPortees, nombreDePistes, pisteDeLEntree,
+  porteesManquantes, fusionnerPortees, nombreDePistes, pisteDeLEntree, resumeFile,
 } from './spotify.js';
 import { chercherParoles, resumeParoles } from './paroles.js';
 import { populaires as ytPopulaires, chercher as ytChercher, dureeIso } from './youtube.js';
@@ -979,8 +979,10 @@ export function creerRoutes({ db, collecter, sources, profil,
    */
   routes.get('/spotify/file', async (req, res) => {
     try {
-      const d = await spotify('/me/player/queue');
-      res.json({ ok: true, file: (d?.queue ?? []).slice(0, 12).filter(Boolean).map(t => ({
+      // `boucle` : Spotify a renvoyé dix fois le morceau en cours, faute
+      // d'avoir quoi que ce soit à annoncer après lui. Voir `resumeFile`.
+      const { boucle, pistes } = resumeFile(await spotify('/me/player/queue'));
+      res.json({ ok: true, boucle, file: pistes.slice(0, 12).map(t => ({
         uri: t.uri, titre: t.name ?? '',
         artistes: (t.artists ?? []).map(a => a.name).join(', '),
         pochette: grandePochette(t.album?.images),

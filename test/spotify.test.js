@@ -12,7 +12,7 @@ import {
   fabriquerDefi, urlAutorisation, echangerCode, rafraichir, estExpire,
   appeler, resumeLecture, corpsDeLecture, resumeAppareils,
   porteesManquantes, fusionnerPortees, PORTEES, PORTEES_LECTEUR,
-  nombreDePistes, pisteDeLEntree,
+  nombreDePistes, pisteDeLEntree, resumeFile,
 } from '../src/spotify.js';
 
 test('le défi est bien l\'empreinte du vérificateur', () => {
@@ -317,4 +317,49 @@ test('les appareils sont réduits à ce qu\'un menu affiche', () => {
   assert.equal(a[0].actif, true);
   assert.equal(a[1].volume, null, 'un volume absent n\'est pas un volume nul');
   assert.deepEqual(resumeAppareils(null), [], 'aucun appareil n\'est un cas normal');
+});
+
+/**
+ * LA FILE QUI RÉPÈTE DIX FOIS LE MÊME MORCEAU.
+ *
+ * Constaté à l'écran : « Ce qui vient » affichait le titre en cours, dix fois
+ * d'affilée. La donnée arrive comme ça — quand un morceau est lancé SEUL,
+ * sans playlist ni album, Spotify n'a rien à annoncer après lui et renvoie
+ * dix fois le morceau courant plutôt qu'une file vide. Mesuré : `queue` de
+ * longueur 10, une seule URI distincte, `context` à `null`.
+ */
+test('une file qui ne répète que le morceau en cours est une file vide', () => {
+  const t = (uri) => ({ uri, name: 'X', artists: [], album: {} });
+  const r = resumeFile({
+    currently_playing: t('spotify:track:A'),
+    queue: Array.from({ length: 10 }, () => t('spotify:track:A')),
+  });
+  assert.equal(r.boucle, true);
+  assert.deepEqual(r.pistes, [], 'annoncer dix fois le titre en cours est un mensonge');
+});
+
+/**
+ * ET LA RÈGLE RESTE ÉTROITE. Mettre deux fois le même morceau à la suite est
+ * un choix ; l'effacer au motif qu'il se répète effacerait du travail de
+ * l'utilisateur. On ne conclut que si TOUT est identique au morceau en cours.
+ */
+test('une vraie file n\'est jamais escamotée', () => {
+  const t = (uri) => ({ uri, name: 'X', artists: [], album: {} });
+  const melange = resumeFile({
+    currently_playing: t('spotify:track:A'),
+    queue: [t('spotify:track:A'), t('spotify:track:B'), t('spotify:track:A')],
+  });
+  assert.equal(melange.boucle, false);
+  assert.equal(melange.pistes.length, 3, 'le même titre deux fois peut être voulu');
+
+  const suite = resumeFile({
+    currently_playing: t('spotify:track:A'),
+    queue: [t('spotify:track:B'), t('spotify:track:C')],
+  });
+  assert.equal(suite.boucle, false);
+  assert.equal(suite.pistes.length, 2);
+
+  assert.deepEqual(resumeFile(null), { boucle: false, pistes: [] });
+  assert.deepEqual(resumeFile({ queue: [] }), { boucle: false, pistes: [] },
+    'une file réellement vide n\'est pas une boucle');
 });

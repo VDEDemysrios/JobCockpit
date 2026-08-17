@@ -34,6 +34,8 @@ let resultats = { morceaux: [], playlists: [], albums: [], artistes: [] };
 let playlists = [];
 let appareils = [];
 let file = [];
+/** Spotify a répété le morceau en cours faute de suite. Voir `resumeFile`. */
+let fileEnBoucle = false;
 let recents = [];
 let recherche = '';
 let onglet = 'playlists';
@@ -380,7 +382,11 @@ function rendreBibliotheque() {
   } else if (onglet === 'file') {
     corps = file.length
       ? rendreSection('Ce qui vient', rendreListe(file))
-      : '<div class="sp-rien">La file est vide — ou l\'appareil ne la partage pas.</div>';
+      : `<div class="sp-rien">${fileEnBoucle
+        ? 'Rien ne suit : ce morceau a été lancé seul, sans playlist ni album. '
+          + 'Spotify répète alors le titre en cours au lieu d\'annoncer une suite '
+          + '— ouvre une playlist, ou glisse des morceaux ici avec ＋.'
+        : 'La file est vide — ou l\'appareil ne la partage pas.'}</div>`;
   } else {
     corps = recents.length
       ? rendreSection('Écoutés récemment', rendreListe(recents, { enfiler: true }))
@@ -660,7 +666,11 @@ const depart = (pistes) => (pistes > 1 ? Math.floor(Math.random() * Math.min(pis
 async function charger(quoi = onglet) {
   try {
     if (quoi === 'playlists') playlists = (await API.spotifyPlaylists()).playlists;
-    else if (quoi === 'file') file = (await API.spotifyFile()).file;
+    else if (quoi === 'file') {
+      const d = await API.spotifyFile();
+      file = d.file;
+      fileEnBoucle = Boolean(d.boucle);
+    }
     else if (quoi === 'recents') recents = (await API.spotifyRecents()).recents;
     else if (quoi === 'paroles') return chargerParoles();
     else return;
