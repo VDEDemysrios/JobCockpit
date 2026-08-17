@@ -265,6 +265,22 @@ export function creerRoutes({ db, collecter, sources, profil }) {
 
     const maj = Object.entries(req.body ?? {}).filter(([cle]) => cle in CHAMPS_SUIVI);
 
+    // UNE DATE DOIT ÊTRE UNE DATE.
+    //
+    // Sans ce contrôle, n'importe quelle chaîne entrait dans la base : le
+    // décompte avant entretien la lisait comme « invalide » et n'affichait
+    // rien, donc l'échéance disparaissait de l'écran sans qu'aucune erreur ne
+    // le dise. Une saisie refusée se corrige ; une échéance muette s'oublie.
+    for (const [cle, valeur] of maj) {
+      if (!['sent', 'relance', 'entretien'].includes(cle)) continue;
+      if (valeur === '' || valeur === null || valeur === undefined) continue;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(valeur))
+          || Number.isNaN(new Date(`${valeur}T00:00:00`).getTime())) {
+        return res.status(400).json({ ok: false,
+          error: `Date invalide pour « ${cle} » : format attendu AAAA-MM-JJ.` });
+      }
+    }
+
     if (maj.length === 0) {
       return res.status(400).json({ ok: false, error: 'Aucun champ de suivi valide fourni.' });
     }

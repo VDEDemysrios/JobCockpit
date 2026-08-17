@@ -30,31 +30,43 @@ exception près, signalée plus bas.
 
 ## 1. Démarrer l'application
 
-Il faut **Node.js version 22 ou plus récente**. Pour vérifier, ouvre un terminal
-et tape :
+### Sur Windows : rien à installer
 
-```bash
-node --version
-```
+1. Télécharge `JobCockpit-1.0.0-windows.zip` depuis les
+   [versions publiées](https://github.com/VDEDemysrios/JobCockpit/releases).
+2. Décompresse-le où tu veux — un dossier que tu peux déplacer d'un bloc.
+3. Double-clique **`JobCockpit.exe`**, puis ouvre <http://localhost:3000>.
 
-Si la commande est inconnue ou affiche moins que `v22`, installe Node depuis
-[nodejs.org](https://nodejs.org) (bouton « LTS »).
+**Node.js n'est pas nécessaire** : le moteur est dans l'exécutable. Il n'y a
+rien à préparer non plus — l'application s'ouvre sur un assistant qui demande
+ce qu'on ne peut pas deviner (ton nom, ce que tu cherches, où) et écrit
+lui-même sa configuration.
 
-Ensuite, une seule fois :
+Pour arrêter : ferme la fenêtre, ou termine `JobCockpit.exe` dans le
+gestionnaire des tâches.
+
+> ⚠ **Windows affichera « Windows a protégé votre ordinateur »** :
+> *Informations complémentaires* → *Exécuter quand même*. L'exécutable n'est
+> pas signé — voir les notes de la version publiée pour le détail, et pourquoi.
+
+### Sur macOS, Linux, ou pour modifier le code
+
+Il faut **Node.js 22 ou plus récent** (`node --version` ; sinon
+[nodejs.org](https://nodejs.org), bouton « LTS »).
 
 ```bash
 npm install
 ```
 
-Puis, à chaque fois que tu veux utiliser l'application :
+Puis, à chaque utilisation :
 
 ```bash
 npm start
 ```
 
-Ouvre ton navigateur sur **http://localhost:3000**.
+Ouvre <http://localhost:3000>. Pour arrêter : `Ctrl+C` dans le terminal.
 
-Pour arrêter : reviens dans le terminal et fais `Ctrl+C`.
+Pour fabriquer l'exécutable Windows toi-même : `npm run exe`.
 
 ---
 
@@ -131,15 +143,22 @@ Laisse vides les lignes des services que tu n'as pas encore.
 Le programme compare chaque offre à ton CV réel. Sans lui, pas d'analyse ni de
 lettres.
 
+**Fais-le glisser sur la vue « Mon CV ».** C'est tout : `.docx` ou `.txt`, le
+texte est extrait sur place. L'assistant de premier lancement le propose aussi.
+
+Le CV et sa copie **ne quittent pas ton ordinateur**, sauf pour être envoyés à
+Google Gemini au moment de l'analyse (voir la section 8).
+
+Redépose-le à chaque mise à jour de ton CV — une pastille rouge apparaît dans
+la navigation si le fichier a changé depuis la dernière extraction.
+
+<details><summary>En ligne de commande, si tu travailles depuis les sources</summary>
+
 ```bash
-npm run extract-cv -- "C:/Users/TonNom/Documents/CV.docx"
+npm run extract-cv -- "C:/chemin/vers/CV.docx"
 ```
 
-Le texte est extrait dans `profile/cv.txt`. Le CV et sa copie **ne quittent pas
-ton ordinateur**, sauf pour être envoyés à Google Gemini au moment de l'analyse
-(voir la section 8).
-
-Relance cette commande à chaque fois que tu mets ton CV à jour.
+</details>
 
 Vérifie aussi le bloc `candidat` dans `profile/profile.json`. Il alimente
 l'en-tête de tes lettres Word, le nom des exports, et la salutation du tableau
@@ -566,7 +585,7 @@ que tu avais triées à la main.
 
 | Symptôme | Cause probable et solution |
 |---|---|
-| « Le serveur ne répond pas » | L'application n'est pas démarrée. Lance `npm start`. |
+| « Le serveur ne répond pas » | L'application n'est pas démarrée. Double-clique `JobCockpit.exe` — ou `npm start` depuis les sources. |
 | « Aucune source configurée » | Aucune clé dans `.env`. Voir la section 2. |
 | La collecte ne trouve rien | Normal si tes intitulés sont pointus. Élargis `intitules` dans `profile.json`, ou ajoute une source. |
 | Les offres arrivent sans analyse | Quota Gemini atteint (200 requêtes/jour par défaut, réglable dans profile.json), ou `GEMINI_API_KEY` absente. Ça repartira tout seul le lendemain. |

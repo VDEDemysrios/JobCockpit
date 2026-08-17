@@ -48,7 +48,34 @@ function tourneEncore() {
 function arreterApplication() {
   try {
     if (!tourneEncore()) return false;
-    execFileSync('taskkill', ['/IM', 'JobCockpit.exe', '/F'], { stdio: 'ignore' });
+
+    // ON DEMANDE AVANT D'EXIGER.
+    //
+    // `taskkill /F` tue sans préavis : le gestionnaire de SIGTERM du serveur —
+    // celui qui arrête le planificateur PUIS ferme la base — n'est jamais
+    // exécuté. Or fermer la base est ce qui vide son journal WAL dans le
+    // fichier principal. Chaque mise à jour se faisait donc sur une base
+    // laissée en plan, à charge pour l'ouverture suivante de la récupérer.
+    //
+    // On tente donc une fermeture ordinaire, et on ne force qu'à défaut. Le
+    // pire cas coûte deux secondes et demie ; le meilleur évite de couper une
+    // écriture au milieu.
+    // Le try est ISOLÉ : sans fenêtre à qui envoyer sa demande de fermeture,
+    // `taskkill` sans /F sort en erreur. Dans un try partagé, cette sortie
+    // emportait tout l'arrêt — le repli en force n'était jamais atteint, et
+    // la mise à jour échouait sur un « resource busy » quelques lignes plus
+    // loin. Une tentative qui échoue doit rester une tentative.
+    try {
+      execFileSync('taskkill', ['/IM', 'JobCockpit.exe'], { stdio: 'ignore' });
+      const douceur = Date.now() + 2500;
+      while (tourneEncore() && Date.now() < douceur) {
+        execFileSync(process.execPath, ['-e', 'setTimeout(()=>{},150)']);
+      }
+    } catch { /* pas de fermeture en douceur possible : on forcera */ }
+
+    if (tourneEncore()) {
+      execFileSync('taskkill', ['/IM', 'JobCockpit.exe', '/F'], { stdio: 'ignore' });
+    }
 
     // ON ATTEND LA DISPARITION RÉELLE, PAS UN DÉLAI AU JUGÉ.
     //

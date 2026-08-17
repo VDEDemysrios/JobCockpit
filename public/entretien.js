@@ -246,7 +246,7 @@ export async function ouvrirEntretien(offre, toast) {
     return toast('La clé Gemini est nécessaire pour préparer un entretien.', 'erreur');
   }
   afficher(etat);
-  ouvrirSurcouche('entretien');
+  ouvrirSurcouche(boite(), { titre: 'Entretien blanc' });
 }
 
 /** Demande la fiche sans passer par la séance : elle n'en dépend pas. */
@@ -258,7 +258,7 @@ export async function ouvrirFiche(offre, toast) {
     return toast('La clé Gemini est nécessaire.', 'erreur');
   }
   afficher(etat);
-  ouvrirSurcouche('entretien');
+  ouvrirSurcouche(boite(), { titre: 'Entretien blanc' });
   if (!etat.fiche) await demanderFiche(toast);
 }
 
@@ -430,7 +430,7 @@ export function installerEntretien(toast) {
     if (!bouton || !offreEnCours) return;
     const quoi = bouton.dataset.ent;
 
-    if (quoi === 'fermer') return fermerSurcouche('entretien');
+    if (quoi === 'fermer') return fermerSurcouche(boite());
 
     if (quoi === 'debrief') {
       bouton.disabled = true;
