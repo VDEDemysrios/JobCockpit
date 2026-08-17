@@ -1895,3 +1895,16 @@ ul.mini li{margin-bottom:5px;}
   .dos{flex-wrap:wrap;}
   .dos-etat{width:100%;justify-content:flex-start;}
 }
+
+/* Décompte avant entretien. La couleur suit l'urgence, pas l'esthétique :
+   au-delà d'une semaine on a le temps, en deçà on ne l'a plus. */
+.dos-jour{font-size:11.5px;font-weight:var(--w-semi);padding:2px 9px;
+  border-radius:var(--r2);white-space:nowrap;}
+.dos-jour.loin{background:var(--infob);color:var(--info);}
+.dos-jour.proche{background:var(--g2b);color:var(--g2);}
+.dos-jour.demain{background:var(--hotb);color:var(--hot);}
+.dos-jour.passe{background:var(--g0b);color:var(--muted);}
+.dos.urgent{border-left:3px solid var(--hot);padding-left:var(--e3);}
+.dos-alerte{font-size:12px;color:var(--hot);background:var(--hotb);
+  border-radius:var(--r2);padding:var(--e2) var(--e3);margin:0 0 var(--e3);
+  line-height:1.5;}

@@ -45,8 +45,41 @@ export function celebrer(intensite = 44) {
  * un entretien coûte plus cher que ne pas postuler à une offre qui restera
  * ouverte quelques jours.
  */
+/**
+ * Jours avant un entretien. Comparaison à MINUIT des deux côtés : sans cela,
+ * un entretien fixé ce matin à 9 h serait compté « demain » l'après-midi même.
+ */
+function joursAvantEntretien(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  if (Number.isNaN(d.getTime())) return -1;
+  const aujourdhui = new Date();
+  aujourdhui.setHours(0, 0, 0, 0);
+  return Math.round((d - aujourdhui) / 86400000);
+}
+
 export function actionsDuJour(offres) {
   const actions = [];
+
+  // 0. LES ENTRETIENS DATÉS, AVANT TOUT LE RESTE.
+  //
+  // Une relance oubliée se rattrape le lendemain ; une candidature non
+  // envoyée le reste sans conséquence. Un entretien, non. C'est la seule
+  // échéance d'une recherche d'emploi qu'on ne peut ni décaler ni refaire,
+  // et c'est aussi celle qui décide. Elle passe donc devant.
+  offres
+    .filter(o => o.suivi.entretien && joursAvantEntretien(o.suivi.entretien) >= 0)
+    .sort((a, b) => joursAvantEntretien(a.suivi.entretien) - joursAvantEntretien(b.suivi.entretien))
+    .forEach(o => {
+      const j = joursAvantEntretien(o.suivi.entretien);
+      const quand = j === 0 ? "aujourd'hui" : j === 1 ? 'demain' : `dans ${j} jours`;
+      actions.push({
+        rang: -1, classe: j <= 2 ? 'urgent' : 'chaud', icone: icone('poignee', 13),
+        offre: o, groupe: 'Urgent',
+        titre: o.titre,
+        sous: `${o.entreprise || 'Entretien'} · entretien ${quand}`,
+        quoi: 'Préparer',
+      });
+    });
 
   // 1. Relances en retard — le plus coûteux à laisser filer.
   offres.filter(relanceDue).forEach(o => {
@@ -59,15 +92,18 @@ export function actionsDuJour(offres) {
     });
   });
 
-  // 2. Entretiens à préparer.
-  offres.filter(o => o.suivi.status === 'Entretien').forEach(o => {
-    actions.push({
-      rang: 1, classe: 'chaud', icone: icone('poignee', 13), offre: o, groupe: 'Urgent',
-      titre: o.titre,
-      sous: `${o.entreprise} · entretien en cours — prépare tes arguments`,
-      quoi: 'Préparer',
+  // 2. Entretiens décrochés mais SANS DATE : on ne peut pas les classer par
+  //    urgence, mais les taire reviendrait à les oublier.
+  offres
+    .filter(o => o.suivi.status === 'Entretien' && !o.suivi.entretien)
+    .forEach(o => {
+      actions.push({
+        rang: 1, classe: 'chaud', icone: icone('poignee', 13), offre: o, groupe: 'Urgent',
+        titre: o.titre,
+        sous: `${o.entreprise} · entretien décroché — note la date pour qu'elle compte`,
+        quoi: 'Préparer',
+      });
     });
-  });
 
   // 3. Offres prioritaires jamais envoyées, les plus fraîches d'abord.
   offres
@@ -400,6 +436,10 @@ export function rendreCarte(offre, actions) {
       <div class="track-field"><label>Statut</label><select data-champ="status">${STATUSES.map(x => `<option ${x === s.status ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
       <div class="track-field"><label>Date d'envoi</label><input type="date" data-champ="sent" value="${s.sent}"></div>
       <div class="track-field"><label>Relance prévue</label><input type="date" data-champ="relance" value="${s.relance}"></div>
+      <!-- La seule échéance qu'on ne peut ni décaler ni rattraper. Elle est
+           donc saisissable dès l'envoi, sans attendre le statut « Entretien » :
+           on reçoit la convocation avant de penser à changer le statut. -->
+      <div class="track-field"><label>Entretien le</label><input type="date" data-champ="entretien" value="${s.entretien ?? ''}"></div>
       ${due ? '<span class="relance-flag">⏰ Relance à faire !</span>' : ''}
     </div>
     <textarea class="notes-area" data-champ="notes" placeholder="Notes : contact, prépa entretien, ressenti…">${echapper(s.notes)}</textarea></div>`;

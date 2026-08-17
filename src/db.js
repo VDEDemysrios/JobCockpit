@@ -147,6 +147,25 @@ export function ouvrirBase(chemin = 'data.db') {
   // WAL : autorise une lecture (le serveur) pendant une écriture (la collecte).
   // Sans effet sur ':memory:', qui reste en mode « memory » — c'est normal.
   db.exec('PRAGMA journal_mode = WAL');
+
+  // DURABILITÉ AVANT VITESSE.
+  //
+  // En mode WAL, SQLite se contente par défaut de `synchronous = NORMAL` : il
+  // ne force l'écriture sur le disque qu'aux points de contrôle, pas à chaque
+  // validation. C'est le bon compromis pour une base qui encaisse des
+  // milliers d'écritures par seconde. Ce n'est pas la nôtre.
+  //
+  // Ici, une écriture, c'est « j'ai postulé », « entretien le 26 » — quelques
+  // dizaines par jour, dans une application qu'on ferme, qu'on met à jour,
+  // qu'on relance. Le coût de `FULL` est invisible à ce volume ; le coût
+  // d'une candidature perdue ne l'est pas.
+  //
+  // Motivé par une perte constatée : une date d'entretien écrite et confirmée
+  // par l'API, absente de la base après un arrêt suivi d'une mise à jour. Un
+  // seul cas, non reproduit — mais sur ces données-là, une explication qui
+  // manque ne se paie pas au même prix qu'un peu de lenteur.
+  db.exec('PRAGMA synchronous = FULL');
+
   db.exec('PRAGMA foreign_keys = ON');
   db.exec(SCHEMA);
   ajouterColonnesManquantes(db);
@@ -182,6 +201,12 @@ export function ajouterColonnesManquantes(db) {
     // Les pages réellement consultées par le modèle lors de la recherche
     // ancrée : de quoi aller lire le texte au lieu de croire une définition.
     ['entretiens', 'liens', 'TEXT'],
+    // La DATE de l'entretien. Le statut « Entretien » existait sans elle :
+    // l'application savait qu'un entretien était décroché, jamais quand il
+    // avait lieu. Elle ne pouvait donc ni le rappeler, ni en tirer une
+    // urgence — alors que c'est la seule échéance d'une recherche d'emploi
+    // qu'on ne peut ni décaler ni rattraper.
+    ['tracking', 'entretien_date', 'TEXT'],
   ];
   for (const [table, colonne, type] of NOUVELLES) {
     const existe = db.prepare(`SELECT COUNT(*) n FROM pragma_table_info(?) WHERE name = ?`)

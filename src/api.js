@@ -80,7 +80,7 @@ export function creerRoutes({ db, collecter, sources, profil }) {
   function lireOffres() {
     return db.prepare(`
       SELECT o.*,
-             t.status, t.sent_date, t.relance_date, t.notes, t.pinned,
+             t.status, t.sent_date, t.entretien_date, t.relance_date, t.notes, t.pinned,
              CASE WHEN l.offer_id IS NULL THEN 0 ELSE 1 END AS a_lettre,
              COALESCE(l.edited, 0) AS lettre_editee
       FROM offers o
@@ -122,6 +122,7 @@ export function creerRoutes({ db, collecter, sources, profil }) {
         status: o.status ?? 'À postuler',
         sent: o.sent_date ?? '',
         relance: o.relance_date ?? '',
+        entretien: o.entretien_date ?? '',
         notes: o.notes ?? '',
         pinned: Boolean(o.pinned),
       },
@@ -235,6 +236,13 @@ export function creerRoutes({ db, collecter, sources, profil }) {
   const CHAMPS_SUIVI = {
     status: 'status', sent: 'sent_date', relance: 'relance_date',
     notes: 'notes', pinned: 'pinned',
+    // LA DATE D'ENTRETIEN.
+    //
+    // Le statut « Entretien » existait, mais sans date : l'application savait
+    // qu'on en était là, jamais QUAND. Or c'est la seule échéance d'une
+    // recherche d'emploi qu'on ne peut ni décaler ni rattraper — et la seule
+    // qui mérite de passer devant tout le reste du tableau de bord.
+    entretien: 'entretien_date',
   };
 
   /**
@@ -639,7 +647,7 @@ export function creerRoutes({ db, collecter, sources, profil }) {
   routes.get('/entretiens', (req, res) => {
     const lignes = db.prepare(`
       SELECT o.id, o.titre, o.entreprise, o.ville, o.date_offre,
-             t.status, t.sent_date,
+             t.status, t.sent_date, t.entretien_date,
              e.echanges, e.debrief, e.fiche, e.notions, e.maj_le
       FROM offers o
       LEFT JOIN tracking t   ON t.offer_id = o.id
@@ -655,6 +663,7 @@ export function creerRoutes({ db, collecter, sources, profil }) {
       return {
         id: l.id, titre: l.titre, entreprise: l.entreprise, ville: l.ville,
         statut: l.status ?? 'À postuler', envoyeLe: l.sent_date ?? '',
+        entretienLe: l.entretien_date ?? '',
         questions: echanges.filter(x => x.role === 'jury').length,
         total: QUESTIONS_PAR_SEANCE,
         cartes: notions.length,

@@ -277,6 +277,36 @@ async function demanderFiche(toast) {
 }
 
 /**
+ * Combien de jours avant l'entretien. Null si aucune date.
+ *
+ * Comparaison à MINUIT des deux côtés : sans cela, un entretien fixé ce matin
+ * à 9 h serait compté « demain » l'après-midi même, et « aujourd'hui » ne
+ * s'afficherait jamais le jour où il compte le plus.
+ */
+function joursAvant(iso) {
+  if (!iso) return null;
+  const d = new Date(iso + 'T00:00:00');
+  if (Number.isNaN(d.getTime())) return null;
+  const aujourdhui = new Date();
+  aujourdhui.setHours(0, 0, 0, 0);
+  return Math.round((d - aujourdhui) / 86400000);
+}
+
+/** Le décompte, dit comme on le dit à voix haute. */
+function compteARebours(jours) {
+  if (jours === null) return null;
+  if (jours < 0) return { jours, texte: 'passé', classe: 'passe', urgent: false };
+  if (jours === 0) return { jours, texte: "aujourd'hui", classe: 'demain', urgent: true };
+  if (jours === 1) return { jours, texte: 'demain', classe: 'demain', urgent: true };
+  return {
+    jours,
+    texte: `dans ${jours} jours`,
+    classe: jours <= 7 ? 'proche' : 'loin',
+    urgent: jours <= 7,
+  };
+}
+
+/**
  * LA LISTE DES DOSSIERS, dans sa propre vue.
  *
  * Ce qu'on veut savoir en arrivant ici est simple, et tient en une ligne par
@@ -310,17 +340,29 @@ export async function rendreDossiers(toast) {
     return;
   }
 
+  // Les entretiens datés passent devant, du plus proche au plus lointain :
+  // c'est la seule échéance qu'on ne peut ni décaler ni rattraper.
+  const avecJours = dossiers.map(o => ({ ...o, jours: joursAvant(o.entretienLe) }));
+  avecJours.sort((a, b) => {
+    if (a.jours === null && b.jours === null) return 0;
+    if (a.jours === null) return 1;
+    if (b.jours === null) return -1;
+    return a.jours - b.jours;
+  });
+
   zone.innerHTML = `<div class="panel-box"><div class="dos-liste">
-    ${dossiers.map(o => {
+    ${avecJours.map(o => {
       const commence = o.questions > 0 || o.cartes > 0;
+      const c = compteARebours(o.jours);
       return `
-      <div class="dos" data-dossier="${echapper(o.id)}">
+      <div class="dos${c?.urgent ? ' urgent' : ''}" data-dossier="${echapper(o.id)}">
         <div class="dos-t">
           <div class="dos-titre">${echapper(o.titre)}</div>
           <div class="dos-sous">${echapper([o.entreprise, o.ville].filter(Boolean).join(' · ') || '—')}
             ${o.envoyeLe ? `· envoyée le ${echapper(o.envoyeLe)}` : ''}</div>
         </div>
         <div class="dos-etat">
+          ${c ? `<span class="dos-jour ${c.classe}">${echapper(c.texte)}</span>` : ''}
           ${commence ? `
             <span class="dos-jauge" title="Questions posées">${o.questions}/${o.total} questions</span>
             <span class="dos-jauge" title="Cartes révisées">${o.cartesSues}/${o.cartes} cartes</span>
@@ -330,7 +372,11 @@ export async function rendreDossiers(toast) {
         </div>
         <button class="btn btn-primary" data-ouvrir="${echapper(o.id)}">
           ${commence ? 'Reprendre' : 'Préparer'}</button>
-      </div>`;
+      </div>
+      ${c && !commence && c.jours <= 14
+        ? `<div class="dos-alerte">Entretien ${c.texte.toLowerCase()} et rien de préparé.
+             Une séance de huit questions prend vingt minutes.</div>`
+        : ''}`;
     }).join('')}
   </div></div>`;
 
