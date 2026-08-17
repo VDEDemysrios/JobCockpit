@@ -1968,3 +1968,104 @@ ul.mini li{margin-bottom:5px;}
 .chill-aide{display:inline-flex;align-items:center;justify-content:center;
   width:15px;height:15px;border-radius:50%;background:var(--g0b);
   color:var(--muted);font-size:10px;font-weight:var(--w-semi);cursor:help;}
+
+/* ═══════════════════════ JEUX ═══════════════════════ */
+
+.jeux-choix{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  gap:var(--e3);}
+.jeu-carte{display:flex;flex-direction:column;align-items:flex-start;gap:var(--e2);
+  text-align:left;font-family:inherit;background:var(--panel);
+  border:1px solid var(--line);border-radius:var(--r3);padding:var(--e5);
+  cursor:pointer;color:var(--ink);transition:border-color .15s,transform .15s;}
+.jeu-carte:hover{border-color:var(--accent);transform:translateY(-2px);}
+.jeu-icone{font-size:38px;line-height:1;color:var(--accent);}
+.jeu-nom{font-size:15px;font-weight:var(--w-semi);}
+.jeu-desc{font-size:12.5px;color:var(--muted);line-height:1.55;}
+.jeu-boite h3{display:flex;align-items:center;gap:var(--e2);}
+
+/* ── Échecs ─────────────────────────────────────────────────────────────
+   Le plateau garde ses proportions par `aspect-ratio` : une case d'échecs
+   qui n'est pas carrée se voit immédiatement, et gâche tout. */
+.ec-grille{display:flex;gap:var(--e5);align-items:flex-start;flex-wrap:wrap;}
+.ec-plateau-zone{position:relative;flex:0 0 auto;padding:0 0 16px 16px;}
+.ec-plateau{display:grid;grid-template-columns:repeat(8,1fr);
+  width:min(72vh,520px);aspect-ratio:1;border-radius:var(--r3);overflow:hidden;
+  box-shadow:var(--sh3);}
+.ec-plateau.finie{opacity:.75;}
+.ec-case{border:0;padding:0;cursor:pointer;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .12s;}
+.ec-case.claire{background:#efe6d6;}
+.ec-case.sombre{background:#b08462;}
+[data-theme="dark"] .ec-case.claire,[data-theme="cockpit"] .ec-case.claire{background:#cfc4b0;}
+[data-theme="dark"] .ec-case.sombre,[data-theme="cockpit"] .ec-case.sombre{background:#7a5c44;}
+
+.ec-piece{font-size:min(8.4vh,60px);line-height:1;user-select:none;
+  transition:transform .12s;}
+/* Les blancs sont blancs, les noirs sont noirs — et les DEUX portent un
+   contour. Sans lui, le glyphe blanc disparaît sur une case claire. */
+.ec-piece.blanc{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.55),0 0 1px #000;}
+.ec-piece.noir{color:#1a1a1a;text-shadow:0 1px 2px rgba(255,255,255,.25);}
+.ec-case:hover .ec-piece{transform:scale(1.06);}
+
+.ec-case.choisie{background:#7fb069 !important;}
+.ec-case.dernier::after{content:"";position:absolute;inset:0;
+  background:rgba(255,214,102,.35);pointer-events:none;}
+/* La destination possible : un point au centre, une couronne si c'est une
+   prise. C'est la convention de tous les jeux en ligne — on la lit sans
+   l'apprendre. */
+.ec-case.permise::before{content:"";width:26%;height:26%;border-radius:50%;
+  background:rgba(0,0,0,.22);}
+.ec-case.prise::before{content:"";position:absolute;inset:6%;border-radius:50%;
+  border:4px solid rgba(0,0,0,.22);}
+.ec-case.echec{background:#e06666 !important;}
+
+.ec-rangs,.ec-colonnes{position:absolute;display:flex;font-size:10.5px;
+  color:var(--muted);font-variant-numeric:tabular-nums;}
+.ec-rangs{left:0;top:0;bottom:16px;width:16px;flex-direction:column;}
+.ec-rangs span,.ec-colonnes span{flex:1;display:flex;align-items:center;justify-content:center;}
+.ec-colonnes{left:16px;right:0;bottom:0;height:16px;}
+
+.ec-cote{flex:1;min-width:200px;display:flex;flex-direction:column;gap:var(--e3);}
+.ec-etat{font-size:13.5px;font-weight:var(--w-semi);padding:var(--e3);
+  background:var(--bg2);border-radius:var(--r2);min-height:20px;}
+.ec-etat.echec{background:var(--hotb);color:var(--hot);}
+.ec-etat.fin{background:var(--accent-bg);color:var(--accent-ink);}
+.ec-niveau{display:flex;align-items:center;gap:var(--e2);font-size:12.5px;
+  color:var(--muted);}
+.ec-coups{list-style:none;margin:0;padding:0;font-family:var(--mono);
+  font-size:12px;max-height:34vh;overflow-y:auto;counter-reset:tour;}
+.ec-coups li{display:flex;gap:var(--e3);padding:2px 0;counter-increment:tour;}
+.ec-coups li::before{content:counter(tour) ".";color:var(--faint);min-width:24px;}
+.ec-coups li span{min-width:64px;}
+.ec-rien{color:var(--muted);font-family:var(--font);}
+.ec-actions{display:flex;gap:var(--e2);}
+
+/* ── Démineur ───────────────────────────────────────────────────────── */
+.dm-barre{display:flex;align-items:center;gap:var(--e4);margin-bottom:var(--e2);
+  flex-wrap:wrap;}
+.dm-etat{font-size:13.5px;font-weight:var(--w-semi);font-variant-numeric:tabular-nums;}
+.dm-etat.fin{color:var(--accent);}
+.dm-niveaux{display:flex;gap:var(--e2);margin-left:auto;}
+.dm-niv{font-family:inherit;font-size:11.5px;color:var(--muted);
+  background:transparent;border:1px solid var(--line-fort);border-radius:var(--r2);
+  padding:3px 10px;cursor:pointer;}
+.dm-niv:hover{background:var(--bg2);color:var(--ink);}
+.dm-niv.actif{background:var(--accent);border-color:var(--accent);color:#fff;}
+.dm-aide{font-size:12px;color:var(--muted);margin:0 0 var(--e3);}
+
+.dm-grille{display:grid;gap:2px;width:max-content;max-width:100%;
+  overflow-x:auto;padding:2px;background:var(--line);border-radius:var(--r2);}
+.dm-case{width:28px;height:28px;border:0;padding:0;cursor:pointer;
+  font-family:inherit;font-size:14px;font-weight:var(--w-bold);
+  background:var(--bg2);border-radius:2px;line-height:1;
+  display:flex;align-items:center;justify-content:center;transition:background .1s;}
+.dm-case:hover{background:var(--line-fort);}
+.dm-case.ouvert{background:var(--panel);cursor:default;}
+.dm-case.drapeau{color:var(--hot);}
+.dm-case.mine{background:var(--hotb);color:var(--hot);}
+/* Les couleurs classiques du démineur : elles sont dans la tête de tout le
+   monde depuis trente ans, en changer ralentirait la lecture. */
+.dm-case.v1{color:#1976d2;} .dm-case.v2{color:#388e3c;} .dm-case.v3{color:#d32f2f;}
+.dm-case.v4{color:#512da8;} .dm-case.v5{color:#8d4e00;} .dm-case.v6{color:#0097a7;}
+.dm-case.v7{color:#424242;} .dm-case.v8{color:#757575;}

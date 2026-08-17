@@ -34,6 +34,7 @@
       <button data-view="agenda"><span data-ic="calendrier" data-ic-taille="18"></span> Agenda <span class="nvbadge" id="nb-agenda" style="display:none"></span></button>
       <button data-view="entretiens"><span data-ic="cible" data-ic-taille="18"></span> Entretiens <span class="nvbadge" id="nb-entretiens" style="display:none"></span></button>
       <button data-view="chill"><span data-ic="etoile" data-ic-taille="18"></span> Chill</button>
+      <button data-view="jeux"><span data-ic="colonnes" data-ic-taille="18"></span> Jeux</button>
       <button data-view="cv"><span data-ic="parchemin" data-ic-taille="18"></span> Mon CV <span class="nvbadge" id="nb-cv" style="display:none">!</span></button>
       <button data-view="options"><span data-ic="reglages" data-ic-taille="18"></span> Options</button>
     </nav>
@@ -306,6 +307,16 @@
          on discute, on met du son. C'est aussi une manière de tenir dans la
          durée — chercher un emploi est long, et l'outil qui ne fait que
          rappeler ce qu'il reste à faire finit par se refermer. -->
+    <!-- ══════════════ JEUX ══════════════
+         Une pause de dix minutes entre deux candidatures n'a pas besoin d'un
+         blockbuster : elle a besoin de quelque chose qui démarre en un clic,
+         se quitte sans sauvegarder, et qui soit vraiment bon dans son genre. -->
+    <div class="view" id="view-jeux" style="display:none">
+      <div class="view-head"><div><h2><span data-ic="colonnes" data-ic-taille="17"></span> Jeux</h2>
+        <div class="vh-sub">Deux jeux complets, rien à installer.</div></div></div>
+      <div id="jeuxZone"></div>
+    </div>
+
     <div class="view" id="view-chill" style="display:none">
       <div class="view-head"><div><h2><span data-ic="etoile" data-ic-taille="17"></span> Chill</h2>
         <div class="vh-sub">Parler d'autre chose, avec du son. Rien à connecter.</div></div></div>

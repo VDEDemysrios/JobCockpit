@@ -11,6 +11,7 @@ import { lancerTutoriel } from './tutoriel.js';
 import { installerEditeurVilles, enregistrerVilles } from './villes.js';
 import { ouvrirEntretien, ouvrirFiche, installerEntretien, rendreDossiers } from './entretien.js';
 import { rendreChill, installerChill } from './chill.js';
+import { rendreJeux, installerJeux } from './jeux.js';
 import {
   rendreCarte, rendreKanban, rendreAgenda, relanceDue, rendreFocus, rendreTroisDuJour,
   actionsDuJour, celebrer,
@@ -26,7 +27,7 @@ const dansNJours = (n) => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 };
 
-const VUES = ['dashboard', 'offers', 'kanban', 'agenda', 'entretiens', 'chill', 'cv', 'options'];
+const VUES = ['dashboard', 'offers', 'kanban', 'agenda', 'entretiens', 'chill', 'jeux', 'cv', 'options'];
 const THEMES = ['vivid', 'enr', 'dark', 'cockpit'];
 
 /** Onglet fourre-tout : tout ce qui n'est rattaché à aucune ville prioritaire. */
@@ -404,6 +405,7 @@ function rendreTout() {
   else if (etat.vue === 'agenda') rendreAgenda(etat.offres, ouvrirOffre);
   else if (etat.vue === 'entretiens') rendreDossiers(toast);
   else if (etat.vue === 'chill') rendreChill();
+  else if (etat.vue === 'jeux') rendreJeux();
 
   poserIcones();
   // Les rouleaux se lancent une fois le balisage en place : anim.js écrit
@@ -1264,6 +1266,7 @@ function signalerVillesModifiees(modifie = true) {
 installerEditeurVilles({ signaler: signalerVillesModifiees });
 installerEntretien(toast);
 installerChill(toast);
+installerJeux();
 
 document.getElementById('villesSave').addEventListener('click', async (e) => {
   e.target.disabled = true;
