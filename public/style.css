@@ -2116,17 +2116,10 @@ ul.mini li{margin-bottom:5px;}
 .dock-note code{font-family:var(--mono);font-size:10.5px;background:var(--bg2);
   padding:1px 4px;border-radius:3px;}
 
-.dock-lien{display:flex;gap:var(--e2);flex:0 0 auto;}
-.dock-lien input{flex:1;min-width:0;font-family:inherit;font-size:12.5px;
-  color:var(--ink);background:var(--panel);border:1px solid var(--line-fort);
-  border-radius:var(--r2);padding:5px var(--e3);}
-.dock-session{flex:0 0 auto;display:flex;flex-direction:column;gap:4px;}
-.dock-bascule{display:flex;align-items:center;gap:6px;font-size:12px;
-  color:var(--muted);cursor:pointer;}
-.dock-bascule input{width:15px;height:15px;flex:0 0 auto;cursor:pointer;}
-.dock-lien-txt{align-self:flex-start;font-family:inherit;font-size:11.5px;
-  color:var(--accent);background:transparent;border:0;padding:0;cursor:pointer;
-  text-decoration:underline;}
+/* Le champ « coller un lien » et la bascule « ma session YouTube » ont été
+   retirés — on ne tape plus d'adresse, on ne se connecte pas. Leurs styles
+   (`.dock-lien`, `.dock-session`, `.dock-bascule`, `.dock-lien-txt`) sont
+   partis avec eux. */
 
 /* RÉDUIT, LE CORPS RESTE RENDU. `visibility:hidden` le retire de la vue sans
    le retirer du rendu : c'est ce qui permet de ranger le lecteur dans un coin
@@ -2374,7 +2367,7 @@ body.dock-glisse iframe{pointer-events:none;}
 .tw-grille{list-style:none;margin:0 0 var(--e3);padding:0;display:grid;
   grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:var(--e2);}
 .tw-carte{display:flex;flex-direction:column;gap:4px;width:100%;padding:0;
-  background:none;border:0;cursor:pointer;text-align:left;}
+  background:none;border:0;cursor:pointer;text-align:left;color:var(--ink);}
 .tw-jaquette{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:var(--r1);
   background:var(--bg2);transition:transform .15s,box-shadow .15s;}
 .tw-carte:hover .tw-jaquette{transform:translateY(-2px);box-shadow:var(--sh2);}
@@ -2563,8 +2556,13 @@ body.dock-glisse iframe{pointer-events:none;}
    qu'une grille figée laissait soit à moitié vide, soit débordante. */
 .yt-grille{list-style:none;margin:0;padding:0;display:grid;
   grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:var(--e3) var(--e2);}
+/* `color` EXPLICITE, SINON LE TITRE EST ILLISIBLE.
+   Un <button> n'hérite pas du texte de la page : sans cette ligne il prend la
+   couleur de bouton par défaut du navigateur — un gris terne sur fond sombre.
+   Les titres de vidéos sortaient donc délavés, ce qui ressemblait à un défaut
+   d'affichage. On rétablit le texte clair du thème, et le méta le rabaisse. */
 .yt-carte{display:flex;flex-direction:column;gap:5px;width:100%;padding:0;
-  background:none;border:0;cursor:pointer;text-align:left;}
+  background:none;border:0;cursor:pointer;text-align:left;color:var(--ink);}
 .yt-cadre-vignette{position:relative;display:block;width:100%;}
 .yt-vignette{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;
   border-radius:var(--r2);background:var(--bg2);
@@ -2573,7 +2571,7 @@ body.dock-glisse iframe{pointer-events:none;}
 .yt-duree{position:absolute;right:5px;bottom:5px;padding:1px 4px;border-radius:3px;
   background:rgba(0,0,0,.78);color:#fff;font-size:10.5px;
   font-variant-numeric:tabular-nums;}
-.yt-carte-titre{font-size:12px;line-height:1.35;font-weight:var(--w-medium);
+.yt-carte-titre{font-size:12px;line-height:1.35;font-weight:var(--w-medium);color:var(--ink);
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .yt-carte-meta{font-size:11px;color:var(--muted);white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;}

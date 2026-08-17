@@ -499,16 +499,14 @@
        une page détachée du rendu n'est plus tenue de continuer à jouer. -->
   <div class="dock-corps" id="dockCorps">
     <div class="dock-page actif" data-page="lecteur">
+      <!-- Le cadre où joue la vidéo choisie. Le champ « coller un lien » et la
+           bascule « ma session YouTube » ont été retirés : on ne tape plus
+           d'adresse et on ne se connecte pas. La navigation se fait ICI, pas
+           dans le cadre — `youtube.com` répond `X-Frame-Options: SAMEORIGIN`
+           sur son accueil comme sur ses résultats, seules les adresses /embed/
+           s'affichent. Un clic sur une vignette charge la vidéo dans le
+           cadre. -->
       <div class="dock-cadre-boite" id="dockCadre"></div>
-      <form class="dock-lien" id="dockLienForm">
-        <input id="dockLien" placeholder="Lien YouTube, Twitch ou Spotify…" autocomplete="off">
-        <button class="btn" type="submit">Ouvrir</button>
-      </form>
-      <div class="dock-session" id="dockSession"></div>
-      <!-- La navigation dans YouTube se fait ICI, pas dans le cadre :
-           `youtube.com` répond `X-Frame-Options: SAMEORIGIN` sur son accueil
-           comme sur ses résultats de recherche. Seules les adresses /embed/
-           s'affichent — et elles ne montrent qu'une vidéo. -->
       <div id="youtubePanneau"></div>
     </div>
     <div class="dock-page" data-page="spotify"><div id="spotifyPanneau"></div></div>

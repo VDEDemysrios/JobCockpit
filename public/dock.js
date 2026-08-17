@@ -45,14 +45,13 @@ const CLE_OUVERT = 'bp_dock_ouvert';
 const CLE_REDUIT = 'bp_dock_reduit';
 const CLE_PAGE = 'bp_dock_page';
 const CLE_MEDIA = 'bp_dock_media';
-const CLE_COMPTE = 'bp_dock_compte';   // session YouTube plutôt que -nocookie
 
 const MARGE = 8;
 /** En deçà, le bord se colle : poser une fenêtre à 3 px du bord est pénible. */
 const AIMANT = 18;
 const MIN_L = 300;
-/** En deçà, le cadre, le champ de lien et la bascule ne tiennent plus : la
- *  page se met à défiler et le lecteur devient un timbre-poste. */
+/** En deçà, le cadre et la liste ne tiennent plus : la page se met à défiler
+ *  et le lecteur devient un timbre-poste. */
 const MIN_H = 300;
 const DEFAUT = { l: 400, h: 480 };
 
@@ -65,8 +64,10 @@ const lire = (cle, defaut = null) => {
 };
 const ecrire = (cle, valeur) => localStorage.setItem(cle, JSON.stringify(valeur));
 
-/** La session YouTube est un choix de l'utilisateur, pas un défaut du code. */
-const avecCompte = () => localStorage.getItem(CLE_COMPTE) === '1';
+// Plus de session YouTube : on ne se connecte pas, les vidéos passent donc
+// toujours par `youtube-nocookie.com` — rien ne suit l'utilisateur. La
+// bascule et l'ouverture de la connexion Google ont été retirées.
+const avecCompte = () => false;
 
 // ─────────────────────────────────────────────────── position et taille
 
@@ -195,8 +196,7 @@ function rendreCadre({ auto = true } = {}) {
   const media = mediaCourant();
   if (!media) {
     boite.innerHTML = `<div class="dock-vide">
-      <p>Colle un lien <strong>YouTube</strong>, <strong>Twitch</strong> ou
-        <strong>Spotify</strong> — ou juste un nom de chaîne Twitch.</p>
+      <p>Choisis une vidéo dans la liste ci-dessous — elle se lira ici.</p>
       <p class="dock-note">Le lecteur reste ouvert quand tu changes d'onglet.
         <strong>Réduire</strong> le range dans un bandeau sans couper le son ;
         <strong>fermer</strong> arrête la lecture.</p>
@@ -237,22 +237,6 @@ export function jouerMedia(saisie) {
   ouvrirDock('lecteur');
   rendreCadre();
   return true;
-}
-
-function rendreSession() {
-  const zone = el('dockSession');
-  zone.innerHTML = `
-    <label class="dock-bascule">
-      <input type="checkbox" id="dockCompte" ${avecCompte() ? 'checked' : ''}>
-      Utiliser ma session YouTube
-    </label>
-    <button type="button" class="dock-lien-txt" data-dock="youtube">Se connecter à YouTube</button>
-    <p class="dock-note" id="dockSessionNote">${avecCompte()
-      ? `Les vidéos passent par <code>youtube.com</code> : ton compte, tes
-         abonnements et les vidéos réservées aux connectés fonctionnent — les
-         traceurs de YouTube aussi.`
-      : `Les vidéos passent par <code>youtube-nocookie.com</code> : rien ne te
-         suit, mais une vidéo réservée aux connectés restera noire.`}</p>`;
 }
 
 // ────────────────────────────────────────────────── ouvrir, réduire, fermer
@@ -349,7 +333,6 @@ export function installerDock(toast) {
   if (!dock) return;
   signaler = toast ?? (() => {});
 
-  rendreSession();
   installerDeplacement();
 
   installerSpotify(signaler);
@@ -370,29 +353,12 @@ export function installerDock(toast) {
     if (b.dataset.dock === 'reduire') {
       return dock.classList.contains('reduit') ? deplier() : reduire();
     }
-    if (b.dataset.dock === 'youtube') return connexionYouTube();
   });
 
   // Double-clic sur le bandeau : le geste attendu de toute fenêtre.
   el('dockTete').addEventListener('dblclick', (e) => {
     if (e.target.closest('button, a, input')) return;
     dock.classList.contains('reduit') ? deplier() : reduire();
-  });
-
-  dock.addEventListener('change', (e) => {
-    if (e.target.id !== 'dockCompte') return;
-    localStorage.setItem(CLE_COMPTE, e.target.checked ? '1' : '0');
-    rendreSession();
-    // Le cadre déjà ouvert garde son ancien domaine : sans ce rechargement le
-    // réglage ne prendrait effet qu'au lien suivant, et donnerait
-    // l'impression de ne rien faire.
-    const media = mediaCourant();
-    if (media?.type === 'YouTube') {
-      localStorage.removeItem(CLE_MEDIA);
-      el('dockCadre').innerHTML = '';
-      rendreCadre();
-      signaler('Domaine YouTube changé — recolle le lien.');
-    }
   });
 
   // L'onglet Twitch s'est mis à jouer : ce cadre-ci se tait. Deux bandes-son
@@ -406,13 +372,6 @@ export function installerDock(toast) {
     rendreCadre();
   });
 
-  dock.addEventListener('submit', (e) => {
-    if (e.target.id !== 'dockLienForm') return;
-    e.preventDefault();
-    const champ = el('dockLien');
-    if (jouerMedia(champ.value)) champ.value = '';
-  });
-
   // Le lecteur se rouvre là où il était, avec son lien — mais à l'arrêt.
   if (localStorage.getItem(CLE_OUVERT) === '1') {
     dock.hidden = false;
@@ -423,49 +382,3 @@ export function installerDock(toast) {
   }
 }
 
-/**
- * LA VRAIE FENÊTRE DE CONNEXION.
- *
- * Google refuse d'afficher sa page de connexion dans un cadre : elle répond
- * avec un en-tête qui l'interdit, et le navigateur montre un rectangle vide,
- * sans message. « Se connecter dans le lecteur », ce que l'application
- * conseillait, était donc impossible — pas difficile, impossible.
- *
- * Une fenêtre à part n'a pas cette contrainte : c'est une page ordinaire, sur
- * le domaine de Google, avec la barre d'adresse visible — de quoi vérifier
- * qu'on tape son mot de passe au bon endroit. Une fois connecté, ce sont les
- * cookies du navigateur qui font le travail : les cadres `youtube.com`
- * emportent la session sans que l'application n'ait jamais rien à en savoir.
- */
-function connexionYouTube() {
-  // UN ONGLET, PAS UNE FENÊTRE DÉTACHÉE.
-  //
-  // Passer une liste de dimensions à `window.open` demande une VRAIE fenêtre :
-  // le navigateur en détache une, minuscule, à côté de l'application, avec sa
-  // propre barre de titre. C'est ce qui donnait l'impression d'être expulsé du
-  // logiciel. Sans liste de dimensions, la même fonction ouvre un onglet
-  // ordinaire dans la fenêtre courante — on revient d'un clic.
-  //
-  // Ce qui reste impossible : afficher la connexion Google DANS l'application.
-  // Google sert sa page avec un en-tête qui interdit l'affichage en cadre, et
-  // aucun réglage de notre côté n'y change quoi que ce soit.
-  //
-  // `noopener` est volontairement absent : présent, `window.open` rend `null`
-  // même quand l'onglet s'est parfaitement ouvert — et on afficherait
-  // « bloqué par le navigateur » à chaque connexion réussie.
-  const onglet = window.open(
-    'https://accounts.google.com/ServiceLogin?service=youtube&continue='
-      + encodeURIComponent('https://www.youtube.com/'),
-    '_blank');
-  if (!onglet) {
-    return signaler('Le navigateur a bloqué l\'ouverture — autorise les fenêtres '
-      + 'surgissantes pour ce site.', 'erreur');
-  }
-  // Se connecter puis rester sur `youtube-nocookie.com` n'aurait servi à rien :
-  // ce domaine n'emporte pas la session. La bascule suit donc la connexion.
-  if (!avecCompte()) {
-    localStorage.setItem(CLE_COMPTE, '1');
-    rendreSession();
-    signaler('Session YouTube activée : les vidéos passeront par youtube.com.');
-  }
-}

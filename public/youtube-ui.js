@@ -50,9 +50,8 @@ function rendreNonConfigure() {
     ${etat.aide ? `<div class="sp-alerte"><p>${echapper(etat.aide)}</p></div>` : ''}
     <p><strong>Naviguer dans YouTube depuis l'application</strong> — l'accueil,
       la recherche, et la lecture dans le cadre.</p>
-    <p class="sp-note">Sans cette clé, l'onglet marche quand même : colle
-      n'importe quel lien YouTube et il se lit. C'est la NAVIGATION qui a
-      besoin de l'API.</p>
+    <p class="sp-note">Sans cette clé, l'onglet reste vide : c'est l'API qui
+      fournit l'accueil et la recherche.</p>
     <ol class="sp-etapes">
       <li>Sur <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com"
         target="_blank" rel="noopener">console.cloud.google.com</a>, crée un projet
