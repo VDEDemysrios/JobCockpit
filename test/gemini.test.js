@@ -46,3 +46,35 @@ test('Limiteur espace les appels selon le débit configuré', async () => {
   await limiteur.attendre();
   assert.ok(Date.now() - debut >= 950, 'le deuxième appel doit être retardé');
 });
+
+/**
+ * UN TABLEAU AU PREMIER NIVEAU EST DU JSON VALIDE.
+ *
+ * La fonction ne cherchait que des accolades. Un prompt demandant une LISTE
+ * — les cartes de révision — reçoit un tableau : la première accolade
+ * rencontrée était celle du premier élément, la dernière celle du dernier, et
+ * la tranche découpée perdait les crochets. `JSON.parse` recevait une suite
+ * d'objets séparés par des virgules et rendait null.
+ *
+ * Rien ne levait d'erreur : le modèle répondait juste, l'application affichait
+ * « réponse illisible ».
+ */
+test('extraireJson accepte un tableau, pas seulement un objet', () => {
+  const liste = extraireJson('Voici les cartes :\n[{"terme":"A","sur":true},{"terme":"B","sur":false}]\nVoilà.');
+  assert.ok(Array.isArray(liste), 'un tableau au premier niveau doit être rendu tel quel');
+  assert.equal(liste.length, 2);
+  assert.equal(liste[1].terme, 'B');
+});
+
+test('extraireJson rend toujours les objets, y compris en bloc markdown', () => {
+  const o = extraireJson('```json\n{"verdict":"oui","score":7}\n```');
+  assert.equal(o.verdict, 'oui');
+  assert.equal(o.score, 7);
+});
+
+/** Rien d'exploitable : null, jamais d'exception — l'appelant doit pouvoir ignorer. */
+test('extraireJson ne lève jamais', () => {
+  for (const entree of ['', null, undefined, 'aucun json ici', '{cassé', '[1,2']) {
+    assert.equal(extraireJson(entree), null);
+  }
+});

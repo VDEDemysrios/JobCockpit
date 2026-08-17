@@ -13,9 +13,9 @@ import { estConfigure, construireProfil, rendreEnv, CLES_ENV } from './configura
 import { validerVilles, decrireVille, DEPARTEMENTS, VILLES_MAX } from './villes.js';
 import { verifierOffres, aVerifier } from './liens.js';
 import {
-  promptQuestion, promptDebrief, promptFiche, QUESTIONS_PAR_SEANCE,
+  promptQuestion, promptDebrief, promptFiche, promptNotions, QUESTIONS_PAR_SEANCE,
 } from './entretien.js';
-import { demander, estConfigure as geminiPret } from './gemini.js';
+import { demander, estConfigure as geminiPret, extraireJson } from './gemini.js';
 import { enregistrerCv } from './cv.js';
 import {
   lireMeta, ecrireMeta, upsertOffre, transaction, noterActivite,
@@ -601,18 +601,20 @@ export function creerRoutes({ db, collecter, sources, profil }) {
       echanges: l?.echanges ? JSON.parse(l.echanges) : [],
       debrief: l?.debrief ?? null,
       fiche: l?.fiche ?? null,
+      notions: l?.notions ? JSON.parse(l.notions) : [],
     };
   }
 
-  function ecrireEntretien(id, { echanges, debrief, fiche }) {
+  function ecrireEntretien(id, { echanges, debrief, fiche, notions }) {
     const now = new Date().toISOString();
     db.prepare(`
-      INSERT INTO entretiens (offer_id, echanges, debrief, fiche, cree_le, maj_le)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO entretiens (offer_id, echanges, debrief, fiche, notions, cree_le, maj_le)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(offer_id) DO UPDATE SET
         echanges = excluded.echanges, debrief = excluded.debrief,
-        fiche = excluded.fiche, maj_le = excluded.maj_le
-    `).run(id, JSON.stringify(echanges ?? []), debrief ?? null, fiche ?? null, now, now);
+        fiche = excluded.fiche, notions = excluded.notions, maj_le = excluded.maj_le
+    `).run(id, JSON.stringify(echanges ?? []), debrief ?? null, fiche ?? null,
+           JSON.stringify(notions ?? []), now, now);
   }
 
   /** L'offre et son analyse, telles que les prompts les attendent. */
@@ -722,10 +724,79 @@ export function creerRoutes({ db, collecter, sources, profil }) {
     res.json({ ok: true, fiche: e.fiche });
   });
 
+  /**
+   * LES CARTES À RÉVISER.
+   *
+   * Sur un domaine qu'on ne connaît pas, la fiche se lit une fois et ne tient
+   * pas : on la parcourt, on se sent prêt, et en séance le mot ne revient pas.
+   * Ce qui fait tenir une notion, c'est de tenter de la restituer avant de
+   * lire la réponse.
+   *
+   * Chaque appel ajoute dix cartes sans reprendre les précédentes : on révise
+   * sur plusieurs jours, et le stock grossit.
+   */
+  routes.post('/entretien/:id/notions', async (req, res) => {
+    if (!geminiPret()) {
+      return res.status(400).json({ ok: false, error: 'La clé Gemini est nécessaire.' });
+    }
+    const o = offrePourEntretien(req.params.id);
+    if (!o) return res.status(404).json({ ok: false, error: 'Offre introuvable.' });
+
+    const e = lireEntretien(req.params.id);
+    const deja = e.notions.map(n => n.terme);
+
+    let brut;
+    try {
+      brut = await demander(promptNotions(o.offre, o.analyse, deja));
+    } catch (erreur) {
+      return res.status(502).json({ ok: false, error: `Gemini : ${erreur.message}` });
+    }
+    noterAppel(db, ENTRETIEN);
+
+    const liste = extraireJson(brut);
+    if (!Array.isArray(liste) || !liste.length) {
+      return res.status(502).json({ ok: false,
+        error: 'Réponse illisible du modèle. Réessaie dans un instant.' });
+    }
+
+    // `su` est l'avancement de RÉVISION du candidat, distinct de `sur` qui dit
+    // si le modèle répond de l'exactitude. Confondre les deux ferait passer
+    // pour acquis ce qui n'est même pas vérifié.
+    const nouvelles = liste
+      .filter(c => c?.terme && c?.definition)
+      .map(c => ({
+        terme: String(c.terme).slice(0, 120),
+        definition: String(c.definition).slice(0, 600),
+        pourquoi: String(c.pourquoi ?? '').slice(0, 400),
+        source: String(c.source ?? '').slice(0, 200),
+        sur: c.sur !== false,
+        su: false,
+      }));
+
+    e.notions = [...e.notions, ...nouvelles];
+    ecrireEntretien(req.params.id, e);
+    res.json({ ok: true, ajoutees: nouvelles.length, notions: e.notions });
+  });
+
+  /** L'avancement de révision d'une carte : su, ou à revoir. */
+  routes.patch('/entretien/:id/notions/:index', (req, res) => {
+    const e = lireEntretien(req.params.id);
+    const i = Number(req.params.index);
+    if (!e.notions[i]) return res.status(404).json({ ok: false, error: 'Carte introuvable.' });
+    e.notions[i].su = Boolean(req.body?.su);
+    ecrireEntretien(req.params.id, e);
+    res.json({ ok: true, su: e.notions[i].su });
+  });
+
   /** Repartir de zéro, en gardant la fiche : elle ne dépend pas de la séance. */
   routes.delete('/entretien/:id', (req, res) => {
     const e = lireEntretien(req.params.id);
-    ecrireEntretien(req.params.id, { echanges: [], debrief: null, fiche: e.fiche });
+    // La fiche et les cartes SURVIVENT : elles décrivent le poste, pas la
+    // séance. Les effacer obligerait à repayer des appels pour retrouver ce
+    // qu'on savait déjà.
+    ecrireEntretien(req.params.id, {
+      echanges: [], debrief: null, fiche: e.fiche, notions: e.notions,
+    });
     res.json({ ok: true });
   });
 

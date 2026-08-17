@@ -34,6 +34,73 @@
 /** Combien d'échanges avant de proposer le débriefing. */
 export const QUESTIONS_PAR_SEANCE = 8;
 
+/**
+ * Les notions à réviser, en cartes.
+ *
+ * POURQUOI DES CARTES ET PAS UN COURS
+ * -----------------------------------
+ * La fiche de révision se lit une fois et ne tient pas : on la parcourt, on
+ * se sent prêt, et en séance le mot ne revient pas. Ce qui fait tenir une
+ * notion, c'est de tenter de la restituer AVANT de lire la réponse. D'où des
+ * cartes, retournées une à une.
+ *
+ * LE DANGER PROPRE À CE MODULE
+ * ----------------------------
+ * Apprendre du faux droit avec confiance est pire que ne rien savoir : on ne
+ * vérifie pas ce dont on est sûr, et on le récite. Chaque carte porte donc sa
+ * SOURCE — l'article, le code, le site officiel — et un drapeau `sur` qui dit
+ * si le modèle en répond. Ce qui n'est pas sûr est affiché comme tel, et se
+ * vérifie avant d'être appris.
+ */
+export function promptNotions(offre, analyse, dejaVues = []) {
+  const eviter = dejaVues.length
+    ? `\n\nNE REPRENDS PAS ces notions, déjà produites :\n${dejaVues.map(t => `- ${t}`).join('\n')}`
+    : '';
+
+  return `Tu prépares des cartes de révision pour un candidat convoqué en
+entretien sur le poste ci-dessous. Il part de ZÉRO sur le domaine : il faut
+lui donner le socle qu'un professionnel du métier tient pour évident.
+
+# LE POSTE
+Intitulé : ${offre.titre ?? ''}
+Employeur : ${offre.entreprise || '(non précisé)'}
+
+Annonce :
+"""
+${String(offre.description ?? '').slice(0, 5000)}
+"""
+${(analyse?.exige?.length ? `\nCE QUE L'ANNONCE EXIGE :\n${analyse.exige.map(x => `- ${x}`).join('\n')}` : '')}${eviter}
+
+# CE QU'IL FAUT PRODUIRE
+Un tableau JSON de 10 cartes, et RIEN d'autre — pas de texte avant ou après.
+
+Chaque carte :
+{
+  "terme": "le mot ou la procédure, tel qu'un professionnel le dit",
+  "definition": "deux phrases maximum, en français simple, sans jargon non expliqué",
+  "pourquoi": "une phrase : pourquoi ça compte POUR CE POSTE précisément",
+  "source": "où vérifier — article de code, nom du texte, ou site officiel",
+  "sur": true ou false
+}
+
+Comment choisir les dix :
+- Commence par ce sans quoi on ne comprend pas une phrase du métier.
+- Va du général au particulier : d'abord le cadre, ensuite les procédures,
+  enfin les délais et les seuils.
+- Chaque notion doit être RÉELLEMENT utile en entretien pour ce poste. Pas de
+  culture générale administrative.
+
+LE CHAMP "sur" EST LE PLUS IMPORTANT :
+- true seulement si tu réponds de l'exactitude de la définition ET de la
+  source, telles qu'un professionnel du domaine les validerait.
+- false dès qu'il y a le moindre doute — un délai, un seuil, un numéro
+  d'article, une compétence d'organisme, une réforme récente.
+
+Un candidat qui récite une procédure fausse devant des gens dont c'est le
+métier ne se rattrape pas. Mieux vaut dix cartes dont trois marquées à
+vérifier, que dix cartes fausses et sûres d'elles.`;
+}
+
 /** Le cadre commun : qui est le candidat, quel poste, ce que dit l'analyse. */
 function contexte(offre, analyse, cv) {
   const a = analyse ?? {};

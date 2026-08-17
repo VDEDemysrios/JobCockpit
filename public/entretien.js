@@ -34,6 +34,63 @@ function rendreTexte(md) {
     .replace(/^/, '<p>').replace(/$/, '</p>');
 }
 
+/**
+ * LES CARTES À RÉVISER.
+ *
+ * La réponse est MASQUÉE jusqu'au clic. C'est toute la mécanique : tenter de
+ * restituer avant de lire est ce qui fait tenir une notion — relire donne
+ * l'impression de savoir, et c'est cette impression qui s'effondre en séance.
+ *
+ * Une carte non certifiée par le modèle porte un avertissement visible. On
+ * n'apprend pas du droit approximatif : on le vérifie d'abord, à la source
+ * indiquée.
+ */
+function rendreNotions(notions) {
+  if (!notions.length) {
+    return `<div class="ent-doc">
+      <div class="ent-doc-titre">Réviser le domaine</div>
+      <p class="ent-vide">Tu ne connais pas encore ce métier ? Cette rubrique
+        fabrique des cartes à réviser, tirées de l'annonce : le terme d'un
+        côté, la définition de l'autre, et la source pour vérifier.</p>
+      <button class="btn btn-primary" data-ent="notions">Créer 10 cartes</button>
+    </div>`;
+  }
+
+  const sues = notions.filter(n => n.su).length;
+  const aVerifier = notions.filter(n => !n.sur).length;
+
+  return `<div class="ent-doc">
+    <div class="ent-doc-titre">Réviser le domaine
+      <span class="ent-progres">${sues} / ${notions.length} sues</span></div>
+
+    ${aVerifier ? `<p class="ent-avert">${aVerifier} carte${aVerifier > 1 ? 's' : ''}
+      ${aVerifier > 1 ? 'sont marquées' : 'est marquée'} « à vérifier » : le modèle
+      ne répond pas de leur exactitude. Va voir la source avant de l'apprendre —
+      une procédure fausse récitée en entretien ne se rattrape pas.</p>` : ''}
+
+    <div class="ent-cartes">
+      ${notions.map((n, i) => `
+        <div class="ent-carte${n.su ? ' su' : ''}${n.sur ? '' : ' douteuse'}" data-carte="${i}">
+          <div class="ent-terme">
+            ${echapper(n.terme)}
+            ${n.sur ? '' : '<span class="ent-drapeau">à vérifier</span>'}
+          </div>
+          <div class="ent-reponse" hidden>
+            <p>${echapper(n.definition)}</p>
+            ${n.pourquoi ? `<p class="ent-pourquoi">${echapper(n.pourquoi)}</p>` : ''}
+            ${n.source ? `<p class="ent-source">Source : ${echapper(n.source)}</p>` : ''}
+            <div class="ent-juger">
+              <button class="btn" data-juger="${i}" data-su="0">À revoir</button>
+              <button class="btn" data-juger="${i}" data-su="1">Je sais</button>
+            </div>
+          </div>
+        </div>`).join('')}
+    </div>
+
+    <button class="btn" data-ent="notions">10 cartes de plus</button>
+  </div>`;
+}
+
 function rendreFil(etat) {
   const fil = etat.echanges.map(e => `
     <div class="ent-tour ent-${e.role}">
@@ -74,6 +131,8 @@ function rendreFil(etat) {
       <button class="btn" data-ent="fiche">Fiche de révision</button>
       <button class="btn btn-discret" data-ent="reset">Recommencer</button>
     </div>
+
+    ${rendreNotions(etat.notions ?? [])}
 
     ${etat.debrief ? `<div class="ent-doc"><div class="ent-doc-titre">Débriefing</div>
       ${rendreTexte(etat.debrief)}</div>` : ''}
@@ -147,6 +206,29 @@ export function installerEntretien(toast) {
   if (!b) return;
 
   b.addEventListener('click', async (e) => {
+    // Le jugement d'une carte, avant tout le reste : il est DANS une carte,
+    // dont le clic sert par ailleurs à la retourner.
+    const juge = e.target.closest('[data-juger]');
+    if (juge && offreEnCours) {
+      e.stopPropagation();
+      const i = Number(juge.dataset.juger);
+      const su = juge.dataset.su === '1';
+      try {
+        await API.entretienNotionSue(offreEnCours.id, i, su);
+        afficher(await API.entretien(offreEnCours.id));
+      } catch (err) { toast(err.message, 'erreur'); }
+      return;
+    }
+
+    // Retourner une carte. La réponse est masquée jusqu'ici : tenter de
+    // restituer avant de lire est ce qui fait tenir la notion.
+    const carte = e.target.closest('.ent-carte');
+    if (carte) {
+      const r = carte.querySelector('.ent-reponse');
+      if (r) { r.hidden = !r.hidden; carte.classList.toggle('ouverte', !r.hidden); }
+      return;
+    }
+
     const bouton = e.target.closest('[data-ent]');
     if (!bouton || !offreEnCours) return;
     const quoi = bouton.dataset.ent;
@@ -163,6 +245,20 @@ export function installerEntretien(toast) {
     }
 
     if (quoi === 'fiche') { bouton.disabled = true; await demanderFiche(toast); }
+
+    if (quoi === 'notions') {
+      bouton.disabled = true;
+      const avant = bouton.textContent;
+      bouton.textContent = 'Fabrication des cartes…';
+      try {
+        const r = await API.entretienNotions(offreEnCours.id);
+        afficher(await API.entretien(offreEnCours.id));
+        toast(`${r.ajoutees} carte${r.ajoutees > 1 ? 's' : ''} à réviser`);
+      } catch (err) {
+        toast(err.message, 'erreur');
+        bouton.disabled = false; bouton.textContent = avant;
+      }
+    }
 
     if (quoi === 'reset') {
       if (!confirm('Recommencer la séance ?\n\nLes questions et tes réponses seront effacées. La fiche de révision est conservée.')) return;

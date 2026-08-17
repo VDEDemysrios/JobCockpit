@@ -75,6 +75,11 @@ export const API = {
   entretienDebrief:  (id)      => appeler(`/api/entretien/${id}/debrief`, { method: 'POST', body: {} }),
   entretienFiche:    (id)      => appeler(`/api/entretien/${id}/fiche`, { method: 'POST', body: {} }),
   entretienReset:    (id)      => appeler(`/api/entretien/${id}`, { method: 'DELETE' }),
+  // Cartes à réviser : chaque appel en AJOUTE dix sans reprendre les
+  // précédentes, pour réviser sur plusieurs jours.
+  entretienNotions:  (id)      => appeler(`/api/entretien/${id}/notions`, { method: 'POST', body: {} }),
+  entretienNotionSue:(id, i, su) =>
+    appeler(`/api/entretien/${id}/notions/${i}`, { method: 'PATCH', body: { su } }),
 
   // Les villes prioritaires, réglables APRÈS la première configuration : on
   // déménage, on abandonne une ville, on en ajoute une. Ce sont des évènements

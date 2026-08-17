@@ -55,17 +55,32 @@ export class Limiteur {
 }
 
 /**
- * Extrait un objet JSON d'une réponse de LLM.
+ * Extrait un objet OU un tableau JSON d'une réponse de LLM.
+ *
  * Les modèles encadrent souvent le JSON dans un bloc markdown ou l'entourent
- * de commentaires : on isole la première accolade ouvrante et la dernière
- * fermante. Retourne null si rien d'exploitable — JAMAIS d'exception, pour que
- * l'appelant puisse simplement ignorer l'analyse.
+ * de commentaires : on isole donc la première ouverture et la fermeture
+ * correspondante. Retourne null si rien d'exploitable — JAMAIS d'exception,
+ * pour que l'appelant puisse simplement ignorer le résultat.
+ *
+ * LE TABLEAU N'ÉTAIT PAS PRÉVU, ET ÉCHOUAIT EN SILENCE.
+ * La fonction ne cherchait que des accolades. Un prompt demandant une LISTE
+ * reçoit un tableau au premier niveau — parfaitement valide, et pourtant
+ * illisible ici : la première accolade rencontrée était celle du premier
+ * élément, la dernière celle du dernier, et la tranche ainsi découpée perdait
+ * les crochets englobants. `JSON.parse` recevait alors une suite d'objets
+ * séparés par des virgules, et rendait null. Le module de révision n'a donc
+ * jamais reçu une seule carte, alors que le modèle répondait juste.
  */
 export function extraireJson(texte) {
   if (!texte) return null;
 
-  const debut = texte.indexOf('{');
-  const fin = texte.lastIndexOf('}');
+  const debutObjet = texte.indexOf('{');
+  const debutTableau = texte.indexOf('[');
+  const tableau = debutTableau !== -1
+    && (debutObjet === -1 || debutTableau < debutObjet);
+
+  const debut = tableau ? debutTableau : debutObjet;
+  const fin = texte.lastIndexOf(tableau ? ']' : '}');
   if (debut === -1 || fin === -1 || fin <= debut) return null;
 
   try {
