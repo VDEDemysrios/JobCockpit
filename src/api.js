@@ -627,6 +627,45 @@ export function creerRoutes({ db, collecter, sources, profil }) {
     return { offre: o, analyse: o.analysis_json ? JSON.parse(o.analysis_json) : null };
   }
 
+  /**
+   * L'ÉTAT DE PRÉPARATION DE CHAQUE DOSSIER.
+   *
+   * La préparation était enfouie dans le dépliant d'une carte : il fallait
+   * retrouver l'offre parmi deux cents pour reprendre là où on s'était
+   * arrêté. Elle a désormais sa vue, et cette route lui donne de quoi
+   * répondre à la seule question qui se pose en l'ouvrant : « où j'en suis,
+   * et sur quel dossier ? »
+   */
+  routes.get('/entretiens', (req, res) => {
+    const lignes = db.prepare(`
+      SELECT o.id, o.titre, o.entreprise, o.ville, o.date_offre,
+             t.status, t.sent_date,
+             e.echanges, e.debrief, e.fiche, e.notions, e.maj_le
+      FROM offers o
+      LEFT JOIN tracking t   ON t.offer_id = o.id
+      LEFT JOIN entretiens e ON e.offer_id = o.id
+      WHERE t.status IS NOT NULL AND t.status != 'À postuler'
+         OR e.offer_id IS NOT NULL
+      ORDER BY COALESCE(e.maj_le, t.sent_date, o.date_offre) DESC
+    `).all();
+
+    res.json({ ok: true, geminiPret: geminiPret(), dossiers: lignes.map(l => {
+      const echanges = l.echanges ? JSON.parse(l.echanges) : [];
+      const notions = l.notions ? JSON.parse(l.notions) : [];
+      return {
+        id: l.id, titre: l.titre, entreprise: l.entreprise, ville: l.ville,
+        statut: l.status ?? 'À postuler', envoyeLe: l.sent_date ?? '',
+        questions: echanges.filter(x => x.role === 'jury').length,
+        total: QUESTIONS_PAR_SEANCE,
+        cartes: notions.length,
+        cartesSues: notions.filter(n => n.su).length,
+        debrief: Boolean(l.debrief),
+        fiche: Boolean(l.fiche),
+        majLe: l.maj_le ?? null,
+      };
+    }) });
+  });
+
   routes.get('/entretien/:id', (req, res) => {
     const o = offrePourEntretien(req.params.id);
     if (!o) return res.status(404).json({ ok: false, error: 'Offre introuvable.' });

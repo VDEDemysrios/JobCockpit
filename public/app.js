@@ -9,7 +9,7 @@ import { ouvrirSurcouche, fermerSurcouche } from './surcouche.js';
 import { installerDepotCv } from './depot-cv.js';
 import { lancerTutoriel } from './tutoriel.js';
 import { installerEditeurVilles, enregistrerVilles } from './villes.js';
-import { ouvrirEntretien, ouvrirFiche, installerEntretien } from './entretien.js';
+import { ouvrirEntretien, ouvrirFiche, installerEntretien, rendreDossiers } from './entretien.js';
 import {
   rendreCarte, rendreKanban, rendreAgenda, relanceDue, rendreFocus, rendreTroisDuJour,
   actionsDuJour, celebrer,
@@ -25,7 +25,7 @@ const dansNJours = (n) => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 };
 
-const VUES = ['dashboard', 'offers', 'kanban', 'agenda', 'cv', 'options'];
+const VUES = ['dashboard', 'offers', 'kanban', 'agenda', 'entretiens', 'cv', 'options'];
 const THEMES = ['vivid', 'enr', 'dark', 'cockpit'];
 
 /** Onglet fourre-tout : tout ce qui n'est rattaché à aucune ville prioritaire. */
@@ -401,6 +401,7 @@ function rendreTout() {
   else if (etat.vue === 'offers') rendreOffres();
   else if (etat.vue === 'kanban') rendreKanban(etat.offres, deposerKanban);
   else if (etat.vue === 'agenda') rendreAgenda(etat.offres, ouvrirOffre);
+  else if (etat.vue === 'entretiens') rendreDossiers(toast);
 
   poserIcones();
   // Les rouleaux se lancent une fois le balisage en place : anim.js écrit

@@ -276,6 +276,74 @@ async function demanderFiche(toast) {
   } catch (e) { doc.remove(); toast(e.message, 'erreur'); }
 }
 
+/**
+ * LA LISTE DES DOSSIERS, dans sa propre vue.
+ *
+ * Ce qu'on veut savoir en arrivant ici est simple, et tient en une ligne par
+ * dossier : où j'en suis. Le reste — le fil, les cartes — s'ouvre au clic.
+ *
+ * Chaque ligne dit son avancement avec des CHIFFRES et pas des libellés :
+ * « 3/8 questions · 20 cartes, 6 sues » se lit d'un coup d'œil, « préparation
+ * en cours » ne dit rien.
+ */
+export async function rendreDossiers(toast) {
+  const zone = document.getElementById('entDossiers');
+  const sous = document.getElementById('entSub');
+  if (!zone) return;
+
+  let d;
+  try { d = await API.entretiens(); }
+  catch (e) { zone.innerHTML = `<p class="ent-vide">${echapper(e.message)}</p>`; return; }
+
+  const dossiers = d.dossiers ?? [];
+  if (sous) {
+    sous.textContent = dossiers.length
+      ? `${dossiers.length} candidature${dossiers.length > 1 ? 's' : ''} envoyée${dossiers.length > 1 ? 's' : ''} — prépare celle qui vient.`
+      : 'Rien à préparer pour l\'instant.';
+  }
+
+  if (!dossiers.length) {
+    zone.innerHTML = `<div class="panel-box"><p class="ent-vide">Aucune
+      candidature envoyée. Cette vue se remplit dès que tu marques une offre
+      comme envoyée : c'est à ce moment qu'un entretien devient possible, et
+      qu'il vaut la peine de s'y préparer.</p></div>`;
+    return;
+  }
+
+  zone.innerHTML = `<div class="panel-box"><div class="dos-liste">
+    ${dossiers.map(o => {
+      const commence = o.questions > 0 || o.cartes > 0;
+      return `
+      <div class="dos" data-dossier="${echapper(o.id)}">
+        <div class="dos-t">
+          <div class="dos-titre">${echapper(o.titre)}</div>
+          <div class="dos-sous">${echapper([o.entreprise, o.ville].filter(Boolean).join(' · ') || '—')}
+            ${o.envoyeLe ? `· envoyée le ${echapper(o.envoyeLe)}` : ''}</div>
+        </div>
+        <div class="dos-etat">
+          ${commence ? `
+            <span class="dos-jauge" title="Questions posées">${o.questions}/${o.total} questions</span>
+            <span class="dos-jauge" title="Cartes révisées">${o.cartesSues}/${o.cartes} cartes</span>
+            ${o.debrief ? '<span class="badge b2">débriefé</span>' : ''}
+            ${o.fiche ? '<span class="badge badge-src">fiche</span>' : ''}`
+          : '<span class="dos-neuf">Pas encore préparé</span>'}
+        </div>
+        <button class="btn btn-primary" data-ouvrir="${echapper(o.id)}">
+          ${commence ? 'Reprendre' : 'Préparer'}</button>
+      </div>`;
+    }).join('')}
+  </div></div>`;
+
+  // Un seul écouteur, reposé à chaque rendu : la liste est reconstruite.
+  zone.onclick = async (e) => {
+    const b = e.target.closest('[data-ouvrir]') ?? e.target.closest('[data-dossier]');
+    if (!b) return;
+    const id = b.dataset.ouvrir ?? b.dataset.dossier;
+    const cible = dossiers.find(x => x.id === id);
+    if (cible) await ouvrirEntretien({ id, titre: cible.titre }, toast);
+  };
+}
+
 /** Branche les interactions. Un seul écouteur : le contenu est reconstruit. */
 export function installerEntretien(toast) {
   const b = boite();

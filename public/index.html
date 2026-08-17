@@ -32,6 +32,7 @@
       <button data-view="offers"><span data-ic="liste" data-ic-taille="18"></span> Offres <span class="nvbadge" id="nb-offers" style="display:none"></span></button>
       <button data-view="kanban"><span data-ic="colonnes" data-ic-taille="18"></span> Kanban</button>
       <button data-view="agenda"><span data-ic="calendrier" data-ic-taille="18"></span> Agenda <span class="nvbadge" id="nb-agenda" style="display:none"></span></button>
+      <button data-view="entretiens"><span data-ic="cible" data-ic-taille="18"></span> Entretiens <span class="nvbadge" id="nb-entretiens" style="display:none"></span></button>
       <button data-view="cv"><span data-ic="parchemin" data-ic-taille="18"></span> Mon CV <span class="nvbadge" id="nb-cv" style="display:none">!</span></button>
       <button data-view="options"><span data-ic="reglages" data-ic-taille="18"></span> Options</button>
     </nav>
@@ -294,6 +295,17 @@
     </div>
 
     <!-- ══════════════ MON CV ══════════════ -->
+    <!-- ══════════════ ENTRETIENS ══════════════
+         La préparation était enfouie dans le dépliant d'une carte : il fallait
+         retrouver l'offre parmi deux cents pour reprendre où on s'était
+         arrêté. Elle a maintenant sa vue, qui répond à la seule question qu'on
+         se pose en l'ouvrant : où j'en suis, et sur quel dossier. -->
+    <div class="view" id="view-entretiens" style="display:none">
+      <div class="view-head"><div><h2><span data-ic="cible" data-ic-taille="17"></span> Entretiens</h2>
+        <div class="vh-sub" id="entSub"></div></div></div>
+      <div id="entDossiers"></div>
+    </div>
+
     <div class="view" id="view-cv" style="display:none">
       <div class="view-head"><div><h2><span data-ic="parchemin" data-ic-taille="17"></span> Mon CV</h2>
         <div class="vh-sub" id="cvSub">Chargement…</div></div></div>

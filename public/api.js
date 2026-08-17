@@ -69,6 +69,7 @@ export const API = {
   },
   // Préparation d'entretien. L'application menait jusqu'à la candidature puis
   // s'arrêtait — or c'est l'entretien qui décide.
+  entretiens:        ()        => appeler('/api/entretiens'),
   entretien:         (id)      => appeler(`/api/entretien/${id}`),
   entretienRepondre: (id, reponse) =>
     appeler(`/api/entretien/${id}/repondre`, { method: 'POST', body: { reponse } }),
