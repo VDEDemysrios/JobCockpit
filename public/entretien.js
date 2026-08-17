@@ -21,17 +21,82 @@ let offreEnCours = null;
 
 const boite = () => document.getElementById('entretien');
 
-/** Markdown minimal : titres, gras, listes. Le débriefing en use, pas plus. */
-function rendreTexte(md) {
-  return echapper(md ?? '')
-    .replace(/^### (.+)$/gm, '<h4>$1</h4>')
-    .replace(/^## (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^# (.+)$/gm, '<h3>$1</h3>')
+/**
+ * Le markdown du débriefing et de la fiche, rendu LIGNE PAR LIGNE.
+ *
+ * CE QUE LA VERSION PRÉCÉDENTE NE SAVAIT PAS FAIRE, ET CE QUE ÇA DONNAIT.
+ * Elle enchaînait sept expressions régulières sur le texte entier, et ne
+ * connaissait que les titres, le gras et les puces. Or le modèle écrit aussi —
+ * on le lui demande — des citations `>`, des listes numérotées, de l'italique
+ * et des séparateurs `---`. Tout cela ressortait BRUT, au milieu du texte :
+ *
+ *     > *« C'est exact, je n'ai pas exercé en préfecture… »*
+ *     ---
+ *     1. Relire les articles L.2131-1 à L.2131-6
+ *
+ * Le débriefing devenait un mur de ponctuation. Pire : la citation `>`, qui
+ * porte la RÉPONSE SUGGÉRÉE, ne se distinguait plus de ce que le candidat
+ * avait réellement dit — d'où l'impression de lire des phrases qu'on n'a
+ * jamais écrites.
+ *
+ * Un passage ligne par ligne coûte trois fois moins cher à relire qu'une pile
+ * d'expressions régulières, et il sait ouvrir et refermer les blocs — ce
+ * qu'aucune regex ne fait proprement.
+ */
+function enligne(t) {
+  return echapper(t)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
-    .replace(/(<li>[\s\S]*?<\/li>)(?!\s*<li>)/g, '<ul>$1</ul>')
-    .replace(/\n{2,}/g, '</p><p>')
-    .replace(/^/, '<p>').replace(/$/, '</p>');
+    // L'italique APRÈS le gras, et en exigeant une étoile isolée : sinon
+    // `**gras**` se fait manger par le motif de l'italique.
+    .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+}
+
+export function rendreTexte(md) {
+  const sortie = [];
+  let bloc = null;   // 'ul' | 'ol' | 'quote' | 'p' | null
+
+  const fermer = () => {
+    if (bloc === 'ul') sortie.push('</ul>');
+    else if (bloc === 'ol') sortie.push('</ol>');
+    else if (bloc === 'quote') sortie.push('</blockquote>');
+    else if (bloc === 'p') sortie.push('</p>');
+    bloc = null;
+  };
+  const ouvrir = (type, balise) => {
+    if (bloc !== type) { fermer(); sortie.push(balise); bloc = type; }
+  };
+
+  for (const brute of String(md ?? '').split(/\r?\n/)) {
+    const l = brute.trim();
+
+    if (!l) { fermer(); continue; }
+    if (/^(-{3,}|_{3,}|\*{3,})$/.test(l)) { fermer(); sortie.push('<hr>'); continue; }
+
+    const titre = l.match(/^(#{1,6})\s+(.*)$/);
+    if (titre) {
+      fermer();
+      sortie.push(`<h${titre[1].length <= 2 ? 3 : 4}>${enligne(titre[2])}</h${titre[1].length <= 2 ? 3 : 4}>`);
+      continue;
+    }
+
+    // La citation porte la réponse SUGGÉRÉE. Elle doit se voir comme telle :
+    // c'est la confusion avec les propos réels du candidat qui a fait dire
+    // « ce n'est pas moi qui ai écrit ça ».
+    const cite = l.match(/^>\s?(.*)$/);
+    if (cite) { ouvrir('quote', '<blockquote>'); sortie.push(`<p>${enligne(cite[1])}</p>`); continue; }
+
+    const puce = l.match(/^[-*+]\s+(.*)$/);
+    if (puce) { ouvrir('ul', '<ul>'); sortie.push(`<li>${enligne(puce[1])}</li>`); continue; }
+
+    const numero = l.match(/^\d+[.)]\s+(.*)$/);
+    if (numero) { ouvrir('ol', '<ol>'); sortie.push(`<li>${enligne(numero[1])}</li>`); continue; }
+
+    if (bloc === 'p') sortie.push(`<br>${enligne(l)}`);
+    else { ouvrir('p', '<p>'); sortie.push(enligne(l)); }
+  }
+  fermer();
+  return sortie.join('');
 }
 
 /**
@@ -259,21 +324,39 @@ export async function ouvrirFiche(offre, toast) {
   }
   afficher(etat);
   ouvrirSurcouche(boite(), { titre: 'Entretien blanc' });
-  if (!etat.fiche) await demanderFiche(toast);
+  if (!etat.fiche) await demanderFiche(toast, null);
 }
 
-async function demanderFiche(toast) {
+/**
+ * Fabrique la fiche de révision.
+ *
+ * LE BOUTON SE RALLUME EN CAS D'ÉCHEC, et ce n'est pas un détail : il était
+ * désactivé avant l'appel et ne l'était plus jamais ensuite. Une seule panne —
+ * un quota Gemini épuisé, une réponse illisible — et « Fiche de révision »
+ * restait mort pour le reste de la séance. On rouvrait la surcouche en croyant
+ * que la fonction n'existait pas.
+ */
+async function demanderFiche(toast, bouton) {
   const doc = document.createElement('div');
   doc.className = 'ent-doc';
-  doc.innerHTML = '<div class="ent-attente">Rédaction de la fiche…</div>';
+  doc.innerHTML = '<div class="ent-attente">Rédaction de la fiche… '
+    + 'une minute environ, elle est longue.</div>';
   boite().appendChild(doc);
   try {
     const r = await API.entretienFiche(offreEnCours.id);
-    const etat = await API.entretien(offreEnCours.id);
-    afficher(etat);
+    afficher(await API.entretien(offreEnCours.id));
     toast('Fiche prête');
+    // La fiche est en bas d'une surcouche qui défile : sans ça, on clique, il
+    // se passe une minute, et rien ne bouge à l'écran.
+    boite().querySelector('.ent-doc:last-of-type')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return r;
-  } catch (e) { doc.remove(); toast(e.message, 'erreur'); }
+  } catch (e) {
+    doc.remove();
+    toast(e.message, 'erreur');
+    if (bouton) bouton.disabled = false;
+    return null;
+  }
 }
 
 /**
@@ -441,7 +524,7 @@ export function installerEntretien(toast) {
       } catch (err) { toast(err.message, 'erreur'); bouton.disabled = false; }
     }
 
-    if (quoi === 'fiche') { bouton.disabled = true; await demanderFiche(toast); }
+    if (quoi === 'fiche') { bouton.disabled = true; await demanderFiche(toast, bouton); }
 
     if (quoi === 'notions') {
       bouton.disabled = true;

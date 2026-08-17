@@ -160,6 +160,69 @@ test('l\'ancienne ouverture et le thème comics ont bien disparu', () => {
   }
 });
 
+/** Les jeux ont été retirés : leur habillage ne doit pas survivre au code. */
+test('plus une règle des jeux retirés', () => {
+  for (const reste of ['.ec-plateau', '.dm-case', '.cb-carte', '.jeu-carte', '#cbCanevas']) {
+    assert.ok(!css.includes(reste), `« ${reste} » traîne encore dans la feuille de style`);
+  }
+});
+
+/**
+ * TROIS RÈGLES PORTENT À ELLES SEULES LE COMPORTEMENT DU LECTEUR FLOTTANT.
+ *
+ * Aucune des trois ne se manifeste par une erreur si elle disparaît — on
+ * obtient simplement un lecteur qui se tait, ou qui refuse de bouger, et rien
+ * ne dit pourquoi. C'est exactement le profil de panne que ce fichier existe
+ * pour attraper.
+ *
+ *   1. Une page inactive s'EFFACE, elle ne se masque pas. `display:none`
+ *      détacherait son rendu, et un cadre détaché n'est plus tenu de
+ *      continuer à jouer : changer d'onglet couperait la musique.
+ *   2. Réduit, le corps passe en `visibility:hidden` pour la même raison —
+ *      ranger le lecteur sans couper le son est TOUT l'intérêt du bouton.
+ *   3. Les cadres sont neutralisés pendant un glissement. Sans ça, le
+ *      pointeur entre dans l'iframe, l'évènement part chez elle, et la
+ *      fenêtre se décroche en plein geste.
+ */
+test('le lecteur flottant garde ce qui le fait jouer et bouger', () => {
+  const inactive = css.match(/\.dock-page\{[^}]*\}/s);
+  assert.ok(inactive, 'la règle .dock-page a disparu');
+  assert.match(inactive[0], /opacity:0/,
+    'une page inactive s\'efface : la masquer en display:none couperait le son');
+  assert.ok(!/\.dock-page\{[^}]*display:none/s.test(css),
+    'display:none sur une page du lecteur arrête la lecture en changeant d\'onglet');
+
+  const reduit = css.match(/\.dock\.reduit \.dock-corps\{[^}]*\}/s);
+  assert.ok(reduit, 'la règle du lecteur réduit a disparu');
+  assert.match(reduit[0], /visibility:hidden/,
+    'réduire doit garder le son : c\'est ce qui le distingue de fermer');
+  assert.ok(!/display:\s*none/.test(reduit[0]),
+    'display:none ferait taire la musique — c\'est le travail du bouton fermer');
+
+  assert.match(css, /body\.dock-glisse iframe\{[^}]*pointer-events:none/,
+    'sans ça, la fenêtre se décroche dès que le pointeur passe sur le cadre');
+});
+
+/**
+ * LE LECTEUR PASSE SOUS LES SURCOUCHES, JAMAIS DEVANT.
+ *
+ * Une palette de commandes ou une boîte de dialogue doit pouvoir s'ouvrir
+ * par-dessus le lecteur. L'inverse est un piège : on ne verrait plus le champ
+ * dans lequel on tape.
+ */
+test('le lecteur reste sous les surcouches', () => {
+  const zDe = (motif) => {
+    const r = css.match(motif);
+    return r ? Number(r[1]) : null;
+  };
+  const dock = zDe(/\.dock\{[^}]*z-index:(\d+)/s);
+  const overlay = zDe(/\.overlay\{[^}]*z-index:(\d+)/s);
+  assert.ok(dock !== null, 'le lecteur n\'a plus de plan');
+  assert.ok(overlay !== null, 'les surcouches n\'ont plus de plan');
+  assert.ok(dock < overlay,
+    `le lecteur (${dock}) passerait devant les surcouches (${overlay})`);
+});
+
 test('les zones qui grandissent avec les données sont bornées', () => {
   for (const [nom, motif] of [
     ['html,body sans défilement', /html,\s*body\{[^}]*overflow:hidden/],

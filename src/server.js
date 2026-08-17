@@ -15,7 +15,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-import { ouvrirBase } from './db.js';
+import { ouvrirBase, lireMeta } from './db.js';
 import { creerRoutes } from './api.js';
 import { creerAuth, motDePasseSuggere } from './auth.js';
 import { demarrerPlanificateur } from './planificateur.js';
@@ -103,14 +103,55 @@ if (publique) app.set('trust proxy', 1);
 // Seuls subsistent `'unsafe-inline'` pour les styles — les cartes portent des
 // couleurs de statut en attribut `style` — et `data:` pour les images, dont
 // la planche SVG de l'ouverture.
+// LE LECTEUR SPOTIFY INTÉGRÉ EST LA SEULE CHOSE QUI OUVRE `script-src`.
+//
+// Jouer la musique DANS la page exige de charger le SDK de Spotify — un
+// script étranger, exécuté dans le même contexte que le tableau de bord, les
+// candidatures et le CV. Le projet a tenu cette porte fermée depuis le début,
+// et rien ne justifie de l'ouvrir chez quelqu'un qui ne s'en sert pas.
+//
+// La politique est donc CALCULÉE, pas écrite en dur : elle ne s'élargit que si
+// l'option a été posée, et une installation neuve garde `script-src 'self'`.
+// L'interrupteur vit dans la base, comme tout réglage qui doit survivre à une
+// mise à jour.
+let lecteurLocal = lireMeta(db, 'spotify_lecteur_local') === '1';
+
+/** Ce que le SDK de Spotify exige, hôte par hôte. Aucun joker. */
+const OUVERTURES_LECTEUR = {
+  // Le SDK lui-même.
+  script: ' https://sdk.scdn.co',
+  // Il parle à Spotify pour son propre compte : REST, socket temps réel de
+  // l'état de lecture, et serveurs de licences. `connect-src 'self'` les
+  // bloquerait tous les trois, et le lecteur resterait muet sans une erreur
+  // lisible.
+  connect: ' https://api.spotify.com https://*.spotify.com wss://*.spotify.com'
+    + ' https://*.scdn.co',
+  // Le SDK monte son propre cadre, et diffuse l'audio par flux découpés
+  // (MSE/EME) servis en `blob:`.
+  frame: ' https://sdk.scdn.co',
+  media: "media-src 'self' blob: https://*.scdn.co",
+  worker: "worker-src 'self' blob:",
+};
+
 app.use((req, res, suite) => {
+  const sdk = lecteurLocal;
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
-    "script-src 'self'",
+    `script-src 'self'${sdk ? OUVERTURES_LECTEUR.script : ''}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data:",
-    "connect-src 'self'",
+    // LES POCHETTES ET LES VIGNETTES, NOMMÉMENT.
+    //
+    // `img-src 'self' data:` a longtemps suffi — jusqu'au jour où le panneau
+    // Spotify s'est mis à afficher des pochettes. Elles étaient bloquées, en
+    // silence : pas d'erreur à l'écran, juste des cadres vides qu'on prenait
+    // pour un défaut de l'API. Une image reste la ressource la moins
+    // dangereuse qu'on puisse charger d'ailleurs, et ces trois hôtes ne
+    // servent que ça.
+    "img-src 'self' data: https://*.scdn.co https://*.spotifycdn.com "
+      + 'https://static-cdn.jtvnw.net https://i.ytimg.com',
+    `connect-src 'self'${sdk ? OUVERTURES_LECTEUR.connect : ''}`,
     "font-src 'self'",
+    ...(sdk ? [OUVERTURES_LECTEUR.media, OUVERTURES_LECTEUR.worker] : []),
     // LES LECTEURS DE LA VUE « CHILL », ET RIEN D'AUTRE.
     //
     // `default-src 'self'` interdit tout cadre externe : sans cette ligne, les
@@ -122,8 +163,9 @@ app.use((req, res, suite) => {
     // rien ne part vers ces domaines depuis notre code. Un cadre est une
     // cloison, pas une porte : il a son propre contexte, et ne peut ni lire
     // le tableau de bord ni toucher à la base.
-    "frame-src https://open.spotify.com https://www.youtube-nocookie.com "
-      + 'https://www.youtube.com https://player.twitch.tv https://embed.twitch.tv',
+    'frame-src https://open.spotify.com https://www.youtube-nocookie.com '
+      + 'https://www.youtube.com https://player.twitch.tv https://embed.twitch.tv'
+      + (sdk ? OUVERTURES_LECTEUR.frame : ''),
     "base-uri 'none'",
     "form-action 'self'",
     // Interdit d'enfermer l'application dans une iframe : c'est ce qui rend
@@ -134,7 +176,9 @@ app.use((req, res, suite) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
   // Aucune de ces fonctions n'est utilisée : les refuser d'avance évite qu'une
-  // faille d'injection puisse s'en servir.
+  // faille d'injection puisse s'en servir. `encrypted-media` n'y figure pas —
+  // le lecteur Spotify diffuse un flux protégé et en a besoin ; le refuser
+  // d'avance le ferait échouer sans message exploitable.
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
   if (publique) {
     // Un an, sous-domaines compris. N'a de sens que servi en HTTPS.
@@ -154,12 +198,22 @@ const auth = creerAuth({ motDePasse: MOT_DE_PASSE, securise: publique });
 auth.monter(app, PUBLIC);
 app.use(auth.protection);
 
-const routesApi = creerRoutes({ db, collecter, sources: SOURCES, profil });
+const routesApi = creerRoutes({ db, collecter, sources: SOURCES, profil,
+  lecteurLocalActif: () => lecteurLocal,
+  majLecteurLocal: (actif) => { lecteurLocal = actif; } });
 app.use('/api', routesApi);
 
 // Le retour d'autorisation Spotify. Hors de /api : c'est le navigateur qui
 // arrive ici, envoyé par Spotify, pas notre code qui appelle une API.
 app.get('/spotify/retour', (req, res) => routesApi.retourSpotify(req, res));
+
+// TWITCH N'A PAS DE PAGE DE RETOUR, et c'est tout l'intérêt du flux retenu.
+//
+// Le « code d'appareil » a été conçu pour les décodeurs et les consoles, qui
+// n'ont pas de navigateur où revenir : Twitch ne demande donc AUCUNE URL de
+// redirection. Le jeton va de Twitch à ce serveur, sans jamais traverser la
+// page — et le formulaire d'enregistrement, qui refuse toute redirection en
+// `http://`, n'a plus rien à valider.
 
 // PREMIER LANCEMENT : L'ASSISTANT AVANT LE TABLEAU DE BORD.
 //

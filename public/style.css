@@ -312,7 +312,7 @@ html,body{height:100%;overflow:hidden;}
 /* ── Navigation au clavier ─────────────────────────────────────────────── */
 /* `:focus-visible` ne se déclenche qu'au clavier : la souris ne laisse donc
    aucun contour disgracieux, mais tabuler reste parfaitement lisible. */
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--r1);}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 .ville:focus-visible,.chip:focus-visible,.seg button:focus-visible{outline-offset:-2px;}
 
 /* Confort de lecture — la mesure typographique, pas la largeur de l'écran. */
@@ -355,6 +355,42 @@ html,body{height:100%;overflow:hidden;}
 .cpill .em{font-size:13px;}
 .cmd-actions{display:flex;gap:var(--e2);flex-wrap:wrap;}
 .btn-ghost{background:transparent;border-style:dashed;color:var(--muted);}
+
+/* ─────────── LE MOBILIER SUIT LA TAILLE DE L'ÉCRAN ───────────
+
+   LE RAIL ET LE BANDEAU SONT DU MOBILIER, PAS DU CONTENU, et c'est ce qui
+   justifie de les traiter à part.
+
+   Le reste de la feuille est dense EXPRÈS : sur une liste de deux cents
+   offres, ce qu'on cherche est d'en voir le plus possible d'un coup d'œil, et
+   grossir le texte coûterait des lignes. Le rail de navigation et le bandeau
+   de commande, eux, ne contiennent rien qu'on parcoure : huit entrées fixes et
+   trois boutons. Leur taille ne se paie donc en rien — et posés à 212 px de
+   large avec du 12,5 px sur un écran de 2 500, ils passaient pour une maquette
+   à moitié chargée.
+
+   `clamp` plutôt qu'un point de rupture : il n'y a pas de largeur d'écran à
+   deviner, et rien ne saute d'un cran à un pixel près. En dessous de 1 500 px
+   les valeurs sont exactement celles d'avant.                              */
+@media(min-width:900px){
+  :root{--sbw:clamp(212px, 14vw, 300px);}
+
+  .sb-brand{font-size:clamp(13.5px, 0.95vw, 17px);}
+  .sb-sub{font-size:clamp(10.5px, 0.72vw, 13px);}
+  .clock .time{font-size:clamp(12.5px, 0.88vw, 16px);}
+  .clock .date{font-size:clamp(10.5px, 0.72vw, 13px);}
+  .nav button{font-size:clamp(12.5px, 0.9vw, 15.5px);
+    padding:clamp(6px, 0.5vw, 10px) var(--e2);}
+  .sb-theme button{font-size:clamp(10.5px, 0.72vw, 13px);}
+  .sb-foot{font-size:clamp(10px, 0.68vw, 12.5px);}
+
+  .cmdbar{padding:clamp(6px, 0.5vw, 12px) clamp(10px, 0.75vw, 18px);}
+  .cmd-hello .ch-t{font-size:clamp(12.5px, 0.92vw, 16.5px);}
+  .cmd-hello .ch-s{font-size:clamp(11px, 0.78vw, 14px);}
+  .cpill{font-size:clamp(11px, 0.76vw, 13.5px);padding:clamp(2px,.2vw,5px) clamp(8px,.6vw,12px);}
+  .cmd-actions .btn{font-size:clamp(11.5px, 0.8vw, 14px);
+    padding:clamp(5px,.42vw,9px) clamp(10px,.75vw,16px);}
+}
 
 /* ─────────────────────── SURFACES ─────────────────────── */
 
@@ -1412,24 +1448,50 @@ ul.mini li{margin-bottom:5px;}
 
 /* LE FAISCEAU. Un dégradé conique tournant : une seule règle, aucune image,
    et le halo décroît tout seul derrière la ligne de tête — exactement le
-   comportement d'un balayage rémanent. */
+   comportement d'un balayage rémanent.
+
+   LA TRAÎNE EST DERRIÈRE, ET IL A FALLU LA RETOURNER. Un dégradé conique part
+   de midi et tourne dans le sens horaire ; le faisceau tourne dans le même
+   sens. Le halo écrit de 0 à 78 degrés se trouvait donc DEVANT le bord
+   d'attaque : la rémanence précédait le balayage au lieu de le suivre. Écrit à
+   l'envers — de 282 à 360 degrés — le halo est derrière, sur ce qui vient
+   d'être survolé, et le radar redevient un radar.
+
+   LA ROTATION EST LINÉAIRE, et ce n'est pas un détail d'esthétique. Une
+   antenne tourne à vitesse constante ; surtout, `intro.js` calcule le moment
+   où le faisceau croise chaque point, et un assouplissement rendrait ce calcul
+   impossible sans inverser une courbe de Bézier. Les quatre nombres viennent
+   de là-bas : ils ne sont pas recopiés ici. */
 .intro-faisceau{position:absolute;inset:0;border-radius:50%;
   background:conic-gradient(from 0deg,
-    rgba(56,189,248,.42) 0deg,
-    rgba(56,189,248,.16) 18deg,
-    rgba(56,189,248,.04) 46deg,
-    transparent 78deg);
+    transparent 282deg,
+    rgba(56,189,248,.04) 314deg,
+    rgba(56,189,248,.16) 342deg,
+    rgba(56,189,248,.42) 360deg);
   mask:radial-gradient(circle,#000 0 96%,transparent 97%);
   -webkit-mask:radial-gradient(circle,#000 0 96%,transparent 97%);
-  animation:radarTour 2.1s .25s cubic-bezier(.35,0,.25,1) forwards;}
-@keyframes radarTour{from{transform:rotate(-90deg);}to{transform:rotate(272deg);}}
+  /* Le faisceau s'efface une fois immobile : les trois retenues doivent rester
+     SEULES à l'écran quand le titre arrive. Un faisceau figé sur le cadran
+     donne une machine en panne, pas une recherche terminée. */
+  animation:
+    radarTour var(--balai-duree,2100ms) var(--balai-debut,260ms) linear forwards,
+    radarExtinction 620ms calc(var(--balai-debut,260ms) + var(--balai-duree,2100ms))
+      ease-out forwards;}
+@keyframes radarTour{
+  from{transform:rotate(var(--balai-depart,-90deg));}
+  to{transform:rotate(var(--balai-arrivee,270deg));}
+}
+@keyframes radarExtinction{to{opacity:0;}}
 
 /* LES POINTS. `--r` est le retard propre à chacun : le moment où le faisceau
    l'atteint. C'est lui qui rend le balayage crédible — un décalage au hasard
    donnerait des lucioles, pas un radar. */
+/* 1,2 s et pas 1,5 : le dernier point ordinaire est survolé à ~2,2 s, et il
+   doit être éteint avant la fin de l'ouverture. Plus long, il traînait à
+   l'écran en même temps que les trois retenues et brouillait la chute. */
 .intro-point{position:absolute;width:var(--d);height:var(--d);margin:calc(var(--d) / -2);
   border-radius:50%;background:#7dd3fc;opacity:0;
-  animation:radarPoint 1.5s var(--r) ease-out backwards;}
+  animation:radarPoint 1.2s var(--r) ease-out backwards;}
 @keyframes radarPoint{
   0%{opacity:0;transform:scale(.4);}
   6%{opacity:1;transform:scale(1.9);box-shadow:0 0 10px 2px rgba(125,211,252,.7);}
@@ -1438,18 +1500,26 @@ ul.mini li{margin-bottom:5px;}
 }
 
 /* Les retenues, elles, ne s'éteignent pas : elles restent et respirent. C'est
-   la promesse de l'outil, montrée avant même qu'il s'ouvre. */
+   la promesse de l'outil, montrée avant même qu'il s'ouvre.
+
+   1,1 s : elles sont survolées dans la dernière demi-seconde du balayage, et
+   doivent avoir atteint leur pleine intensité AVANT que le faisceau s'arrête
+   dessus. Sur 1,9 s, elles montaient encore quand tout le reste s'était tu. */
 .intro-point.retenu{background:#fbbf24;
-  animation:radarRetenu 1.9s var(--r) cubic-bezier(.2,.9,.3,1) forwards;}
+  animation:radarRetenu 1.1s var(--r) cubic-bezier(.2,.9,.3,1) forwards;}
 @keyframes radarRetenu{
   0%{opacity:0;transform:scale(.4);}
-  8%{opacity:1;transform:scale(2.6);box-shadow:0 0 16px 4px rgba(251,191,36,.75);}
-  30%{transform:scale(1.7);box-shadow:0 0 9px 2px rgba(251,191,36,.5);}
+  10%{opacity:1;transform:scale(2.6);box-shadow:0 0 16px 4px rgba(251,191,36,.75);}
+  34%{transform:scale(1.7);box-shadow:0 0 9px 2px rgba(251,191,36,.5);}
   100%{opacity:1;transform:scale(1.9);box-shadow:0 0 12px 3px rgba(251,191,36,.6);}
 }
 
+/* Le titre attend que le faisceau soit à l'arrêt : son retard descend de
+   `intro.js`, comme le reste de l'horloge. Pendant le balayage, il partageait
+   l'écran avec ce qu'on est censé regarder. */
 .intro-titre{display:flex;flex-direction:column;align-items:center;gap:var(--e2);
-  text-align:center;animation:radarTitre .9s 1.85s cubic-bezier(.2,.9,.3,1) backwards;}
+  text-align:center;
+  animation:radarTitre .6s var(--titre-retard,2510ms) cubic-bezier(.2,.9,.3,1) backwards;}
 @keyframes radarTitre{from{opacity:0;transform:translateY(14px);}}
 
 .intro-nom{font-family:var(--font-titre);font-size:clamp(28px,5.2vw,54px);
@@ -1762,6 +1832,19 @@ ul.mini li{margin-bottom:5px;}
 #entretien .ent-pied,#entretien .ent-doc,#entretien .ent-avert{
   max-width:min(820px,92vw);margin-left:auto;margin-right:auto;}
 
+/* LE DÉFAUT QUI METTAIT L'ENTRETIEN EN HUIT COLONNES.
+
+   `.overlay.show{display:flex}` a été écrit pour des surcouches à UN seul
+   enfant — une boîte de dialogue, la palette — qu'il s'agit de centrer.
+   `#entretien`, lui, en a huit : l'en-tête, le fil, la saisie, le pied, les
+   cartes, les sources, le débriefing, la fiche. Ils devenaient donc huit
+   colonnes côte à côte, chacune large de ce qu'elle pouvait, sur toute la
+   largeur de l'écran. Le bouton « Fermer » finissait à un mètre du fil de
+   conversation, et le débriefing en bande verticale illisible.
+
+   Rien ne le signalait : pas d'erreur, pas de règle manquante — juste une
+   valeur de `display` héritée d'un cas qui n'était pas le sien. */
+#entretien.show{display:block;}
 #entretien{overflow-y:auto;padding:var(--e8) 0 var(--e12);}
 .ent-tete{display:flex;align-items:center;gap:var(--e4);margin-bottom:var(--e5);}
 .ent-tete h2{margin:0;font-size:19px;}
@@ -1802,9 +1885,22 @@ ul.mini li{margin-bottom:5px;}
   letter-spacing:.7px;color:var(--muted);margin-bottom:var(--e3);}
 .ent-doc h3{font-size:14.5px;margin:var(--e5) 0 var(--e2);}
 .ent-doc h4{font-size:13px;margin:var(--e4) 0 var(--e1);color:var(--ink-2);}
-.ent-doc ul{margin:var(--e2) 0;padding-left:var(--e5);}
+.ent-doc ul,.ent-doc ol{margin:var(--e2) 0;padding-left:var(--e6);}
 .ent-doc li{margin-bottom:4px;}
 .ent-doc p{margin:0 0 var(--e3);}
+.ent-doc hr{border:0;border-top:1px solid var(--line);margin:var(--e5) 0;}
+.ent-doc code{font-family:var(--mono);font-size:12px;background:var(--bg2);
+  padding:1px 5px;border-radius:3px;}
+
+/* LA TRAME SUGGÉRÉE DOIT SE VOIR COMME UNE SUGGESTION.
+   Rendue en texte courant, elle se lisait comme une citation du candidat — il
+   y retrouvait des phrases et des chiffres qu'il n'avait jamais écrits. Le
+   liseré et le fond disent « ceci est une proposition », avant même la
+   première ligne. */
+.ent-doc blockquote{margin:var(--e3) 0;padding:var(--e3) var(--e4);
+  border-left:3px solid var(--accent);background:var(--accent-bg);
+  border-radius:0 var(--r2) var(--r2) 0;color:var(--ink-2);}
+.ent-doc blockquote p:last-child{margin-bottom:0;}
 
 /* ── Cartes à réviser ──────────────────────────────────────────────────
    La réponse est masquée jusqu'au clic : tenter de restituer avant de lire
@@ -1950,224 +2046,532 @@ ul.mini li{margin-bottom:5px;}
   color:var(--ink);background:var(--panel);border:1px solid var(--line-fort);
   border-radius:var(--r2);padding:5px var(--e3);}
 
-/* LE LECTEUR SE REDIMENSIONNE. On ne regarde pas un direct et on n'écoute pas
-   un album dans la même fenêtre : `resize` laisse tirer le coin, et la
-   hauteur est retenue d'une session à l'autre. */
-.chill-cadre-boite{position:relative;height:352px;min-height:120px;max-height:80vh;
-  resize:vertical;overflow:hidden;border-radius:var(--r3);border:1px solid var(--line);}
-.chill-cadre{width:100%;height:100%;border:0;display:block;}
-.chill-media-vide{padding:var(--e5);font-size:13px;color:var(--muted);line-height:1.6;}
-.chill-media-vide p{margin:0 0 var(--e2);}
-.chill-note{font-size:12px;color:var(--faint);}
+.chill-portes{display:flex;gap:var(--e2);flex-wrap:wrap;}
+.chill-note{font-size:12px;color:var(--muted);line-height:1.6;margin:0 0 var(--e3);}
 
-/* La bascule de session YouTube. Le compromis appartient à qui regarde : le
-   libellé dit ce qu'on gagne, l'infobulle ce qu'on paie. */
-.chill-compte{display:flex;align-items:center;gap:6px;font-size:12px;
-  color:var(--muted);margin-bottom:var(--e3);cursor:pointer;}
-.chill-compte input{width:15px;height:15px;flex:0 0 auto;cursor:pointer;}
-.chill-aide{display:inline-flex;align-items:center;justify-content:center;
-  width:15px;height:15px;border-radius:50%;background:var(--g0b);
-  color:var(--muted);font-size:10px;font-weight:var(--w-semi);cursor:help;}
+/* ═══════════════════════ LE LECTEUR FLOTTANT ═══════════════════════
 
-/* ═══════════════════════ JEUX ═══════════════════════ */
+   UNE FENÊTRE, PAS UN PANNEAU.
 
-.jeux-choix{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
-  gap:var(--e3);}
-.jeu-carte{display:flex;flex-direction:column;align-items:flex-start;gap:var(--e2);
-  text-align:left;font-family:inherit;background:var(--panel);
-  border:1px solid var(--line);border-radius:var(--r3);padding:var(--e5);
-  cursor:pointer;color:var(--ink);transition:border-color .15s,transform .15s;}
-.jeu-carte:hover{border-color:var(--accent);transform:translateY(-2px);}
-.jeu-icone{font-size:38px;line-height:1;color:var(--accent);}
-.jeu-nom{font-size:15px;font-weight:var(--w-semi);}
-.jeu-desc{font-size:12.5px;color:var(--muted);line-height:1.55;}
-.jeu-boite h3{display:flex;align-items:center;gap:var(--e2);}
+   Le lecteur vivait dans la vue Chill : il ne bougeait pas, et changer
+   d'onglet reconstruisait son cadre — donc coupait le son. Il est devenu ce
+   qu'il aurait dû être depuis le début : une fenêtre posée par-dessus
+   l'application, qu'on déplace, qu'on redimensionne, qu'on réduit, et que
+   rien ne reconstruit.
 
-/* ── Échecs ─────────────────────────────────────────────────────────────
-   Le plateau garde ses proportions par `aspect-ratio` : une case d'échecs
-   qui n'est pas carrée se voit immédiatement, et gâche tout. */
-.ec-grille{display:flex;gap:var(--e5);align-items:flex-start;flex-wrap:wrap;}
-.ec-plateau-zone{position:relative;flex:0 0 auto;padding:0 0 16px 16px;}
-.ec-plateau{display:grid;grid-template-columns:repeat(8,1fr);
-  width:min(72vh,520px);aspect-ratio:1;border-radius:var(--r3);overflow:hidden;
-  box-shadow:var(--sh3);}
-.ec-plateau.finie{opacity:.75;}
-.ec-case{border:0;padding:0;cursor:pointer;position:relative;
-  display:flex;align-items:center;justify-content:center;
-  transition:background .12s;}
-.ec-case.claire{background:#efe6d6;}
-.ec-case.sombre{background:#b08462;}
-[data-theme="dark"] .ec-case.claire,[data-theme="cockpit"] .ec-case.claire{background:#cfc4b0;}
-[data-theme="dark"] .ec-case.sombre,[data-theme="cockpit"] .ec-case.sombre{background:#7a5c44;}
+   `position:fixed` la sort du flux ; `z-index:70` la met sous les surcouches
+   mais au-dessus de tout le reste — une palette de commandes doit pouvoir
+   passer devant le lecteur, l'inverse serait un piège.                     */
 
-.ec-piece{font-size:min(8.4vh,60px);line-height:1;user-select:none;
-  transition:transform .12s;}
-/* Les blancs sont blancs, les noirs sont noirs — et les DEUX portent un
-   contour. Sans lui, le glyphe blanc disparaît sur une case claire. */
-.ec-piece.blanc{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.55),0 0 1px #000;}
-.ec-piece.noir{color:#1a1a1a;text-shadow:0 1px 2px rgba(255,255,255,.25);}
-.ec-case:hover .ec-piece{transform:scale(1.06);}
+.dock{position:fixed;z-index:70;display:flex;flex-direction:column;
+  background:var(--panel);border:1px solid var(--line-fort);
+  border-radius:var(--r4);box-shadow:var(--sh4);overflow:hidden;
+  min-width:300px;min-height:300px;}
+.dock[hidden]{display:none;}
 
-.ec-case.choisie{background:#7fb069 !important;}
-.ec-case.dernier::after{content:"";position:absolute;inset:0;
-  background:rgba(255,214,102,.35);pointer-events:none;}
-/* La destination possible : un point au centre, une couronne si c'est une
-   prise. C'est la convention de tous les jeux en ligne — on la lit sans
-   l'apprendre. */
-.ec-case.permise::before{content:"";width:26%;height:26%;border-radius:50%;
-  background:rgba(0,0,0,.22);}
-.ec-case.prise::before{content:"";position:absolute;inset:6%;border-radius:50%;
-  border:4px solid rgba(0,0,0,.22);}
-.ec-case.echec{background:#e06666 !important;}
+/* LE BANDEAU EST LA POIGNÉE. `touch-action:none` n'est pas décoratif : sans
+   lui, un glissement au doigt ou au pavé tactile fait défiler la page au lieu
+   de déplacer la fenêtre, et le geste part sans rien emmener. */
+.dock-tete{display:flex;align-items:center;gap:var(--e2);flex:0 0 auto;
+  padding:6px 8px;background:var(--bg2);border-bottom:1px solid var(--line);
+  cursor:grab;touch-action:none;user-select:none;}
+.dock-tete:active{cursor:grabbing;}
+.dock-prise{width:12px;height:16px;flex:0 0 auto;opacity:.5;
+  background-image:radial-gradient(circle,var(--muted) 1px,transparent 1px);
+  background-size:4px 4px;}
 
-.ec-rangs,.ec-colonnes{position:absolute;display:flex;font-size:10.5px;
-  color:var(--muted);font-variant-numeric:tabular-nums;}
-.ec-rangs{left:0;top:0;bottom:16px;width:16px;flex-direction:column;}
-.ec-rangs span,.ec-colonnes span{flex:1;display:flex;align-items:center;justify-content:center;}
-.ec-colonnes{left:16px;right:0;bottom:0;height:16px;}
+.dock-onglets{display:flex;gap:2px;}
+.dock-onglets button{font-family:inherit;font-size:11.5px;font-weight:var(--w-medium);
+  color:var(--muted);background:transparent;border:0;border-radius:var(--r2);
+  padding:3px 9px;cursor:pointer;}
+.dock-onglets button:hover{background:var(--panel);color:var(--ink);}
+.dock-onglets button.actif{background:var(--panel);color:var(--accent);
+  box-shadow:inset 0 0 0 1px var(--line-fort);}
 
-.ec-cote{flex:1;min-width:200px;display:flex;flex-direction:column;gap:var(--e3);}
-.ec-etat{font-size:13.5px;font-weight:var(--w-semi);padding:var(--e3);
-  background:var(--bg2);border-radius:var(--r2);min-height:20px;}
-.ec-etat.echec{background:var(--hotb);color:var(--hot);}
-.ec-etat.fin{background:var(--accent-bg);color:var(--accent-ink);}
-.ec-niveau{display:flex;align-items:center;gap:var(--e2);font-size:12.5px;
-  color:var(--muted);}
-.ec-coups{list-style:none;margin:0;padding:0;font-family:var(--mono);
-  font-size:12px;max-height:34vh;overflow-y:auto;counter-reset:tour;}
-.ec-coups li{display:flex;gap:var(--e3);padding:2px 0;counter-increment:tour;}
-.ec-coups li::before{content:counter(tour) ".";color:var(--faint);min-width:24px;}
-.ec-coups li span{min-width:64px;}
-.ec-rien{color:var(--muted);font-family:var(--font);}
-.ec-actions{display:flex;gap:var(--e2);}
+.dock-resume{flex:1;min-width:0;font-size:11px;color:var(--faint);
+  text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dock-actions{display:flex;gap:2px;flex:0 0 auto;}
+.dock-bouton{width:22px;height:22px;display:flex;align-items:center;
+  justify-content:center;font-family:inherit;font-size:13px;line-height:1;
+  color:var(--muted);background:transparent;border:0;border-radius:var(--r1);
+  cursor:pointer;}
+.dock-bouton:hover{background:var(--line);color:var(--ink);}
 
-/* ── Démineur ───────────────────────────────────────────────────────── */
-.dm-barre{display:flex;align-items:center;gap:var(--e4);margin-bottom:var(--e2);
-  flex-wrap:wrap;}
-.dm-etat{font-size:13.5px;font-weight:var(--w-semi);font-variant-numeric:tabular-nums;}
-.dm-etat.fin{color:var(--accent);}
-.dm-niveaux{display:flex;gap:var(--e2);margin-left:auto;}
-.dm-niv{font-family:inherit;font-size:11.5px;color:var(--muted);
-  background:transparent;border:1px solid var(--line-fort);border-radius:var(--r2);
-  padding:3px 10px;cursor:pointer;}
-.dm-niv:hover{background:var(--bg2);color:var(--ink);}
-.dm-niv.actif{background:var(--accent);border-color:var(--accent);color:#fff;}
-.dm-aide{font-size:12px;color:var(--muted);margin:0 0 var(--e3);}
+/* LES PAGES SONT SUPERPOSÉES, JAMAIS MASQUÉES.
+   `display:none` détacherait le rendu d'une page inactive — et un cadre
+   détaché n'est plus tenu de continuer à jouer. On les empile donc, et
+   l'inactive s'efface : elle reste rendue, le son continue. */
+.dock-corps{position:relative;flex:1;min-height:0;}
+.dock-page{position:absolute;inset:0;overflow-y:auto;padding:var(--e3);
+  opacity:0;pointer-events:none;}
+.dock-page.actif{opacity:1;pointer-events:auto;z-index:1;}
+.dock-page[data-page="lecteur"]{display:flex;flex-direction:column;gap:var(--e2);}
 
-.dm-grille{display:grid;gap:2px;width:max-content;max-width:100%;
-  overflow-x:auto;padding:2px;background:var(--line);border-radius:var(--r2);}
-.dm-case{width:28px;height:28px;border:0;padding:0;cursor:pointer;
-  font-family:inherit;font-size:14px;font-weight:var(--w-bold);
-  background:var(--bg2);border-radius:2px;line-height:1;
-  display:flex;align-items:center;justify-content:center;transition:background .1s;}
-.dm-case:hover{background:var(--line-fort);}
-.dm-case.ouvert{background:var(--panel);cursor:default;}
-.dm-case.drapeau{color:var(--hot);}
-.dm-case.mine{background:var(--hotb);color:var(--hot);}
-/* Les couleurs classiques du démineur : elles sont dans la tête de tout le
-   monde depuis trente ans, en changer ralentirait la lecture. */
-.dm-case.v1{color:#1976d2;} .dm-case.v2{color:#388e3c;} .dm-case.v3{color:#d32f2f;}
-.dm-case.v4{color:#512da8;} .dm-case.v5{color:#8d4e00;} .dm-case.v6{color:#0097a7;}
-.dm-case.v7{color:#424242;} .dm-case.v8{color:#757575;}
+.dock-cadre-boite{flex:0 0 auto;aspect-ratio:16/9;min-height:120px;position:relative;overflow:hidden;
+  border-radius:var(--r3);border:1px solid var(--line);background:var(--bg2);}
+.dock-cadre{width:100%;height:100%;border:0;display:block;}
+.dock-vide{padding:var(--e4);font-size:12.5px;color:var(--muted);line-height:1.6;}
+.dock-vide p{margin:0 0 var(--e2);}
+.dock-note{font-size:11.5px;color:var(--faint);line-height:1.55;margin:0;}
+.dock-note code{font-family:var(--mono);font-size:10.5px;background:var(--bg2);
+  padding:1px 4px;border-radius:3px;}
 
-/* ── Spotify, compte lié ────────────────────────────────────────────────
-   Distinct du lecteur intégré : celui-ci cherche dans le catalogue et pilote
-   la lecture. Aucun secret demandé — PKCE ne réclame qu un client_id. */
-.chill-spotify{grid-column:1/-1;}
-.sp-vide{font-size:13px;color:var(--muted);line-height:1.6;}
-.sp-vide p{margin:0 0 var(--e3);}
-.sp-etapes{margin:0 0 var(--e3);padding-left:var(--e5);font-size:12.5px;}
-.sp-etapes li{margin-bottom:6px;}
-.sp-etapes code,.sp-vide code{font-family:var(--mono);font-size:11.5px;
-  background:var(--bg2);padding:1px 5px;border-radius:3px;word-break:break-all;}
-.sp-note{font-size:12px;color:var(--faint);}
-.sp-tete{display:flex;align-items:center;gap:var(--e2);margin-bottom:var(--e3);}
-.sp-lie{font-size:11px;font-weight:var(--w-semi);text-transform:uppercase;
-  letter-spacing:.6px;color:var(--g1);background:var(--g1b);padding:2px 8px;border-radius:var(--r1);}
-.sp-piste{display:flex;gap:var(--e4);align-items:center;}
-.sp-pochette{width:72px;height:72px;border-radius:var(--r2);object-fit:cover;flex:0 0 auto;}
-.sp-infos{flex:1;min-width:0;}
-.sp-titre{font-size:14px;font-weight:var(--w-semi);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.sp-artistes{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.sp-appareil{font-size:11px;color:var(--faint);margin-top:2px;}
-.sp-jauge{height:3px;background:var(--line);border-radius:2px;margin-top:8px;overflow:hidden;}
-.sp-jauge span{display:block;height:100%;background:var(--g1);transition:width 1s linear;}
-.sp-temps{font-size:10.5px;color:var(--faint);margin-top:3px;font-variant-numeric:tabular-nums;}
-.sp-rien{font-size:12.5px;color:var(--muted);padding:var(--e3) 0;}
-.sp-commandes{display:flex;justify-content:center;gap:var(--e3);margin:var(--e4) 0;}
-.sp-cmd{width:38px;height:38px;border-radius:50%;border:1px solid var(--line-fort);
-  background:var(--panel);color:var(--ink);font-size:14px;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;transition:background .13s;}
-.sp-cmd:hover{background:var(--bg2);}
-.sp-grand{width:46px;height:46px;font-size:17px;background:var(--g1);border-color:var(--g1);color:#fff;}
-.sp-grand:hover{filter:brightness(1.08);background:var(--g1);}
-.sp-chercher{display:flex;gap:var(--e2);margin-bottom:var(--e3);flex-wrap:wrap;}
-.sp-chercher input{flex:1;min-width:160px;font-family:inherit;font-size:12.5px;
+.dock-lien{display:flex;gap:var(--e2);flex:0 0 auto;}
+.dock-lien input{flex:1;min-width:0;font-family:inherit;font-size:12.5px;
   color:var(--ink);background:var(--panel);border:1px solid var(--line-fort);
   border-radius:var(--r2);padding:5px var(--e3);}
-.sp-liste{list-style:none;margin:0;padding:0;max-height:38vh;overflow-y:auto;}
-.sp-liste button{display:flex;align-items:center;gap:var(--e3);width:100%;text-align:left;
-  font-family:inherit;background:transparent;border:0;padding:5px var(--e2);
+.dock-session{flex:0 0 auto;display:flex;flex-direction:column;gap:4px;}
+.dock-bascule{display:flex;align-items:center;gap:6px;font-size:12px;
+  color:var(--muted);cursor:pointer;}
+.dock-bascule input{width:15px;height:15px;flex:0 0 auto;cursor:pointer;}
+.dock-lien-txt{align-self:flex-start;font-family:inherit;font-size:11.5px;
+  color:var(--accent);background:transparent;border:0;padding:0;cursor:pointer;
+  text-decoration:underline;}
+
+/* RÉDUIT, LE CORPS RESTE RENDU. `visibility:hidden` le retire de la vue sans
+   le retirer du rendu : c'est ce qui permet de ranger le lecteur dans un coin
+   SANS couper le son — toute la raison d'être du bouton. `display:none` ferait
+   taire la musique, ce qui est le travail du bouton d'à côté. */
+.dock.reduit{height:auto !important;min-height:0;overflow:visible;}
+.dock.reduit .dock-corps{position:absolute;top:100%;left:0;width:100%;
+  height:320px;visibility:hidden;pointer-events:none;}
+.dock.reduit .dock-poignee{display:none;}
+
+/* LE COIN QUI REDIMENSIONNE. Deux traits, la convention universelle. */
+.dock-poignee{position:absolute;right:0;bottom:0;width:16px;height:16px;
+  cursor:nwse-resize;touch-action:none;z-index:2;
+  background:linear-gradient(135deg,transparent 46%,var(--line-fort) 46%,
+    var(--line-fort) 54%,transparent 54%,transparent 70%,
+    var(--line-fort) 70%,var(--line-fort) 78%,transparent 78%);}
+
+/* LE VOILE DU GLISSEMENT.
+   Un cadre est un document étranger : dès que le pointeur passe au-dessus,
+   c'est LUI qui reçoit les évènements et la fenêtre se décroche en plein
+   geste. C'est le défaut classique de toute boîte déplaçable contenant une
+   vidéo, et la seule parade est de neutraliser les cadres le temps du geste. */
+body.dock-glisse{user-select:none;cursor:grabbing;}
+body.dock-glisse iframe{pointer-events:none;}
+
+/* Sur un écran étroit, une fenêtre qu'on déplace n'a nulle part où aller :
+   elle occupe le bas de l'écran et reste posée là. */
+@media(max-width:700px){
+  .dock{left:0 !important;right:0;top:auto !important;bottom:0;
+    width:auto !important;max-width:100vw;border-radius:var(--r4) var(--r4) 0 0;}
+  .dock-poignee{display:none;}
+}
+
+/* ── Spotify ────────────────────────────────────────────────────────────
+   Le cadre de l'onglet « Lecteur » joue ce qu'on lui colle ; ce panneau-ci
+   cherche dans le catalogue, pilote la lecture, et — si le lecteur intégré
+   est activé — joue lui-même. Aucun secret demandé : PKCE ne réclame qu'un
+   client_id. */
+.sp-vide{font-size:12.5px;color:var(--muted);line-height:1.6;}
+.sp-vide p{margin:0 0 var(--e3);}
+.sp-etapes{margin:0 0 var(--e3);padding-left:var(--e5);font-size:12px;}
+.sp-etapes li{margin-bottom:6px;}
+.sp-etapes code,.sp-vide code,.sp-alerte code{font-family:var(--mono);font-size:11px;
+  background:var(--bg2);padding:1px 5px;border-radius:3px;word-break:break-all;}
+.sp-note{font-size:11.5px;color:var(--faint);line-height:1.5;font-weight:var(--w-normal);
+  text-transform:none;letter-spacing:0;}
+.sp-tete{display:flex;align-items:center;gap:var(--e2);margin-bottom:var(--e3);flex-wrap:wrap;}
+.sp-tete .chill-vider{margin-left:0;}
+.sp-tete .chill-vider:last-child{margin-left:auto;}
+.sp-allume{color:var(--g1) !important;border-color:var(--g1) !important;background:var(--g1b);}
+.sp-panne{color:var(--hot) !important;border-color:var(--hot) !important;background:var(--hotb);}
+
+/* ═══ LA SCÈNE ═══════════════════════════════════════════════════════════
+
+   LA POCHETTE EST LE FOND, et c'est tout le principe.
+
+   La même image sert deux fois : nette au premier plan, et derrière, agrandie
+   et floutée à outrance. C'est ce qui donne l'ambiance colorée du morceau en
+   cours sans lire un seul pixel. Extraire une couleur dominante demanderait un
+   canevas, donc une image de même origine, donc un relais côté serveur pour
+   contourner le cloisonnement — trois pièces de plus pour un résultat que
+   quarante pixels de flou obtiennent en une ligne.
+
+   `contain` sur la pochette et pas `cover` : une pochette d'album est carrée,
+   la rogner couperait le titre ou le visage qui en fait tout l'intérêt.       */
+.sp-scene{position:relative;border-radius:var(--r3);overflow:hidden;
+  border:1px solid var(--line);background:var(--bg2);
+  padding:var(--e4);isolation:isolate;}
+.sp-scene-vide{padding:var(--e3);}
+
+.sp-ambiance{position:absolute;inset:-30%;z-index:0;
+  background-size:cover;background-position:center;
+  filter:blur(46px) saturate(1.7) brightness(.62);
+  transform:scale(1.15);opacity:.95;
+  transition:background-image .6s ease,opacity .6s ease;}
+/* Un voile sombre par-dessus l'ambiance : sans lui, une pochette très claire
+   rend le titre blanc illisible — et une pochette très sombre l'écrase. */
+.sp-ambiance::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(8,10,18,.34),rgba(8,10,18,.72));}
+
+.sp-scene-corps{position:relative;z-index:1;display:flex;flex-direction:column;
+  align-items:center;gap:var(--e3);}
+
+.sp-pochette{width:min(52vh,100%);max-width:260px;aspect-ratio:1;object-fit:contain;
+  border-radius:var(--r3);box-shadow:0 12px 34px -10px rgba(0,0,0,.7);
+  background:rgba(0,0,0,.25);transition:transform .35s cubic-bezier(.2,.9,.3,1);}
+.sp-scene.joue .sp-pochette{transform:scale(1.015);}
+.sp-pochette-vide{display:flex;align-items:center;justify-content:center;
+  font-size:52px;color:rgba(255,255,255,.35);}
+
+.sp-infos{width:100%;text-align:center;min-width:0;color:#fff;}
+.sp-titre{font-size:16px;font-weight:var(--w-bold);letter-spacing:-.2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  text-shadow:0 1px 3px rgba(0,0,0,.5);}
+.sp-artistes{font-size:13px;color:rgba(255,255,255,.82);margin-top:1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sp-album{font-size:11.5px;color:rgba(255,255,255,.52);margin-top:1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sp-rien{font-size:12.5px;color:var(--muted);padding:var(--e3) 0;text-align:center;}
+
+/* LA BARRE D'AVANCEMENT EST UN CURSEUR, PLUS UNE JAUGE.
+   Une jauge dit où l'on en est ; un curseur laisse y aller. C'est la
+   différence entre regarder un morceau passer et pouvoir revenir sur le
+   passage qu'on voulait réécouter.
+
+   `--avance` est posée en JS et repeint la partie déjà jouée : un `input`
+   natif ne sait pas colorer sa piste des deux côtés du bouton. */
+.sp-avance{display:flex;align-items:center;gap:var(--e2);width:100%;}
+.sp-temps{font-size:10.5px;color:rgba(255,255,255,.62);font-variant-numeric:tabular-nums;
+  flex:0 0 auto;min-width:36px;text-align:center;}
+
+.sp-curseur{flex:1;min-width:0;height:18px;appearance:none;-webkit-appearance:none;
+  background:transparent;cursor:pointer;margin:0;--avance:0%;}
+.sp-curseur::-webkit-slider-runnable-track{height:4px;border-radius:2px;
+  background:linear-gradient(90deg,#fff 0 var(--avance),rgba(255,255,255,.24) var(--avance) 100%);}
+.sp-curseur::-moz-range-track{height:4px;border-radius:2px;background:rgba(255,255,255,.24);}
+.sp-curseur::-moz-range-progress{height:4px;border-radius:2px;background:#fff;}
+.sp-curseur::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;
+  margin-top:-3.5px;border-radius:50%;background:#fff;border:0;
+  opacity:0;transition:opacity .15s;}
+.sp-curseur::-moz-range-thumb{width:11px;height:11px;border-radius:50%;background:#fff;border:0;}
+/* Le bouton n'apparaît qu'au survol : au repos, une barre pleine se lit mieux
+   qu'une barre percée d'un point. */
+.sp-scene:hover .sp-curseur::-webkit-slider-thumb,
+.sp-curseur:focus-visible::-webkit-slider-thumb{opacity:1;}
+.sp-curseur:focus-visible{outline:2px solid #fff;outline-offset:3px;}
+
+.sp-commandes{display:flex;justify-content:center;align-items:center;gap:var(--e2);}
+.sp-cmd{width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.22);
+  background:rgba(255,255,255,.08);color:rgba(255,255,255,.86);font-size:13px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .13s,transform .13s,color .13s;backdrop-filter:blur(4px);}
+.sp-cmd:hover{background:rgba(255,255,255,.2);color:#fff;transform:scale(1.06);}
+.sp-cmd:active{transform:scale(.96);}
+/* Un réglage actif doit se voir SANS survol : c'est la seule façon de savoir
+   que la lecture aléatoire tourne avant de se demander pourquoi l'album part
+   dans le désordre. */
+.sp-cmd.allume{color:#7ee2a8;border-color:#7ee2a8;background:rgba(126,226,168,.16);}
+.sp-grand{width:48px;height:48px;font-size:18px;background:#fff;border-color:#fff;color:#101014;}
+.sp-grand:hover{background:#fff;color:#101014;transform:scale(1.07);}
+.sp-petit{width:26px;height:26px;font-size:11px;}
+
+.sp-pied-scene{display:flex;align-items:center;gap:var(--e2);width:100%;}
+.sp-vol-signe{font-size:11px;flex:0 0 auto;}
+.sp-pied-scene .sp-curseur{max-width:120px;}
+.sp-ou{margin-left:auto;font-size:10.5px;color:rgba(255,255,255,.55);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40%;}
+.sp-ou.ici{color:#7ee2a8;}
+.sp-pied-scene .sp-note{color:rgba(255,255,255,.5);}
+
+/* PLEIN ÉCRAN. Le lecteur cesse d'être une vignette : la pochette prend la
+   hauteur, et les commandes grandissent avec elle. */
+.dock.plein{border-radius:0;border:0;}
+.dock.plein .sp-scene{padding:var(--e10) var(--e8);}
+.dock.plein .sp-pochette{max-width:min(46vh,460px);}
+.dock.plein .sp-titre{font-size:clamp(22px,3vw,40px);}
+.dock.plein .sp-artistes{font-size:clamp(14px,1.4vw,20px);}
+.dock.plein .sp-album{font-size:clamp(12px,1.1vw,15px);}
+.dock.plein .sp-cmd{width:46px;height:46px;font-size:17px;}
+.dock.plein .sp-grand{width:64px;height:64px;font-size:24px;}
+.dock.plein .sp-scene-corps{max-width:760px;margin:0 auto;}
+.dock.plein .sp-biblio{max-width:760px;margin:0 auto;}
+
+.sp-alerte{margin-top:var(--e3);padding:var(--e3);background:var(--g2b);
+  border:1px solid var(--g2);border-radius:var(--r3);font-size:12.5px;
+  color:var(--ink-2);line-height:1.55;position:relative;z-index:2;}
+.sp-alerte p{margin:0 0 var(--e2);}
+.sp-alerte .btn{margin-right:var(--e2);margin-top:var(--e1);}
+.sp-appareils{display:flex;align-items:center;gap:var(--e2);margin-top:var(--e3);
+  font-size:11.5px;color:var(--muted);}
+.sp-appareils select{flex:1;min-width:0;font-family:inherit;font-size:11.5px;
+  color:var(--ink);background:var(--panel);border:1px solid var(--line-fort);
+  border-radius:var(--r2);padding:3px var(--e2);}
+
+/* ── La bibliothèque ─────────────────────────────────────────────────── */
+.sp-onglets{display:flex;gap:2px;margin:var(--e4) 0 var(--e2);
+  background:var(--bg2);border-radius:var(--r2);padding:2px;}
+.sp-onglets button{flex:1;font-family:inherit;font-size:11px;font-weight:var(--w-medium);
+  color:var(--muted);background:transparent;border:0;border-radius:var(--r1);
+  padding:4px 6px;cursor:pointer;transition:background .13s,color .13s;}
+.sp-onglets button:hover{color:var(--ink);}
+.sp-onglets button.actif{background:var(--panel);color:var(--accent);box-shadow:var(--sh2);}
+
+.sp-chercher{display:flex;gap:var(--e2);margin:0 0 var(--e3);flex-wrap:wrap;}
+.sp-chercher input{flex:1;min-width:120px;font-family:inherit;font-size:12.5px;
+  color:var(--ink);background:var(--panel);border:1px solid var(--line-fort);
+  border-radius:var(--r2);padding:5px var(--e3);}
+.sp-liste{list-style:none;margin:0 0 var(--e3);padding:0;}
+.sp-liste li{display:flex;align-items:center;gap:2px;border-radius:var(--r2);}
+.sp-liste li:hover{background:var(--bg2);}
+.sp-liste li>button:first-child{flex:1;min-width:0;}
+.sp-liste button{display:flex;align-items:center;gap:var(--e3);text-align:left;
+  font-family:inherit;background:transparent;border:0;padding:4px var(--e2);
   border-radius:var(--r2);cursor:pointer;color:var(--ink);}
-.sp-liste button:hover{background:var(--bg2);}
+.sp-action{flex:0 0 auto;color:var(--muted);font-size:14px;padding:4px 8px;
+  opacity:0;transition:opacity .13s,color .13s;}
+/* Les actions secondaires n'apparaissent qu'au survol de leur ligne : vingt
+   lignes qui portent chacune deux icônes en permanence donnent une liste
+   qu'on ne lit plus, on la déchiffre. */
+.sp-liste li:hover .sp-action,.sp-action:focus-visible{opacity:1;}
+.sp-action:hover{color:var(--g1);}
 .sp-liste img,.sp-vignette{width:36px;height:36px;border-radius:var(--r1);
   object-fit:cover;flex:0 0 auto;background:var(--bg2);}
-.sp-l-titre{font-size:12.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.sp-l-artiste{font-size:11.5px;color:var(--muted);max-width:34%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sp-l-infos{flex:1;min-width:0;display:flex;flex-direction:column;}
+.sp-l-titre{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sp-l-artiste{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sp-liste .sp-temps{color:var(--faint);}
 
-/* ── Duel : sélection et arène ──────────────────────────────────────── */
-.cb-titre{font-size:14px;margin:0 0 var(--e4);}
-.cb-grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:var(--e3);}
-.cb-carte{display:flex;flex-direction:column;align-items:center;gap:3px;
-  font-family:inherit;background:var(--panel);border:1px solid var(--line);
-  border-radius:var(--r3);padding:var(--e3);cursor:pointer;color:var(--ink);
-  transition:border-color .15s,transform .15s;}
-.cb-carte:hover{border-color:var(--accent);transform:translateY(-2px);}
-.cb-carte.choisi{border-color:var(--accent);background:var(--accent-bg);}
-.cb-vignette{image-rendering:pixelated;border-radius:var(--r2);width:72px;height:96px;}
-.cb-nom{font-size:13px;font-weight:var(--w-semi);margin-top:4px;}
-.cb-role{font-size:11px;color:var(--accent);}
-.cb-arme{font-size:10.5px;color:var(--muted);text-align:center;}
-.cb-aide{font-size:12.5px;color:var(--muted);margin-top:var(--e4);}
-.cb-fiche{margin-top:var(--e5);padding-top:var(--e4);border-top:1px solid var(--line);}
-.cb-fiche p{font-size:13px;color:var(--ink-2);line-height:1.6;margin:0 0 var(--e3);}
-.cb-stats{display:flex;flex-direction:column;gap:5px;max-width:340px;}
-.cb-stat{display:flex;align-items:center;gap:var(--e3);font-size:11.5px;color:var(--muted);}
-.cb-stat span{min-width:56px;}
-.cb-stat i{flex:1;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden;}
-.cb-stat b{display:block;height:100%;background:var(--accent);}
-.cb-lancer{display:flex;align-items:center;gap:var(--e3);margin-top:var(--e4);flex-wrap:wrap;}
-.cb-lancer label{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:var(--e2);}
-/* Le canevas est agrandi SANS lissage : c est ce qui donne de vrais pixels. */
-.cb-jeu{display:flex;flex-direction:column;gap:var(--e2);position:relative;}
-#cbCanevas{width:100%;max-width:960px;image-rendering:pixelated;
-  border-radius:var(--r3);display:block;background:#0b0d14;}
-.cb-hud{display:flex;align-items:flex-start;gap:var(--e4);max-width:960px;}
-.cb-vie{flex:1;}
-.cb-vie.droite{text-align:right;}
-.cb-qui{font-size:11.5px;font-weight:var(--w-semi);text-transform:uppercase;letter-spacing:.7px;}
-.cb-vie i{display:block;height:12px;background:var(--g3b);border:1px solid var(--line-fort);
-  border-radius:3px;overflow:hidden;margin-top:3px;}
-.cb-vie b{display:block;height:100%;width:100%;background:linear-gradient(180deg,#8fd694,#3f9a4a);
-  transition:width .12s linear;}
-.cb-vie.droite i{transform:scaleX(-1);}
-.cb-centre{text-align:center;min-width:70px;}
-.cb-chrono{font-size:22px;font-weight:var(--w-bold);font-variant-numeric:tabular-nums;line-height:1;}
-.cb-rounds{display:flex;justify-content:center;gap:var(--e3);font-size:11px;color:var(--accent);margin-top:2px;}
-.cb-pied{display:flex;align-items:center;gap:var(--e3);flex-wrap:wrap;max-width:960px;}
-.cb-lieu{font-size:12px;font-weight:var(--w-semi);}
-.cb-touches{font-size:11px;color:var(--muted);flex:1;}
-.cb-touches b{font-family:var(--mono);background:var(--bg2);padding:1px 5px;border-radius:3px;font-weight:var(--w-medium);}
-/* Lannonce se superpose au canevas : un round qui commence doit se voir sans
-   pousser le jeu vers le bas. */
-.cb-annonce{position:absolute;top:44%;left:0;right:0;text-align:center;
-  font-size:30px;font-weight:var(--w-bold);letter-spacing:2px;color:#fff;
-  text-shadow:0 3px 0 rgba(0,0,0,.55);pointer-events:none;opacity:0;
-  transform:scale(.9);transition:opacity .2s,transform .2s;}
-.cb-annonce.visible{opacity:1;transform:scale(1);}
-.cb-fin{text-align:center;padding:var(--e10) var(--e5);}
-.cb-fin h4{font-size:26px;margin:0 0 var(--e2);}
-.cb-fin.gagne h4{color:var(--g1);}
-.cb-fin.perdu h4{color:var(--g3);}
-.cb-fin p{font-size:13px;color:var(--muted);margin:0 0 var(--e5);}
-.cb-fin .cb-lancer{justify-content:center;}
+/* ── Twitch, compte lié ─────────────────────────────────────────────────
+   La connexion s'ouvre dans une VRAIE fenêtre : Twitch, comme Google, sert
+   sa page de connexion avec un en-tête qui interdit l'affichage en cadre.
+   « Se connecter dans le lecteur » n'était pas difficile, c'était impossible. */
+.tw-titre{font-size:10.5px;font-weight:var(--w-semi);text-transform:uppercase;
+  letter-spacing:.7px;color:var(--faint);margin:var(--e3) 0 var(--e2);
+  display:flex;align-items:baseline;gap:var(--e2);}
+.tw-liste li>button:first-child{gap:var(--e2);}
+.tw-vignette{width:64px;height:36px;border-radius:var(--r1);object-fit:cover;
+  flex:0 0 auto;background:var(--bg2);}
+.tw-avatar{width:32px;height:32px;border-radius:50%;object-fit:cover;flex:0 0 auto;}
+.tw-infos{flex:1;min-width:0;display:flex;flex-direction:column;}
+.tw-nom{font-size:12px;font-weight:var(--w-medium);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;}
+.tw-jeu{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tw-vus{font-size:11px;color:var(--hot);flex:0 0 auto;font-variant-numeric:tabular-nums;}
+.tw-vus.hors{color:var(--faint);}
+
+/* LA NAVIGATION, PUISQU'ELLE SE FAIT ICI ET PLUS SUR LE SITE.
+   Le fil reste COLLÉ EN HAUT : dans une catégorie de trente directs, le bouton
+   de retour partait sinon hors de vue au premier défilement, et la seule
+   sortie visible redevenait twitch.tv — exactement ce qu'on voulait éviter. */
+.tw-fil{position:sticky;top:0;z-index:2;display:flex;align-items:center;
+  gap:var(--e2);padding:var(--e2) 0;margin-bottom:var(--e2);
+  background:var(--bg1);border-bottom:1px solid var(--bord);}
+.tw-retour{font-size:11.5px;color:var(--muted);background:var(--bg2);
+  border:1px solid var(--bord);border-radius:var(--r1);padding:3px 9px;
+  cursor:pointer;transition:color .15s,border-color .15s;}
+.tw-retour:hover{color:var(--txt);border-color:var(--accent);}
+.tw-fil-titre{font-size:12px;font-weight:var(--w-medium);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;}
+
+/* Les catégories en grille : une jaquette se reconnaît d'un coup d'œil là où
+   une ligne de texte se lit. Les colonnes s'ajustent à la largeur du lecteur,
+   qui est redimensionnable — une grille figée y laissait soit un vide, soit un
+   débordement horizontal. */
+.tw-grille{list-style:none;margin:0 0 var(--e3);padding:0;display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:var(--e2);}
+.tw-carte{display:flex;flex-direction:column;gap:4px;width:100%;padding:0;
+  background:none;border:0;cursor:pointer;text-align:left;}
+.tw-jaquette{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:var(--r1);
+  background:var(--bg2);transition:transform .15s,box-shadow .15s;}
+.tw-carte:hover .tw-jaquette{transform:translateY(-2px);box-shadow:var(--ombre2);}
+.tw-carte-nom{font-size:11px;color:var(--muted);line-height:1.3;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+
+.tw-entete{display:flex;align-items:center;gap:var(--e3);padding:var(--e3) 0;}
+.tw-avatar-grand{width:56px;height:56px;border-radius:50%;object-fit:cover;flex:0 0 auto;}
+.tw-entete-infos{flex:1;min-width:0;}
+.tw-entete-infos .tw-jeu{white-space:normal;}
+
+
+/* ═══════════════════ MATIÈRE, PROFONDEUR ET RÉPONSE ═══════════════════
+
+   CE QUE CETTE SECTION AJOUTE, ET CE QU'ELLE SE REFUSE À FAIRE.
+
+   Le système de design de ce fichier est explicite : les bordures dessinent,
+   les ombres ne servent qu'à ce qui FLOTTE, les rayons restent courts, aucun
+   dégradé de marque, et la densité est resserrée d'un tiers pour qu'on voie
+   deux cents offres au lieu de trois. Rien de tout cela ne bouge ici.
+
+   Ce qui manquait n'était pas de la décoration, c'était de la MATIÈRE :
+   une surface qui n'a ni épaisseur ni réaction se lit comme un document, pas
+   comme un instrument. Trois ajouts, et rien d'autre :
+
+     · un LISERÉ DE LUMIÈRE d'un pixel en haut des surfaces. C'est ce qui
+       distingue une plaque posée d'un rectangle peint, et ça ne coûte pas un
+       pixel de hauteur ;
+     · une ÉLÉVATION AU SURVOL sur ce qui est réellement cliquable — et
+       seulement là. Une carte qui se soulève dit « tu peux agir ici » avant
+       même que la souris s'arrête ;
+     · une RÉPONSE AU CLIC. Un bouton qui ne s'enfonce pas laisse un doute
+       d'un dixième de seconde sur le fait qu'on a bien cliqué.
+
+   Tout passe par `transform`, `opacity` et `box-shadow` : le compositeur s'en
+   charge, la page ne se remet pas en page. Et l'interrupteur des Options ainsi
+   que `prefers-reduced-motion` coupent tout, transitions comprises.        */
+
+:root{
+  /* Le liseré du haut. Sur fond clair il est presque invisible et c'est
+     voulu — c'est sur les surfaces sombres qu'il fait le travail. */
+  --lustre:rgba(255,255,255,.75);
+  /* Une seule courbe pour tout ce qui répond à la main. Un ressort commun
+     fait que l'interface a UNE façon de bouger, au lieu de sept. */
+  --ressort:cubic-bezier(.22,1,.36,1);
+}
+[data-theme="dark"],[data-theme="cockpit"]{--lustre:rgba(255,255,255,.07);}
+
+/* ── Le liseré ────────────────────────────────────────────────────────
+   `inset` : il se pose SUR la surface, il ne l'agrandit pas d'un pixel. */
+.panel-box,.stat,.kcol,.grid,.overlay-box,.palette-box,.dock,.form,.seg{
+  box-shadow:inset 0 1px 0 var(--lustre);}
+.dock{box-shadow:inset 0 1px 0 var(--lustre),var(--sh4);}
+.overlay-box,.palette-box{box-shadow:inset 0 1px 0 var(--lustre),var(--sh4);}
+
+/* ── Ce qui se soulève ────────────────────────────────────────────────
+   UNIQUEMENT ce qui est cliquable. Une élévation sur un bloc inerte est un
+   mensonge : on essaie de cliquer, il ne se passe rien, et on doute du reste
+   de l'interface. */
+.stat,.dos,.kcard{
+  transition:transform .16s var(--ressort),box-shadow .16s var(--ressort),
+    border-color .16s,background .16s;}
+.stat:hover,.dos:hover,.kcard:hover{
+  transform:translateY(-2px);
+  box-shadow:inset 0 1px 0 var(--lustre),var(--sh3);}
+.kcard:active{transform:scale(.985);}
+
+/* La barre d'accent de la tuile grandit au survol : elle passe de repère à
+   réponse, sans qu'on ait ajouté quoi que ce soit à l'écran. */
+.stat::after{transition:width .16s var(--ressort),opacity .16s;}
+.stat:hover::after{width:3px;}
+
+/* Le liseré de groupe d'une ligne d'offre s'épaissit au survol. C'est le seul
+   endroit où la couleur de groupe est déjà présente : l'utiliser comme accusé
+   de réception évite d'inventer un second signal. */
+.card::before{transition:width .14s var(--ressort);}
+.card:hover::before{width:4px;}
+
+/* ── Les boutons répondent ────────────────────────────────────────────
+   L'enfoncement est de UN pixel. Deux, et le bouton a l'air de tomber. */
+.btn,.seg button,.ville,.chip,.dock-onglets button,.sp-onglets button{
+  transition:background .14s,border-color .14s,color .14s,
+    transform .1s var(--ressort),box-shadow .14s;}
+.btn:active,.seg button:active,.ville:active,.chip:active{transform:translateY(1px);}
+.btn-primary{box-shadow:inset 0 1px 0 rgba(255,255,255,.14);}
+.btn-primary:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.2),var(--sh3);}
+
+/* ── LE FOCUS, UNE SEULE FOIS POUR TOUT ───────────────────────────────
+   Il était défini pour les champs et absent partout ailleurs : au clavier, on
+   traversait la barre latérale, les onglets et les boutons sans savoir où
+   l'on était. `:focus-visible` et non `:focus` — un bouton cliqué à la souris
+   ne doit pas rester cerclé. */
+/*  et pas , et ce n'est pas indifférent : un contour
+   suit le rayon de l'élément, une ombre non. Écrite en ombre, la règle
+   RECTANGULARISAIT les boutons ronds du lecteur dès qu'ils prenaient le focus,
+   et elle écrasait au passage le liseré des boutons principaux. */
+.sidebar :focus-visible{outline-color:rgba(255,255,255,.85);}
+.sp-scene :focus-visible{outline-color:#fff;}
+
+/* ── Les barres de défilement ─────────────────────────────────────────
+   Elles étaient habillées à deux endroits sur douze. Les dix autres
+   servaient la barre grise du système, deux fois trop large, au milieu d'une
+   interface qui a par ailleurs choisi chacun de ses gris. */
+.kcol-liste,.ent-fil,.chill-fil,.sp-liste,.dock-page,.sp-biblio,
+.palette-res,#focusList,.ent-cartes,.dos-liste{
+  scrollbar-width:thin;scrollbar-color:var(--line-fort) transparent;}
+.kcol-liste::-webkit-scrollbar,.ent-fil::-webkit-scrollbar,
+.chill-fil::-webkit-scrollbar,.sp-liste::-webkit-scrollbar,
+.dock-page::-webkit-scrollbar,.sp-biblio::-webkit-scrollbar,
+.palette-res::-webkit-scrollbar,#focusList::-webkit-scrollbar{width:8px;height:8px;}
+.kcol-liste::-webkit-scrollbar-thumb,.ent-fil::-webkit-scrollbar-thumb,
+.chill-fil::-webkit-scrollbar-thumb,.sp-liste::-webkit-scrollbar-thumb,
+.dock-page::-webkit-scrollbar-thumb,.sp-biblio::-webkit-scrollbar-thumb,
+.palette-res::-webkit-scrollbar-thumb,#focusList::-webkit-scrollbar-thumb{
+  background:var(--line-fort);border-radius:99px;
+  border:2px solid transparent;background-clip:content-box;}
+.kcol-liste::-webkit-scrollbar-track,.ent-fil::-webkit-scrollbar-track,
+.chill-fil::-webkit-scrollbar-track,.sp-liste::-webkit-scrollbar-track,
+.dock-page::-webkit-scrollbar-track,.sp-biblio::-webkit-scrollbar-track{background:transparent;}
+
+/* La sélection de texte prenait le bleu du système, seule couleur de
+   l'interface à ne pas venir du thème. */
+::selection{background:var(--accent);color:#fff;}
+
+/* ── L'arrivée sur une vue ────────────────────────────────────────────
+   Les panneaux entraient tous ensemble. Décalés de quelques centièmes, le
+   regard descend la page au lieu de la recevoir d'un bloc — et l'attente du
+   chargement se lit comme une composition plutôt que comme un à-coup.
+   Cinq rangs suffisent : au-delà on attend, ce qui est le défaut inverse. */
+.view > .panel-box{animation:fadeUp .34s var(--ressort) backwards;}
+.view > .panel-box:nth-of-type(2){animation-delay:.04s;}
+.view > .panel-box:nth-of-type(3){animation-delay:.08s;}
+.view > .panel-box:nth-of-type(4){animation-delay:.12s;}
+.view > .panel-box:nth-of-type(n+5){animation-delay:.16s;}
+
+/* ── Les images qui arrivent ──────────────────────────────────────────
+   Une pochette apparaît d'un coup dès que le réseau l'a rendue, ce qui fait
+   sursauter une liste qu'on est en train de lire. */
+.sp-liste img,.tw-vignette,.tw-avatar{animation:fondu .3s backwards;}
+@keyframes fondu{from{opacity:0;}}
+
+/* L'ACTIVATION TWITCH — un code à recopier, affiché pour ne pas être mal lu.
+   Chasse fixe et lettres espacées : un 0 pris pour un O ou un 1 pour un I se
+   solde par un refus sans explication, et l'utilisateur recommence sans
+   comprendre. */
+.tw-activation{text-align:center;}
+.tw-code{display:inline-block;font-family:var(--mono);font-size:26px;
+  font-weight:var(--w-bold);letter-spacing:6px;padding:var(--e3) var(--e5);
+  margin:var(--e2) 0 var(--e3);color:var(--ink);background:var(--bg2);
+  border:1px dashed var(--line-fort);border-radius:var(--r3);cursor:copy;
+  transition:border-color .14s,background .14s;}
+.tw-code:hover{border-color:var(--accent);background:var(--accent-bg);}
+.tw-etat{font-size:12.5px;color:var(--muted);line-height:1.55;margin:0 0 var(--e3);}
+.tw-activation .chill-portes{justify-content:center;}
+
+/* ── L'onglet YouTube ───────────────────────────────────────────────────
+   Le cadre garde ses proportions de vidéo, et la NAVIGATION se déroule en
+   dessous : `youtube.com` refuse d'être mis en cadre, la liste vient donc de
+   l'API officielle et un clic charge la vidéo dans le lecteur. */
+.yt-vignette{width:78px;height:44px;border-radius:var(--r1);object-fit:cover;
+  flex:0 0 auto;background:var(--bg2);}
+.yt-titre{font-size:12px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;
+  -webkit-box-orient:vertical;overflow:hidden;}
+.yt-liste li>button:first-child{align-items:flex-start;}
+.yt-pourquoi{margin-top:var(--e3);padding-top:var(--e3);border-top:1px solid var(--line);}
+.sp-lien-note{margin-left:auto;font-family:inherit;font-size:10.5px;
+  text-transform:none;letter-spacing:0;color:var(--accent);background:transparent;
+  border:0;padding:0;cursor:pointer;text-decoration:underline;}
+/* En plein écran, la vidéo prend la place : c'est tout l'intérêt du bouton. */
+.dock.plein .dock-cadre-boite{aspect-ratio:auto;flex:1;min-height:40vh;}
+
+/* ── Les paroles ────────────────────────────────────────────────────────
+   Une ligne qui s'allume au bon moment se suit sans y penser ; un bloc de
+   texte se lit une fois. Les lignes non courantes sont estompées — c'est ce
+   qui fait qu'on retrouve sa place d'un coup d'œil après avoir regardé
+   ailleurs. */
+.sp-paroles{max-height:46vh;overflow-y:auto;padding:var(--e3) var(--e2);
+  scrollbar-width:thin;scrollbar-color:var(--line-fort) transparent;}
+.sp-parole{margin:0 0 var(--e2);font-size:14px;line-height:1.5;
+  color:var(--faint);cursor:pointer;border-radius:var(--r1);padding:2px var(--e2);
+  transition:color .25s,background .15s,transform .25s var(--ressort);
+  transform-origin:left center;}
+.sp-parole:hover{background:var(--bg2);color:var(--muted);}
+.sp-parole.ici{color:var(--ink);font-weight:var(--w-semi);transform:scale(1.03);}
+.sp-paroles-plates{font-size:13.5px;line-height:1.7;color:var(--ink-2);}
+.sp-paroles-src{margin-top:var(--e4);text-align:center;}
+
+/* ── Le fil d'Ariane d'un contenu ouvert ────────────────────────────────
+   Sans retour visible, on ouvre une playlist et on ne sait plus comment
+   revenir à la liste — le seul recours étant de changer d'onglet et de perdre
+   sa place. */
+.sp-fil{display:flex;align-items:center;gap:var(--e2);margin:var(--e3) 0 var(--e2);
+  padding-bottom:var(--e2);border-bottom:1px solid var(--line);}
+.sp-retour{font-family:inherit;font-size:11.5px;color:var(--muted);
+  background:transparent;border:0;padding:2px 6px;border-radius:var(--r1);cursor:pointer;}
+.sp-retour:hover{background:var(--bg2);color:var(--ink);}
+.sp-fil-pochette{width:28px;height:28px;border-radius:var(--r1);object-fit:cover;flex:0 0 auto;}
+.sp-fil-nom{flex:1;min-width:0;font-size:12.5px;font-weight:var(--w-semi);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sp-fil .sp-action{opacity:1;}

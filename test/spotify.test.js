@@ -10,7 +10,9 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import {
   fabriquerDefi, urlAutorisation, echangerCode, rafraichir, estExpire,
-  appeler, resumeLecture, PORTEES,
+  appeler, resumeLecture, corpsDeLecture, resumeAppareils,
+  porteesManquantes, fusionnerPortees, PORTEES, PORTEES_LECTEUR,
+  nombreDePistes, pisteDeLEntree,
 } from '../src/spotify.js';
 
 test('le défi est bien l\'empreinte du vérificateur', () => {
@@ -40,11 +42,67 @@ test('l\'URL d\'autorisation ne porte que des valeurs publiques', () => {
     'le vérificateur ne part PAS à cette étape : c\'est tout le principe de PKCE');
 });
 
-/** On ne demande que ce qu'on sait justifier. */
-test('les portées demandées restent minimales', () => {
-  assert.ok(!PORTEES.includes('user-read-email'), 'on n\'a rien à faire de son adresse');
-  assert.ok(!PORTEES.includes('playlist-modify'), 'on ne modifie aucune playlist');
-  assert.ok(PORTEES.includes('user-modify-playback-state'));
+/**
+ * ON NE DEMANDE QUE CE QU'ON SAIT JUSTIFIER — ET ON DIT CE QU'ON SUBIT.
+ *
+ * `user-read-email` et `user-read-private` ne servent à RIEN dans ce projet :
+ * ni l'adresse ni le profil ne sont lus une seule fois. Le SDK de Spotify
+ * refuse de s'initialiser sans elles, point. Elles sont donc demandées à
+ * contrecœur, et uniquement parce que le lecteur intégré a été explicitement
+ * voulu — ce test existe pour que personne ne les prenne un jour pour une
+ * autorisation utile, et n'aille bâtir dessus.
+ *
+ * Ce qui reste interdit ne bouge pas : rien qui ÉCRIVE chez l'utilisateur.
+ */
+test('les portées demandées restent minimales, et rien n\'écrit', () => {
+  for (const interdite of [
+    'playlist-modify-public', 'playlist-modify-private',
+    'user-library-modify', 'ugc-image-upload', 'user-follow-modify',
+  ]) {
+    assert.ok(!PORTEES.includes(interdite),
+      `« ${interdite} » modifierait le compte : on ne le demande pas`);
+  }
+  assert.ok(PORTEES.includes('user-modify-playback-state'), 'piloter la lecture est le propos');
+
+  // Les trois du lecteur intégré, avec leur justification écrite au-dessus
+  // d'elles dans le code. Le test les épingle pour qu'un retrait du lecteur
+  // emporte aussi ces demandes.
+  for (const p of PORTEES_LECTEUR) {
+    assert.ok(PORTEES.includes(p), `le lecteur intégré exige « ${p} »`);
+  }
+});
+
+/**
+ * UN COMPTE LIÉ AVANT LE LECTEUR INTÉGRÉ N'A PAS `streaming`.
+ *
+ * Il continue de piloter un appareil distant très bien — mais le SDK échoue en
+ * `authentication_error`, un message que personne ne peut relier à « ton
+ * autorisation date d'avant ». Sans ce contrôle, la seule issue visible serait
+ * de délier et relier au hasard.
+ */
+test('les portées manquantes d\'un ancien jeton sont nommées', () => {
+  const ancien = 'user-read-playback-state user-modify-playback-state';
+  assert.deepEqual(porteesManquantes(ancien).sort(),
+    ['streaming', 'user-read-email', 'user-read-private']);
+
+  assert.deepEqual(porteesManquantes(PORTEES), [], 'une autorisation neuve ne manque de rien');
+  assert.deepEqual(porteesManquantes('').length, 3, 'aucune portée : tout manque');
+  assert.deepEqual(porteesManquantes(null).length, 3, 'et un jeton sans portées connues aussi');
+});
+
+/**
+ * Spotify ne renvoie pas les portées à chaque rafraîchissement. Les écraser
+ * par du vide ferait croire, une heure après la liaison, que l'autorisation
+ * est incomplète — et l'interface réclamerait une reconnexion inutile.
+ */
+test('un rafraîchissement muet ne perd pas les portées', () => {
+  const garde = fusionnerPortees({ acces: 'A', portees: '' }, { portees: 'streaming' });
+  assert.equal(garde.portees, 'streaming');
+
+  const remplace = fusionnerPortees({ acces: 'A', portees: 'streaming user-read-email' },
+    { portees: 'streaming' });
+  assert.equal(remplace.portees, 'streaming user-read-email',
+    'quand Spotify les renvoie, ce sont elles qui font foi');
 });
 
 test('l\'échange envoie le vérificateur, jamais un secret', async () => {
@@ -97,22 +155,74 @@ test('le rafraîchissement garde l\'ancien jeton si aucun n\'est renvoyé', asyn
 
 /**
  * LES REFUS DE SPOTIFY NE VEULENT RIEN DIRE POUR QUI LES REÇOIT.
- * 403 = « il faut Premium », 404 = « aucun appareil actif ». Les laisser
- * passer bruts afficherait un code HTTP à quelqu'un qui voulait de la musique.
+ * « 403 » n'apprend rien à quelqu'un qui voulait de la musique : sur une
+ * commande du lecteur, ça veut dire qu'il faut Premium, et il faut le dire.
  */
-test('les refus de Spotify sont traduits en français', async () => {
-  const code = (n) => async () => ({ status: n, ok: false, json: async () => ({}) });
+test('les refus du lecteur sont traduits en français', async () => {
+  const refus = (n, corps) => async () => ({ status: n, ok: false, json: async () => corps });
 
-  await assert.rejects(() => appeler('/x', { acces: 'a' }, code(403)), /Premium/);
-  await assert.rejects(() => appeler('/x', { acces: 'a' }, code(404)), /appareil actif/);
-  await assert.rejects(() => appeler('/x', { acces: 'a' }, code(401)), (e) => e.expire === true);
+  await assert.rejects(
+    () => appeler('/me/player/play', { acces: 'a' },
+      refus(403, { error: { reason: 'PREMIUM_REQUIRED', message: 'Player command failed' } })),
+    /Premium/);
+  await assert.rejects(
+    () => appeler('/me/player/play', { acces: 'a' },
+      refus(404, { error: { reason: 'NO_ACTIVE_DEVICE', message: 'No active device found' } })),
+    /appareil actif/);
+  await assert.rejects(
+    () => appeler('/me/player', { acces: 'a' }, refus(404, {})),
+    /appareil actif/, 'un 404 muet sur le lecteur reste un défaut d\'appareil');
+  await assert.rejects(() => appeler('/x', { acces: 'a' }, refus(401, {})), (e) => e.expire === true);
+});
+
+/**
+ * ET SURTOUT : NE PAS TRADUIRE CE QU'ON NE SAIT PAS.
+ *
+ * Les deux refus étaient écrits en dur — tout 403 devenait « il faut
+ * Premium ». Quand Spotify a renommé `/playlists/{id}/tracks` en `/items`,
+ * l'ancien chemin s'est mis à répondre 403 : l'application annonçait donc
+ * « cette action demande un compte Premium » à un abonné Premium, sur un
+ * simple clic pour ouvrir une playlist. Un message faux fait chercher la panne
+ * là où elle n'est pas — ici, du côté de l'abonnement.
+ */
+test('un refus hors lecteur ne parle jamais de Premium', async () => {
+  const refus = (n, corps) => async () => ({ status: n, ok: false, json: async () => corps });
+
+  await assert.rejects(
+    () => appeler('/playlists/abc/tracks', { acces: 'a' },
+      refus(403, { error: { status: 403, message: 'Forbidden' } })),
+    (e) => !/Premium/.test(e.message) && /Forbidden/.test(e.message));
+
+  await assert.rejects(
+    () => appeler('/playlists/abc', { acces: 'a' },
+      refus(404, { error: { message: 'Resource not found' } })),
+    (e) => !/appareil/.test(e.message) && /Resource not found/.test(e.message));
+});
+
+/**
+ * LE RENOMMAGE QUI A VIDÉ TOUTES LES PLAYLISTS, VERROUILLÉ ICI.
+ *
+ * Spotify a renommé `playlist.tracks` en `playlist.items` et l'entrée `track`
+ * en `item`, sans changer de version d'API. Résultat à l'écran : « 0 titre »
+ * sous chacune des 36 playlists, et une liste vide à l'ouverture — sans la
+ * moindre erreur. Les deux lectures acceptent les deux noms.
+ */
+test('le compte et les pistes se lisent sous les deux noms', () => {
+  assert.equal(nombreDePistes({ items: { total: 14 } }), 14, 'la forme actuelle');
+  assert.equal(nombreDePistes({ tracks: { total: 14 } }), 14, 'la forme d\'avant');
+  assert.equal(nombreDePistes({}), 0, 'et une playlist sans compteur n\'est pas « undefined »');
+
+  assert.equal(pisteDeLEntree({ item: { uri: 'u' } })?.uri, 'u');
+  assert.equal(pisteDeLEntree({ track: { uri: 'u' } })?.uri, 'u');
+  assert.equal(pisteDeLEntree({}), null, 'une entrée vide ne devient pas un objet vide');
 });
 
 /** 204 : « rien ne joue ». C'est une réponse normale, pas une panne. */
 test('« rien ne joue » n\'est pas une erreur', async () => {
   const vide = async () => ({ status: 204, ok: true });
   assert.equal(await appeler('/me/player', { acces: 'a' }, vide), null);
-  assert.deepEqual(resumeLecture(null), { joue: false });
+  assert.equal(resumeLecture(null).joue, false);
+  assert.equal(resumeLecture(null).titre, undefined, 'aucun morceau à décrire');
 });
 
 test('le résumé de lecture garde l\'essentiel', () => {
@@ -130,4 +240,81 @@ test('le résumé de lecture garde l\'essentiel', () => {
   assert.equal(r.artistes, 'A, B');
   assert.equal(r.pochette, 'http://p');
   assert.equal(r.appareil, 'Portable');
+});
+
+/**
+ * LES TROIS RÉGLAGES SONT DANS LA MÊME RÉPONSE, ET ILS DOIVENT EN SORTIR.
+ *
+ * Volume, lecture aléatoire et répétition arrivent avec l'état du lecteur : les
+ * omettre obligeait l'interface à les SUPPOSER, et un curseur qui affiche 50 %
+ * pendant que l'enceinte est à 20 % ment à chaque regard.
+ */
+test('le résumé rapporte le volume, l\'aléatoire et la répétition', () => {
+  const r = resumeLecture({
+    is_playing: true, shuffle_state: true, repeat_state: 'track',
+    device: { name: 'Enceinte', id: 'D1', volume_percent: 23 },
+    item: { name: 'T', artists: [], album: {}, duration_ms: 1, uri: 'u' },
+  });
+  assert.equal(r.aleatoire, true);
+  assert.equal(r.repetition, 'track');
+  assert.equal(r.volume, 23);
+  assert.equal(r.appareilId, 'D1');
+});
+
+/**
+ * Un appareil qui ne sait pas régler son volume rend `null`, jamais 0. Zéro
+ * voudrait dire « coupé », ce qui est une autre affirmation — et afficherait
+ * un curseur à fond à gauche sur une télévision qui joue à plein volume.
+ */
+test('un volume inconnu vaut null, pas zéro', () => {
+  const r = resumeLecture({ device: { name: 'TV' }, item: null });
+  assert.equal(r.volume, null);
+});
+
+/**
+ * LE DÉFAUT QUI EMPÊCHAIT DE LANCER UNE PLAYLIST.
+ *
+ * `uris` prend des morceaux ; `context_uri` prend un contexte qu'on parcourt.
+ * Le panneau envoyait `uris` pour tout : un titre partait, une playlist était
+ * refusée en 400, et rien à l'écran ne disait pourquoi l'un marchait et
+ * l'autre non.
+ */
+test('un morceau part en uris, une playlist en context_uri', () => {
+  assert.deepEqual(corpsDeLecture({ uri: 'spotify:track:abc' }), { uris: ['spotify:track:abc'] });
+
+  for (const uri of ['spotify:playlist:p1', 'spotify:album:a1', 'spotify:artist:x1']) {
+    const corps = corpsDeLecture({ uri });
+    assert.equal(corps.context_uri, uri, `${uri} doit partir en contexte`);
+    assert.ok(!corps.uris, 'un contexte n\'est pas une liste de morceaux');
+  }
+});
+
+/** Sans URI, on reprend où l'on en était : c'est le bouton « lecture ». */
+test('reprendre la lecture n\'envoie aucun corps', () => {
+  assert.equal(corpsDeLecture({}), undefined);
+  assert.equal(corpsDeLecture(), undefined);
+});
+
+/**
+ * `offset` n'a de sens que dans un contexte — c'est lui qui évite qu'une
+ * playlist relancée « au hasard » reparte trois fois sur le même titre.
+ */
+test('le rang de départ ne s\'applique qu\'à un contexte', () => {
+  assert.deepEqual(corpsDeLecture({ uri: 'spotify:playlist:p', depart: 12 }),
+    { context_uri: 'spotify:playlist:p', offset: { position: 12 } });
+  assert.deepEqual(corpsDeLecture({ uri: 'spotify:track:t', depart: 12 }),
+    { uris: ['spotify:track:t'] });
+  assert.ok(!corpsDeLecture({ uri: 'spotify:playlist:p', depart: 0 }).offset,
+    'commencer au début n\'a pas besoin d\'être demandé');
+});
+
+test('les appareils sont réduits à ce qu\'un menu affiche', () => {
+  const a = resumeAppareils({ devices: [
+    { id: '1', name: 'Portable', type: 'Computer', is_active: true, volume_percent: 40 },
+    { id: '2', name: 'TV', type: 'TV', is_active: false },
+  ] });
+  assert.equal(a.length, 2);
+  assert.equal(a[0].actif, true);
+  assert.equal(a[1].volume, null, 'un volume absent n\'est pas un volume nul');
+  assert.deepEqual(resumeAppareils(null), [], 'aucun appareil n\'est un cas normal');
 });

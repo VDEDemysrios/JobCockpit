@@ -5,7 +5,7 @@
 // le lien court, le lien de partage avec ses paramètres de suivi.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { versLecteur } from '../public/media.js';
+import { versLecteur, sansDemarrageAuto, destinationTwitch } from '../public/media.js';
 
 test('Spotify : toutes les formes mènent au lecteur intégré', () => {
   for (const entree of [
@@ -85,6 +85,33 @@ test('YouTube bascule entre domaine sobre et session du compte', () => {
   assert.ok(!connecte.url.includes('nocookie'));
 });
 
+/**
+ * ROUVRIR L'APPLICATION NE DOIT RIEN LANCER.
+ *
+ * Le lecteur flottant se rouvre là où on l'avait laissé, avec son lien. Si ce
+ * lien porte encore le `autoplay=true` posé par un clic sur un direct, un
+ * flux se met à parler tout seul au premier chargement de la page — dans le
+ * dos de quelqu'un qui vient d'arriver au bureau, et sans qu'on sache d'où
+ * vient le son.
+ */
+test('le démarrage automatique est retiré à la réouverture', () => {
+  const direct = 'https://player.twitch.tv/?channel=x&parent=localhost&autoplay=true';
+  assert.match(sansDemarrageAuto(direct), /autoplay=false/);
+  assert.ok(!sansDemarrageAuto(direct).includes('autoplay=true'));
+
+  // La forme numérique existe aussi chez YouTube : la manquer laisserait
+  // exactement le défaut qu'on cherche à empêcher.
+  assert.match(sansDemarrageAuto('https://x/embed/v?autoplay=1&mute=0'), /autoplay=false/);
+
+  // Ce qui est déjà à l'arrêt ne bouge pas, et un lien sans le paramètre non
+  // plus — la fonction ne doit rien inventer.
+  const calme = 'https://player.twitch.tv/?channel=x&parent=localhost&autoplay=false';
+  assert.equal(sansDemarrageAuto(calme), calme);
+  assert.equal(sansDemarrageAuto('https://open.spotify.com/embed/track/x'),
+    'https://open.spotify.com/embed/track/x');
+  assert.equal(sansDemarrageAuto(null), '');
+});
+
 /** Les deux domaines doivent rester couverts par la politique de sécurité. */
 test('les deux domaines YouTube sont ceux autorisés par la CSP', () => {
   const AUTORISES = [
@@ -102,4 +129,43 @@ test('les deux domaines YouTube sont ceux autorisés par la CSP', () => {
     assert.ok(AUTORISES.includes(origine),
       `${origine} n'est pas dans frame-src : le cadre resterait vide`);
   }
+});
+
+/**
+ * UN LIEN TWITCH DÉSIGNE AUTRE CHOSE QU'UN FLUX À LIRE.
+ *
+ * `versLecteur` sait faire une seule chose d'une adresse Twitch : la mettre
+ * dans le lecteur. C'est juste pour un direct, et faux pour tout le reste —
+ * `twitch.tv/xqc/videos` finissait en « regarder xqc en direct » alors qu'on
+ * demandait ses rediffusions, et `directory/game/Chess` en lecture d'une
+ * chaîne nommée « directory ». Chaque fois, la seule issue restait le site.
+ */
+test('une adresse Twitch dit ce qu\'elle désigne', () => {
+  assert.deepEqual(destinationTwitch('https://www.twitch.tv/videos/123456789'),
+    { type: 'video', id: '123456789' });
+
+  for (const u of ['https://twitch.tv/xqc', 'https://www.twitch.tv/XQC/videos',
+    'https://www.twitch.tv/xqc/about', 'twitch.tv/xqc?tt_content=x']) {
+    assert.deepEqual(destinationTwitch(u), { type: 'chaine', login: 'xqc' }, u);
+  }
+
+  assert.deepEqual(destinationTwitch('https://www.twitch.tv/directory/game/Just%20Chatting'),
+    { type: 'categorie', nom: 'Just Chatting' });
+  assert.equal(destinationTwitch('https://www.twitch.tv/directory')?.type, 'accueil');
+});
+
+/**
+ * Les sections du site ne sont pas des chaînes. Sans cette réserve,
+ * `twitch.tv/settings` ouvrait la page d'une chaîne « settings » qui n'existe
+ * pas — un écran vide sur un lien parfaitement valide.
+ */
+test('les sections du site ne sont pas prises pour des chaînes', () => {
+  for (const u of ['https://www.twitch.tv/settings/profile',
+    'https://www.twitch.tv/downloads', 'https://www.twitch.tv/directory/all']) {
+    const d = destinationTwitch(u);
+    assert.notEqual(d?.type, 'chaine', u);
+  }
+  assert.equal(destinationTwitch('https://youtube.com/watch?v=abc'), null,
+    'ce routeur ne s\'occupe que de Twitch');
+  assert.equal(destinationTwitch(''), null);
 });

@@ -74,3 +74,58 @@ export function versLecteur(saisie, hote = 'localhost', avecCompte = false) {
   }
   return null;
 }
+
+/**
+ * UNE ADRESSE TWITCH, TRADUITE EN DESTINATION INTERNE.
+ *
+ * `versLecteur` sait faire UNE chose d'un lien Twitch : le mettre dans le
+ * lecteur. C'est ce qu'il faut pour un direct — et c'est faux pour tout le
+ * reste. `twitch.tv/xqc/videos` finissait ainsi en « chaîne xqc en direct »,
+ * et `twitch.tv/directory/game/Chess` en tentative de lecture d'une chaîne qui
+ * n'existe pas. La seule issue restait d'ouvrir le site, c'est-à-dire de
+ * sortir de l'application.
+ *
+ * Cette fonction dit ce que l'adresse DÉSIGNE ; c'est au panneau de décider
+ * quoi en faire — ouvrir une page de chaîne, une catégorie, ou lancer une
+ * rediffusion. Elle est pure, donc testable : un lien mal reconnu, autrement,
+ * ne se manifeste que par un panneau qui ne bouge pas.
+ */
+export function destinationTwitch(saisie) {
+  const t = String(saisie ?? '').trim();
+  if (!/twitch\.tv/i.test(t)) return null;
+
+  const vod = t.match(/twitch\.tv\/videos\/(\d+)/i);
+  if (vod) return { type: 'video', id: vod[1] };
+
+  // Le nom d'une catégorie est encodé dans l'adresse — « Just%20Chatting ».
+  const jeu = t.match(/twitch\.tv\/directory\/(?:game|category)\/([^/?#]+)/i);
+  if (jeu) return { type: 'categorie', nom: decodeURIComponent(jeu[1]).replace(/-/g, ' ') };
+  if (/twitch\.tv\/directory\b/i.test(t)) return { type: 'accueil' };
+
+  // `/xqc/videos`, `/xqc/clips`, `/xqc/about` désignent tous la même chaîne :
+  // c'est sa page qu'on ouvre, pas un lecteur.
+  const chaine = t.match(/twitch\.tv\/([A-Za-z0-9_]{3,25})(?:\/|\?|#|$)/i);
+  if (!chaine) return null;
+  // Les sections du site ne sont pas des chaînes, et `twitch.tv/settings`
+  // ouvrirait une page de chaîne fantôme.
+  const RESERVES = new Set(['directory', 'videos', 'settings', 'downloads', 'jobs',
+    'p', 'products', 'subs', 'turbo', 'activate', 'login', 'signup', 'search']);
+  if (RESERVES.has(chaine[1].toLowerCase())) return null;
+  return { type: 'chaine', login: chaine[1].toLowerCase() };
+}
+
+/**
+ * ROUVRIR L'APPLICATION NE DOIT RIEN LANCER.
+ *
+ * Cliquer sur un direct dans le panneau Twitch le démarre en `autoplay=true` —
+ * c'est bien ce qu'on veut sur le moment. Ce n'est pas ce qu'on veut le
+ * lendemain matin au bureau, quand le lecteur se rouvre là où on l'avait
+ * laissé et qu'un direct se met à parler tout seul.
+ *
+ * Ici plutôt que dans la vue, pour la même raison que le reste du module :
+ * c'est une règle sur des adresses, elle se teste sans navigateur.
+ */
+export function sansDemarrageAuto(url) {
+  return String(url ?? '')
+    .replace(/([?&])autoplay=(?:true|1)\b/g, '$1autoplay=false');
+}

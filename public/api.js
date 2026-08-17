@@ -19,6 +19,11 @@ async function appeler(url, options = {}) {
   // Session expirée : inutile d'afficher une erreur dans un toast, puis une
   // seconde, puis une troisième — chaque appel de la page échouerait pareil.
   // On repasse par la porte d'entrée, ce qui est la seule suite possible.
+  //
+  // 401 NE VEUT DIRE QU'UNE CHOSE : NOTRE cookie a expiré. Un service tiers
+  // déconnecté — Spotify, Twitch — répond 409 côté serveur, exprès. Rendu en
+  // 401, un jeton Spotify mort éjectait l'utilisateur de son tableau de bord
+  // parce qu'il venait de cliquer sur « pause ».
   if (reponse.status === 401) {
     window.location.href = '/connexion';
     // La navigation n'est pas instantanée : cette erreur évite que l'appelant
@@ -79,10 +84,52 @@ export const API = {
   spotifyConnexion:  ()        => appeler('/api/spotify/connexion', { method: 'POST', body: {} }),
   spotifyDeconnexion:()        => appeler('/api/spotify/deconnexion', { method: 'POST', body: {} }),
   spotifyLecture:    ()        => appeler('/api/spotify/lecture'),
-  spotifyCommande:   (action, uri) =>
-    appeler('/api/spotify/commande', { method: 'POST', body: { action, uri } }),
+  /**
+   * Une seule route pour tout le lecteur.
+   *
+   * `options` porte selon l'action : `uri` et `depart` pour lancer quelque
+   * chose, `valeur` pour un réglage (volume, position, répétition),
+   * `aleatoire` pour armer le brassage avant de démarrer une playlist.
+   */
+  spotifyCommande:   (action, options = {}) =>
+    appeler('/api/spotify/commande', { method: 'POST', body: { action, ...options } }),
   spotifyRecherche:  (q)       => appeler(`/api/spotify/recherche?q=${encodeURIComponent(q)}`),
   spotifyPlaylists:  ()        => appeler('/api/spotify/playlists'),
+  spotifyAppareils:  ()        => appeler('/api/spotify/appareils'),
+  spotifyAppareil:   (id)      => appeler('/api/spotify/appareil', { method: 'POST', body: { id } }),
+  spotifyFile:       ()        => appeler('/api/spotify/file'),
+  spotifyEnfiler:    (uri)     => appeler('/api/spotify/file', { method: 'POST', body: { uri } }),
+  spotifyRecents:    ()        => appeler('/api/spotify/recents'),
+  spotifyContenu:    (uri)     => appeler(`/api/spotify/contenu?uri=${encodeURIComponent(uri)}`),
+  spotifyParoles:    (l)       => appeler('/api/spotify/paroles?' + new URLSearchParams({
+    titre: l?.titre ?? '', artistes: l?.artistes ?? '',
+    album: l?.album ?? '', duree: String(l?.duree ?? 0) })),
+
+  // YouTube. La navigation se fait chez nous : `youtube.com` refuse de
+  // s'afficher dans un cadre, seules les adresses /embed/ l'acceptent.
+  youtubeEtat:       ()        => appeler('/api/youtube/etat'),
+  youtubeAccueil:    ()        => appeler('/api/youtube/accueil'),
+  youtubeRecherche:  (q)       => appeler(`/api/youtube/recherche?q=${encodeURIComponent(q)}`),
+  // L'interrupteur du lecteur intégré. Il commande aussi la politique de
+  // sécurité du serveur : il faut recharger la page pour qu'elle prenne effet.
+  spotifyLecteurLocal: (actif) =>
+    appeler('/api/spotify/lecteur-local', { method: 'POST', body: { actif } }),
+
+  // Twitch, par le flux implicite — un Client ID public, aucun secret. Le
+  // jeton est déposé par la fenêtre de connexion ; la page principale ne le
+  // voit jamais et se contente de demander si le compte est lié.
+  twitchEtat:        ()        => appeler('/api/twitch/etat'),
+  twitchConnexion:   ()        => appeler('/api/twitch/connexion', { method: 'POST', body: {} }),
+  twitchVerifier:    ()        => appeler('/api/twitch/verifier', { method: 'POST', body: {} }),
+  twitchDeconnexion: ()        => appeler('/api/twitch/deconnexion', { method: 'POST', body: {} }),
+  twitchDirects:     ()        => appeler('/api/twitch/directs'),
+  twitchSuivies:     ()        => appeler('/api/twitch/suivies'),
+  twitchRecherche:   (q)       => appeler(`/api/twitch/recherche?q=${encodeURIComponent(q)}`),
+  // La navigation, chez nous : `twitch.tv` refuse le cadre, seul le lecteur
+  // l'accepte. Ces trois-là remplacent le site — catégories, catégorie, chaîne.
+  twitchCategories:  ()        => appeler('/api/twitch/categories'),
+  twitchCategorie:   (id)      => appeler(`/api/twitch/categorie?id=${encodeURIComponent(id)}`),
+  twitchChaine:      (login)   => appeler(`/api/twitch/chaine?login=${encodeURIComponent(login)}`),
 
   entretiens:        ()        => appeler('/api/entretiens'),
   entretien:         (id)      => appeler(`/api/entretien/${id}`),

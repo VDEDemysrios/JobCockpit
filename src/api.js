@@ -20,8 +20,17 @@ import { demander, demanderAncre, estConfigure as geminiPret, extraireJson } fro
 import { promptChat, resumeEtat } from './chat.js';
 import {
   fabriquerDefi, urlAutorisation, echangerCode, rafraichir, estExpire,
-  appeler as appelerSpotify, resumeLecture,
+  appeler as appelerSpotify, resumeLecture, corpsDeLecture, resumeAppareils,
+  porteesManquantes, fusionnerPortees, nombreDePistes, pisteDeLEntree,
 } from './spotify.js';
+import { chercherParoles, resumeParoles } from './paroles.js';
+import { populaires as ytPopulaires, chercher as ytChercher, dureeIso } from './youtube.js';
+import {
+  demanderCode, reclamerJeton, rafraichirJeton, estExpire as twitchExpire,
+  validerJeton, revoquer as revoquerTwitch,
+  appeler as appelerTwitch, resumeDirects, resumeSuivies, resumeRecherche,
+  resumeCategories, resumeChaines, resumeVideos,
+} from './twitch.js';
 import { enregistrerCv } from './cv.js';
 import {
   lireMeta, ecrireMeta, upsertOffre, transaction, noterActivite,
@@ -52,7 +61,16 @@ const OBJECTIF_DEFAUT = 5;
 /** Une description entière alourdirait chaque chargement du dashboard. */
 const EXTRAIT_MAX = 1400;
 
-export function creerRoutes({ db, collecter, sources, profil }) {
+/**
+ * @param {object} o
+ * @param {() => boolean} [o.lecteurLocalActif]  le lecteur Spotify intégré est-il
+ *   demandé ? C'est lui qui décide de l'ouverture de `script-src` — le serveur
+ *   a besoin de le savoir à chaque réponse, pas seulement au démarrage.
+ * @param {(actif: boolean) => void} [o.majLecteurLocal]  prévient le serveur
+ *   qu'on vient de basculer l'option, pour qu'il n'ait pas à relire la base.
+ */
+export function creerRoutes({ db, collecter, sources, profil,
+  lecteurLocalActif = () => false, majLecteurLocal = null }) {
   const routes = express.Router();
 
   // Une seule collecte à la fois : deux collectes concurrentes se marcheraient
@@ -681,21 +699,41 @@ export function creerRoutes({ db, collecter, sources, profil }) {
     if (!j?.acces) return null;
     if (!estExpire(j)) return j.acces;
     if (!j.refresh) return null;
-    j = await rafraichir({ clientId: clientSpotify(), refresh: j.refresh });
-    ecrireJetons(j);
-    return j.acces;
+    const neuf = await rafraichir({ clientId: clientSpotify(), refresh: j.refresh });
+    ecrireJetons(fusionnerPortees(neuf, j));
+    return neuf.acces;
   }
+
+  /** Le jeton entier, renouvelé si besoin — pour ce qui a besoin de sa date. */
+  async function jetonComplet() {
+    await jetonValide();
+    return lireJetons();
+  }
+
+  /**
+   * 401 EST RÉSERVÉ À LA SESSION DE JOB COCKPIT. Un service tiers déconnecté
+   * répond 409.
+   *
+   * Le code 401 déclenche, côté navigateur, un renvoi immédiat vers la page de
+   * connexion : c'est la bonne réaction quand c'est NOTRE cookie qui a expiré,
+   * puisque plus rien ne fonctionnera. Rendu pour un jeton Spotify mort, il
+   * éjectait l'utilisateur de son tableau de bord — offres, suivi, lettres —
+   * parce qu'il venait de cliquer sur « pause ». La panne était ailleurs, et
+   * la sanction totale.
+   */
+  const NON_LIE = 409;
 
   /** Appel relayé, avec UNE reprise si le jeton vient d'expirer. */
   async function spotify(chemin, options = {}) {
     const acces = await jetonValide();
-    if (!acces) throw Object.assign(new Error('Spotify non connecté.'), { statut: 401 });
+    if (!acces) throw Object.assign(new Error('Spotify non connecté.'), { statut: NON_LIE });
     try {
       return await appelerSpotify(chemin, { ...options, acces });
     } catch (e) {
       if (!e.expire) throw e;
       ecrireJetons(null);
-      throw Object.assign(new Error('Session Spotify expirée — reconnecte-toi.'), { statut: 401 });
+      throw Object.assign(new Error('Session Spotify expirée — reconnecte-toi.'),
+        { statut: NON_LIE });
     }
   }
 
@@ -707,12 +745,74 @@ export function creerRoutes({ db, collecter, sources, profil }) {
     const j = lireJetons();
     if (!j?.acces) return res.json({ ok: true, configure: true, connecte: false });
 
+    // Ce que l'interface a besoin de savoir sur le lecteur intégré : est-il
+    // demandé, et l'autorisation en cours le permet-elle ? Un compte lié avant
+    // son arrivée n'a pas la portée `streaming` — le SDK échouerait sur un
+    // message que personne ne peut relier à « ton autorisation date d'avant ».
+    const lecteur = {
+      actif: lecteurLocalActif(),
+      manque: porteesManquantes(j.portees),
+    };
+
     try {
       const d = await spotify('/me/player');
-      res.json({ ok: true, configure: true, connecte: true, lecture: resumeLecture(d) });
+      res.json({ ok: true, configure: true, connecte: true, lecteur, lecture: resumeLecture(d) });
     } catch (e) {
-      res.json({ ok: true, configure: true, connecte: e.statut !== 401, erreur: e.message });
+      res.json({ ok: true, configure: true, connecte: e.statut !== NON_LIE,
+        lecteur, erreur: e.message });
     }
+  });
+
+  /**
+   * LE JETON, REMIS À LA PAGE — et c'est la seule route du projet qui le fait.
+   *
+   * Tout le reste du code Spotify existe pour que ce jeton NE DESCENDE JAMAIS
+   * dans le navigateur : le serveur le détient et sert de relais. Le SDK de
+   * Spotify, lui, n'a pas d'autre moyen de fonctionner — il joue dans la page,
+   * donc il lui faut un jeton dans la page.
+   *
+   * Trois garde-fous, puisqu'on ne peut pas éviter le principe :
+   *   · la route REFUSE tant que le lecteur intégré n'est pas activé. Sans
+   *     l'option, ce jeton reste inaccessible depuis le navigateur ;
+   *   · elle ne rend que le jeton d'accès, jamais celui de rafraîchissement —
+   *     un jeton volé meurt en une heure, il ne se renouvelle pas ;
+   *   · côté page, il vit dans une fermeture et n'est jamais écrit dans le
+   *     `localStorage`.
+   */
+  routes.get('/spotify/jeton-lecteur', async (req, res) => {
+    if (!lecteurLocalActif()) {
+      return res.status(NON_LIE).json({ ok: false,
+        error: 'Le lecteur intégré n\'est pas activé.' });
+    }
+    try {
+      const j = await jetonComplet();
+      if (!j?.acces) throw Object.assign(new Error('Spotify non connecté.'), { statut: NON_LIE });
+      const manque = porteesManquantes(j.portees);
+      if (manque.length) {
+        return res.status(NON_LIE).json({ ok: false,
+          error: `Autorisation incomplète (${manque.join(', ')}) — délie puis relie ton compte.` });
+      }
+      res.json({ ok: true, acces: j.acces, expireLe: j.expireLe });
+    } catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
+  });
+
+  /**
+   * L'INTERRUPTEUR DU LECTEUR INTÉGRÉ — ET DE LA POLITIQUE DE SÉCURITÉ.
+   *
+   * Jouer dans la page exige de charger un script de Spotify, donc d'ouvrir
+   * `script-src`. Le projet a tenu cette porte fermée depuis le début, et il
+   * n'y a pas de raison de l'ouvrir pour quelqu'un qui ne s'en sert pas : le
+   * serveur n'élargit la politique QUE si cette option est posée. Par défaut,
+   * une installation neuve garde `script-src 'self'`.
+   *
+   * L'en-tête étant calculé à chaque réponse, il faut recharger la page pour
+   * que le changement prenne — l'interface le dit.
+   */
+  routes.post('/spotify/lecteur-local', (req, res) => {
+    const actif = Boolean(req.body?.actif);
+    ecrireMeta(db, 'spotify_lecteur_local', actif ? '1' : '');
+    majLecteurLocal?.(actif);
+    res.json({ ok: true, actif });
   });
 
   /** L'adresse d'autorisation. Le vérificateur reste ici, c'est tout l'intérêt. */
@@ -723,7 +823,23 @@ export function creerRoutes({ db, collecter, sources, profil }) {
     }
     const { verificateur, defi } = fabriquerDefi();
     const etat = Math.random().toString(36).slice(2);
-    attenteSpotify = { verificateur, etat };
+
+    // ON RETIENT D'OÙ VIENT LA DEMANDE, POUR Y RAMENER.
+    //
+    // Spotify n'accepte pas `localhost` comme adresse de retour : il exige la
+    // boucle locale, `127.0.0.1`. Or c'est sur `localhost:3000` qu'on ouvre
+    // l'application. Pour le navigateur, ce sont DEUX ORIGINES DIFFÉRENTES :
+    // renvoyer bêtement vers « / » déposait l'utilisateur sur une copie de
+    // l'application au `localStorage` vide — lecteur refermé, fenêtre
+    // repositionnée, conversation Chill envolée. Tout était toujours là, sur
+    // l'autre adresse, ce qui est le pire des symptômes : on croit avoir perdu
+    // ses données en liant son compte Spotify.
+    //
+    // L'origine est VÉRIFIÉE avant d'être réutilisée : une redirection vers
+    // une valeur d'en-tête non contrôlée est une porte ouverte.
+    const origine = String(req.headers.origin ?? '');
+    const retour = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origine) ? origine : '';
+    attenteSpotify = { verificateur, etat, retour };
 
     res.json({ ok: true, url: urlAutorisation({
       clientId: clientSpotify(), redirection: REDIRECTION, defi, etat }) });
@@ -739,47 +855,290 @@ export function creerRoutes({ db, collecter, sources, profil }) {
     catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
   });
 
+  /** Borne un nombre reçu du client : une valeur folle vaut un refus Spotify. */
+  const borner = (v, min, max, defaut) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.min(max, Math.max(min, Math.round(n))) : defaut;
+  };
+
+  /**
+   * TOUTES LES COMMANDES DU LECTEUR, Y COMPRIS CELLES QUI MANQUAIENT.
+   *
+   * Le panneau ne savait faire que quatre choses : lire, mettre en pause,
+   * avancer, reculer. On pouvait donc lancer un morceau — et rien d'autre :
+   * ni monter le son, ni activer la lecture aléatoire, ni se placer dans un
+   * morceau, ni changer d'enceinte.
+   *
+   * Chaque entrée rend le chemin à appeler ; celles qui prennent une valeur la
+   * reçoivent en paramètre. Spotify attend ces réglages en QUERY, pas dans un
+   * corps JSON — envoyés dans le corps, ils sont ignorés en silence et la
+   * requête répond 204 comme si tout allait bien.
+   */
+  const ACTIONS_SPOTIFY = {
+    lire:       { chemin: () => '/me/player/play', methode: 'PUT' },
+    pause:      { chemin: () => '/me/player/pause', methode: 'PUT' },
+    suivant:    { chemin: () => '/me/player/next', methode: 'POST' },
+    precedent:  { chemin: () => '/me/player/previous', methode: 'POST' },
+    volume:     { chemin: v => `/me/player/volume?volume_percent=${borner(v, 0, 100, 50)}`,
+      methode: 'PUT' },
+    position:   { chemin: v => `/me/player/seek?position_ms=${borner(v, 0, 86400000, 0)}`,
+      methode: 'PUT' },
+    aleatoire:  { chemin: v => `/me/player/shuffle?state=${v ? 'true' : 'false'}`, methode: 'PUT' },
+    repetition: { chemin: v => `/me/player/repeat?state=`
+      + (['off', 'context', 'track'].includes(v) ? v : 'off'), methode: 'PUT' },
+  };
+
   routes.post('/spotify/commande', async (req, res) => {
-    const ACTIONS = {
-      lire: { chemin: '/me/player/play', methode: 'PUT' },
-      pause: { chemin: '/me/player/pause', methode: 'PUT' },
-      suivant: { chemin: '/me/player/next', methode: 'POST' },
-      precedent: { chemin: '/me/player/previous', methode: 'POST' },
-    };
-    const a = ACTIONS[req.body?.action];
+    const { action, uri, depart, valeur, aleatoire } = req.body ?? {};
+    const a = ACTIONS_SPOTIFY[action];
     if (!a) return res.status(400).json({ ok: false, error: 'Action inconnue.' });
 
     try {
-      // Une URI donnée démarre CE morceau ; sans elle, on reprend où on en
-      // était. Les deux cas passent par la même commande côté Spotify.
-      const corps = (req.body?.action === 'lire' && req.body?.uri)
-        ? { uris: [req.body.uri] } : undefined;
-      await spotify(a.chemin, { methode: a.methode, corps });
+      // « Lancer en aléatoire » est DEUX ordres, et l'ordre compte : le
+      // brassage doit être armé AVANT que le contexte démarre, sinon Spotify
+      // enchaîne la playlist dans l'ordre jusqu'au morceau suivant.
+      if (action === 'lire' && aleatoire) {
+        await spotify(ACTIONS_SPOTIFY.aleatoire.chemin(true), { methode: 'PUT' });
+      }
+      await spotify(a.chemin(valeur), {
+        methode: a.methode,
+        corps: action === 'lire' ? corpsDeLecture({ uri, depart }) : undefined,
+      });
       res.json({ ok: true });
     } catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
   });
 
+  /**
+   * Les appareils joignables, et de quoi déplacer la lecture sur l'un d'eux.
+   *
+   * C'EST LA RÉPONSE AU 404 LE PLUS DÉROUTANT DE SPOTIFY. « Aucun appareil
+   * actif » n'apprend rien à qui a justement Spotify ouvert sur son téléphone :
+   * l'appareil existe, il n'est simplement pas CELUI que l'API pilote. Sans
+   * cette liste, la seule issue était d'aller lancer un morceau à la main
+   * ailleurs — et l'application avait l'air cassée.
+   */
+  routes.get('/spotify/appareils', async (req, res) => {
+    try {
+      res.json({ ok: true, appareils: resumeAppareils(await spotify('/me/player/devices')) });
+    } catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
+  });
+
+  routes.post('/spotify/appareil', async (req, res) => {
+    const id = String(req.body?.id ?? '');
+    if (!id) return res.status(400).json({ ok: false, error: 'Appareil non précisé.' });
+    try {
+      // `play: true` reprend la lecture sur la nouvelle enceinte. Sans lui, le
+      // transfert réussit et tout reste silencieux : on croit à un échec.
+      await spotify('/me/player', { methode: 'PUT', corps: { device_ids: [id], play: true } });
+      res.json({ ok: true });
+    } catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
+  });
+
+  /** Une pochette, dans la plus grande taille disponible. */
+  const grandePochette = (images) => (images ?? [])
+    .slice().sort((a, b) => (b.width ?? 0) - (a.width ?? 0))[0]?.url ?? null;
+
   routes.get('/spotify/recherche', async (req, res) => {
     const q = String(req.query.q ?? '').trim();
-    if (!q) return res.json({ ok: true, resultats: [] });
+    if (!q) return res.json({ ok: true, resultats: [], playlists: [], albums: [], artistes: [] });
+    // On cherche les QUATRE. Chercher « lofi » et ne recevoir que des morceaux
+    // isolés, alors que l'intention était de mettre un album ou une playlist en
+    // fond sonore, obligeait à repasser par l'application Spotify.
     try {
-      const d = await spotify(`/search?q=${encodeURIComponent(q)}&type=track&limit=12`);
-      res.json({ ok: true, resultats: (d?.tracks?.items ?? []).map(t => ({
-        uri: t.uri, titre: t.name,
+      const d = await spotify(
+        `/search?q=${encodeURIComponent(q)}&type=track,playlist,album,artist&limit=8`);
+      res.json({ ok: true,
+        resultats: (d?.tracks?.items ?? []).filter(Boolean).map(t => ({
+          uri: t.uri, titre: t.name,
+          artistes: (t.artists ?? []).map(a => a.name).join(', '),
+          album: t.album?.name ?? '',
+          duree: t.duration_ms ?? 0,
+          pochette: grandePochette(t.album?.images),
+        })),
+        // Spotify glisse des `null` dans ses listes de playlists depuis 2024 :
+        // sans le filtre, la page tombe sur `p.name` d'un objet absent.
+        playlists: (d?.playlists?.items ?? []).filter(Boolean).map(p => ({
+          uri: p.uri, nom: p.name, pistes: nombreDePistes(p),
+          pochette: grandePochette(p.images),
+        })),
+        albums: (d?.albums?.items ?? []).filter(Boolean).map(a => ({
+          uri: a.uri, nom: a.name, pistes: a.total_tracks ?? 0,
+          artistes: (a.artists ?? []).map(x => x.name).join(', '),
+          pochette: grandePochette(a.images),
+        })),
+        artistes: (d?.artists?.items ?? []).filter(Boolean).map(a => ({
+          uri: a.uri, nom: a.name, pochette: grandePochette(a.images),
+        })) });
+    } catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
+  });
+
+  /**
+   * LA FILE D'ATTENTE. C'est ce qui distingue un lecteur d'une télécommande :
+   * savoir ce qui vient APRÈS, et pouvoir y glisser un morceau sans casser ce
+   * qui joue.
+   */
+  routes.get('/spotify/file', async (req, res) => {
+    try {
+      const d = await spotify('/me/player/queue');
+      res.json({ ok: true, file: (d?.queue ?? []).slice(0, 12).filter(Boolean).map(t => ({
+        uri: t.uri, titre: t.name ?? '',
         artistes: (t.artists ?? []).map(a => a.name).join(', '),
-        album: t.album?.name ?? '',
-        pochette: t.album?.images?.at(-1)?.url ?? null,
+        pochette: grandePochette(t.album?.images),
       })) });
     } catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
+  });
+
+  routes.post('/spotify/file', async (req, res) => {
+    const uri = String(req.body?.uri ?? '');
+    if (!uri.startsWith('spotify:track:')) {
+      return res.status(400).json({ ok: false, error: 'Seul un morceau se met en file.' });
+    }
+    try {
+      await spotify(`/me/player/queue?uri=${encodeURIComponent(uri)}`, { methode: 'POST' });
+      res.json({ ok: true });
+    } catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
+  });
+
+  /** Ce qu'on écoutait hier — la façon la plus rapide de relancer un fond. */
+  routes.get('/spotify/recents', async (req, res) => {
+    try {
+      const d = await spotify('/me/player/recently-played?limit=20');
+      const vus = new Set();
+      const recents = [];
+      for (const e of d?.items ?? []) {
+        const t = e?.track;
+        if (!t?.uri || vus.has(t.uri)) continue;
+        vus.add(t.uri);
+        recents.push({ uri: t.uri, titre: t.name ?? '',
+          artistes: (t.artists ?? []).map(a => a.name).join(', '),
+          pochette: grandePochette(t.album?.images) });
+      }
+      res.json({ ok: true, recents: recents.slice(0, 10) });
+    } catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
+  });
+
+  /**
+   * LE CONTENU D'UNE PLAYLIST, D'UN ALBUM OU D'UN ARTISTE.
+   *
+   * Sans cette route, une playlist ne pouvait qu'être LANCÉE : quatre-vingts
+   * titres derrière un seul bouton, sans moyen de voir ce qu'il y avait dedans
+   * ni d'aller au morceau qu'on cherchait. C'est la différence entre une
+   * télécommande et une bibliothèque.
+   *
+   * `offset` est ce qui permet ensuite de démarrer AU BON RANG : lancer la
+   * piste 40 d'une playlist n'est pas jouer ce morceau seul, c'est jouer la
+   * playlist à partir de là — la suite doit continuer.
+   */
+  routes.get('/spotify/contenu', async (req, res) => {
+    const uri = String(req.query.uri ?? '');
+    const m = uri.match(/^spotify:(playlist|album|artist):([A-Za-z0-9]+)$/);
+    if (!m) return res.status(400).json({ ok: false, error: 'Contenu non reconnu.' });
+    const [, type, id] = m;
+
+    try {
+      if (type === 'artist') {
+        const d = await spotify(`/artists/${id}/top-tracks?market=from_token`);
+        return res.json({ ok: true, type, contexte: null,
+          pistes: (d?.tracks ?? []).filter(Boolean).map((t, i) => piste(t, i)) });
+      }
+      if (type === 'album') {
+        const [info, d] = await Promise.all([
+          spotify(`/albums/${id}`),
+          spotify(`/albums/${id}/tracks?limit=50`),
+        ]);
+        return res.json({ ok: true, type, contexte: uri,
+          nom: info?.name ?? '', pochette: grandePochette(info?.images),
+          pistes: (d?.items ?? []).filter(Boolean).map((t, i) => piste(
+            { ...t, album: info }, i)) });
+      }
+      const [info, d] = await Promise.all([
+        spotify(`/playlists/${id}?fields=name,images`),
+        // UN REFUS SUR LE CONTENU N'EST PAS UN REFUS SUR LA PLAYLIST.
+        //
+        // Mesuré sur les 36 playlists du compte : les 12 qui lui appartiennent
+        // répondent, 23 des 24 suivies sont refusées en 403. Et pourtant
+        // toutes SE LANCENT — la lecture passe par `context_uri`, qui ne
+        // demande rien à ce point d'accès. Rendre une erreur ici rendait donc
+        // injouable, depuis l'application, une playlist que Spotify accepte
+        // parfaitement de jouer.
+        pistesDePlaylist(id).catch(e => {
+          if (e.statut === NON_LIE) throw e;
+          return { refuse: e.message };
+        }),
+      ]);
+      res.json({ ok: true, type, contexte: uri,
+        nom: info?.name ?? '', pochette: grandePochette(info?.images),
+        // Le drapeau vaut mieux qu'une liste vide : « aucune piste » et « on
+        // n'a pas le droit de les lire » ne se disent pas pareil à l'écran.
+        restreint: Boolean(d?.refuse),
+        pistes: (d?.items ?? []).map(pisteDeLEntree).filter(t => t?.uri)
+          .map((t, i) => piste(t, i)) });
+    } catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
+  });
+
+  /**
+   * Les pistes d'une playlist, sur le point d'accès qui existe.
+   *
+   * `/tracks` a été renommé `/items` — voir `nombreDePistes` dans
+   * `src/spotify.js` pour le détail du renommage et de ses trois pièges. On
+   * demande le nouveau, on retombe sur l'ancien : une installation qui parle
+   * encore à l'ancienne forme continue de marcher, et on n'aura rien à
+   * reprendre le jour où le vieux chemin disparaîtra pour de bon.
+   *
+   * Les champs sont demandés SOUS LES DEUX NOMS sur le nouveau chemin. Ce
+   * n'est pas de la superstition : `fields=items(track(…))` y répond 200 avec
+   * des entrées vides. Une playlist paraissait alors vide sans qu'aucune
+   * erreur ne soit levée nulle part.
+   */
+  const CHAMPS_PISTE = 'uri,name,duration_ms,artists(name),album(images,name)';
+  async function pistesDePlaylist(id) {
+    try {
+      return await spotify(`/playlists/${id}/items?limit=100`
+        + `&fields=items(item(${CHAMPS_PISTE}),track(${CHAMPS_PISTE}))`);
+    } catch (e) {
+      if (e.statut === NON_LIE) throw e;
+      return spotify(`/playlists/${id}/tracks?limit=100&fields=items(track(${CHAMPS_PISTE}))`);
+    }
+  }
+
+  const piste = (t, rang) => ({
+    uri: t.uri, titre: t.name ?? '', rang,
+    artistes: (t.artists ?? []).map(a => a.name).join(', '),
+    duree: t.duration_ms ?? 0,
+    pochette: grandePochette(t.album?.images),
+  });
+
+  /**
+   * LES PAROLES DU MORCEAU EN COURS.
+   *
+   * Spotify n'expose les siennes dans aucune API publique : son lecteur web
+   * tape un point d'accès interne avec un jeton qui n'est pas celui d'OAuth.
+   * S'en servir demanderait d'imiter son client — le contournement que ce
+   * projet s'interdit ailleurs. LRCLIB est ouvert, sans clé, et rend souvent
+   * des paroles SYNCHRONISÉES : voir `src/paroles.js`.
+   *
+   * L'appel part D'ICI et pas du navigateur : `connect-src` reste fermé, et le
+   * titre écouté ne quitte pas la machine par un chemin qu'on ne contrôle pas.
+   */
+  routes.get('/spotify/paroles', async (req, res) => {
+    const { titre, artistes, album, duree } = req.query;
+    if (!titre || !artistes) return res.json({ ok: true, paroles: { trouve: false } });
+    try {
+      const d = await chercherParoles({
+        titre: String(titre), artistes: String(artistes),
+        album: album ? String(album) : '', duree: Number(duree) || 0,
+      });
+      res.json({ ok: true, paroles: resumeParoles(d) });
+    } catch (e) { res.status(502).json({ ok: false, error: e.message }); }
   });
 
   /** Les playlists de l'utilisateur, pour lancer sans chercher. */
   routes.get('/spotify/playlists', async (req, res) => {
     try {
-      const d = await spotify('/me/playlists?limit=24');
-      res.json({ ok: true, playlists: (d?.items ?? []).map(p => ({
-        uri: p.uri, nom: p.name, pistes: p.tracks?.total ?? 0,
-        pochette: p.images?.at(-1)?.url ?? null,
+      const d = await spotify('/me/playlists?limit=50');
+      res.json({ ok: true, playlists: (d?.items ?? []).filter(Boolean).map(p => ({
+        uri: p.uri, nom: p.name, pistes: nombreDePistes(p),
+        pochette: grandePochette(p.images),
       })) });
     } catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
   });
@@ -788,9 +1147,14 @@ export function creerRoutes({ db, collecter, sources, profil }) {
   // navigateur ici, pas notre code.
   routes.retourSpotify = async (req, res) => {
     const { code, state, error } = req.query;
-    if (error) return res.redirect(`/?spotify=refus`);
+    // Vers l'adresse d'où l'on est parti, pas vers « / » — voir le commentaire
+    // de /spotify/connexion : `127.0.0.1` et `localhost` sont deux origines,
+    // et le navigateur y range deux `localStorage` distincts.
+    const chez = (suite) => res.redirect(`${attenteSpotify?.retour ?? ''}/?${suite}`);
+
+    if (error) return chez('spotify=refus');
     if (!code || !attenteSpotify || state !== attenteSpotify.etat) {
-      return res.redirect('/?spotify=invalide');
+      return chez('spotify=invalide');
     }
     try {
       const jetons = await echangerCode({
@@ -798,12 +1162,291 @@ export function creerRoutes({ db, collecter, sources, profil }) {
         code, verificateur: attenteSpotify.verificateur,
       });
       ecrireJetons(jetons);
+      chez('spotify=ok');
       attenteSpotify = null;
-      res.redirect('/?spotify=ok');
     } catch (e) {
-      res.redirect(`/?spotify=echec&m=${encodeURIComponent(e.message)}`);
+      chez(`spotify=echec&m=${encodeURIComponent(e.message)}`);
     }
   };
+
+  // --- Twitch --------------------------------------------------------------
+  //
+  // Flux « code d'appareil » : un `client_id` public, aucun secret, et surtout
+  // AUCUNE URL DE REDIRECTION. Voir l'en-tête de `src/twitch.js` pour les deux
+  // flux essayés avant celui-ci et pourquoi ils ont été abandonnés — le
+  // formulaire de Twitch refuse toute redirection en `http://`, ce qui
+  // condamne le flux implicite sur une application servie en local.
+  //
+  // Bénéfice inattendu : c'est aussi le plus propre. Le jeton ne traverse
+  // jamais la page, et il s'accompagne d'un jeton de rafraîchissement — la
+  // liaison survit indéfiniment.
+
+  const clientTwitch = () => process.env.TWITCH_CLIENT_ID ?? '';
+
+  /** Le code d'appareil en attente, entre la demande et la validation. */
+  let attenteTwitch = null;
+
+  const lireTwitch = () => {
+    const brut = lireMeta(db, 'twitch_jeton');
+    try { return brut ? JSON.parse(brut) : null; } catch { return null; }
+  };
+  const ecrireTwitch = (j) => ecrireMeta(db, 'twitch_jeton', j ? JSON.stringify(j) : '');
+
+  /** Un jeton Twitch valide, renouvelé si besoin. Null si non lié. */
+  async function jetonTwitch() {
+    const j = lireTwitch();
+    if (!j?.acces) return null;
+    if (!twitchExpire(j)) return j;
+    if (!j.refresh) { ecrireTwitch(null); return null; }
+    try {
+      const neuf = await rafraichirJeton({ clientId: clientTwitch(), refresh: j.refresh });
+      const suite = { ...j, ...neuf };
+      ecrireTwitch(suite);
+      return suite;
+    } catch { ecrireTwitch(null); return null; }
+  }
+
+  /** Appel Helix, avec renouvellement si le jeton vient d'expirer. */
+  async function twitch(chemin) {
+    const j = await jetonTwitch();
+    // 409, jamais 401 : voir NON_LIE plus haut — un jeton Twitch mort ne doit
+    // pas renvoyer l'utilisateur à la page de connexion de Job Cockpit.
+    if (!j?.acces) throw Object.assign(new Error('Twitch non connecté.'), { statut: NON_LIE });
+    try {
+      return await appelerTwitch(chemin, { acces: j.acces, clientId: clientTwitch() });
+    } catch (e) {
+      if (!e.expire) throw e;
+      ecrireTwitch(null);
+      throw Object.assign(new Error('Session Twitch expirée — reconnecte-toi.'),
+        { statut: NON_LIE });
+    }
+  }
+
+  routes.get('/twitch/etat', async (req, res) => {
+    if (!clientTwitch()) {
+      return res.json({ ok: true, configure: false, connecte: false,
+        aide: 'Ajoute TWITCH_CLIENT_ID dans .env — il est public, pas de secret à fournir.' });
+    }
+    const j = await jetonTwitch();
+    if (!j?.acces) return res.json({ ok: true, configure: true, connecte: false });
+
+    // On VALIDE plutôt que de faire confiance au fichier : un jeton révoqué
+    // depuis le compte Twitch n'a aucun moyen de nous prévenir. Sans ce
+    // contrôle, l'interface annoncerait « compte lié » jusqu'au premier appel
+    // en échec, c'est-à-dire au moment où l'on veut s'en servir.
+    try {
+      const v = await validerJeton(j.acces);
+      if (!v) { ecrireTwitch(null); return res.json({ ok: true, configure: true, connecte: false }); }
+      res.json({ ok: true, configure: true, connecte: true, login: v.login });
+    } catch (e) {
+      res.json({ ok: true, configure: true, connecte: true, login: j.login, erreur: e.message });
+    }
+  });
+
+  /**
+   * Demande un code d'appareil. C'est tout ce qu'il y a à faire côté serveur :
+   * l'utilisateur va taper ce code sur twitch.tv/activate, et c'est
+   * `/twitch/verifier` qui constatera son accord.
+   */
+  routes.post('/twitch/connexion', async (req, res) => {
+    if (!clientTwitch()) {
+      return res.status(400).json({ ok: false, error: 'TWITCH_CLIENT_ID absent du .env.' });
+    }
+    try {
+      const d = await demanderCode({ clientId: clientTwitch() });
+      attenteTwitch = d;
+      // Le `device_code` NE PART PAS vers la page : c'est lui qui vaut preuve,
+      // et la page n'a besoin que de ce qu'elle doit afficher.
+      res.json({ ok: true, code: d.code, url: d.url,
+        expireLe: d.expireLe, cadence: d.cadence });
+    } catch (e) { res.status(502).json({ ok: false, error: e.message }); }
+  });
+
+  /**
+   * Un tour de guet. La page rappelle jusqu'à ce que ce soit fait.
+   *
+   * L'ATTENTE N'EST PAS UNE ERREUR : `authorization_pending` est la réponse
+   * normale pendant tout le temps où l'utilisateur tape son code, c'est-à-dire
+   * la quasi-totalité des appels. Rendue en erreur, elle ferait clignoter un
+   * message d'échec dix fois par minute sur un déroulement parfaitement
+   * ordinaire.
+   */
+  routes.post('/twitch/verifier', async (req, res) => {
+    if (!attenteTwitch) {
+      return res.status(400).json({ ok: false, error: 'Aucune connexion en cours.' });
+    }
+    if (Date.now() > attenteTwitch.expireLe) {
+      attenteTwitch = null;
+      return res.status(400).json({ ok: false, error: 'Le code a expiré — recommence.' });
+    }
+    try {
+      const jetons = await reclamerJeton({
+        clientId: clientTwitch(), appareil: attenteTwitch.appareil });
+      if (!jetons) return res.json({ ok: true, statut: 'attente' });
+
+      const v = await validerJeton(jetons.acces);
+      if (!v) return res.status(502).json({ ok: false, error: 'Jeton refusé par Twitch.' });
+      ecrireTwitch({ ...jetons, id: v.id, login: v.login });
+      attenteTwitch = null;
+      res.json({ ok: true, statut: 'ok', login: v.login });
+    } catch (e) {
+      attenteTwitch = null;
+      res.status(502).json({ ok: false, error: e.message });
+    }
+  });
+
+  routes.post('/twitch/deconnexion', async (req, res) => {
+    const j = lireTwitch();
+    // On révoque CHEZ TWITCH, pas seulement ici. Effacer notre copie laisserait
+    // un jeton vivant pendant deux mois, autorisé sur un compte, et que plus
+    // personne ne surveille.
+    if (j?.acces) await revoquerTwitch({ clientId: clientTwitch(), acces: j.acces });
+    ecrireTwitch(null);
+    res.json({ ok: true });
+  });
+
+  /** Les chaînes suivies qui émettent EN CE MOMENT. */
+  routes.get('/twitch/directs', async (req, res) => {
+    const j = lireTwitch();
+    if (!j?.id) return res.status(NON_LIE).json({ ok: false, error: 'Twitch non connecté.' });
+    try {
+      const d = await twitch(`/streams/followed?user_id=${encodeURIComponent(j.id)}&first=40`);
+      res.json({ ok: true, directs: resumeDirects(d) });
+    } catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
+  });
+
+  /** Toutes les chaînes suivies — hors ligne comprises, pour les rediffusions. */
+  routes.get('/twitch/suivies', async (req, res) => {
+    const j = lireTwitch();
+    if (!j?.id) return res.status(NON_LIE).json({ ok: false, error: 'Twitch non connecté.' });
+    try {
+      const d = await twitch(`/channels/followed?user_id=${encodeURIComponent(j.id)}&first=100`);
+      res.json({ ok: true, chaines: resumeSuivies(d) });
+    } catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
+  });
+
+  routes.get('/twitch/recherche', async (req, res) => {
+    const q = String(req.query.q ?? '').trim();
+    if (!q) return res.json({ ok: true, resultats: [], categories: [] });
+    // On cherche les DEUX. Taper « minecraft » et ne recevoir que des chaînes
+    // dont c'est le nom, alors qu'on cherchait la catégorie, renvoyait sur le
+    // site — exactement ce que cet onglet doit éviter.
+    try {
+      const [c, g] = await Promise.all([
+        twitch(`/search/channels?query=${encodeURIComponent(q)}&first=20`),
+        twitch(`/search/categories?query=${encodeURIComponent(q)}&first=12`).catch(() => null),
+      ]);
+      res.json({ ok: true, resultats: resumeRecherche(c), categories: resumeCategories(g) });
+    } catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
+  });
+
+  // --- NAVIGUER DANS TWITCH SANS ALLER SUR TWITCH ---------------------------
+  //
+  // Même contrainte que YouTube, et même réponse : `twitch.tv` refuse d'être
+  // mis en cadre, seul `player.twitch.tv` l'accepte — et il ne montre qu'un
+  // direct ou une rediffusion, jamais de quoi parcourir quoi que ce soit. Le
+  // panneau se limitait donc aux chaînes suivies en direct : dès qu'on voulait
+  // autre chose, il fallait sortir de l'application.
+  //
+  // Les trois routes qui suivent reconstruisent la navigation chez nous : les
+  // catégories, une catégorie, une chaîne. C'est ce que l'API Helix expose
+  // officiellement — pas de page analysée à la main.
+
+  /** L'accueil : ce qui est le plus regardé en ce moment, toutes chaînes. */
+  routes.get('/twitch/categories', async (req, res) => {
+    try {
+      res.json({ ok: true, categories: resumeCategories(await twitch('/games/top?first=30')) });
+    } catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
+  });
+
+  /** Les directs d'une catégorie, et le nom de la catégorie pour l'entête. */
+  routes.get('/twitch/categorie', async (req, res) => {
+    const id = String(req.query.id ?? '').trim();
+    if (!id) return res.status(400).json({ ok: false, error: 'Catégorie non précisée.' });
+    try {
+      const [jeu, flux] = await Promise.all([
+        twitch(`/games?id=${encodeURIComponent(id)}`),
+        twitch(`/streams?game_id=${encodeURIComponent(id)}&first=30`),
+      ]);
+      res.json({ ok: true,
+        categorie: resumeCategories(jeu)[0] ?? { id, nom: '' },
+        directs: resumeDirects(flux) });
+    } catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
+  });
+
+  /**
+   * UNE CHAÎNE, EN DIRECT OU NON.
+   *
+   * Une chaîne hors ligne n'est pas une chaîne vide : ses rediffusions sont
+   * souvent ce qu'on vient chercher. Sans elles, cliquer sur une chaîne
+   * éteinte donnait un lecteur noir, et la seule issue était le site.
+   *
+   * `/videos` veut un identifiant numérique, pas un pseudo : il faut d'abord
+   * passer par `/users`. C'est l'appel en plus qu'on ne peut pas éviter.
+   */
+  routes.get('/twitch/chaine', async (req, res) => {
+    const login = String(req.query.login ?? '').trim().toLowerCase();
+    if (!login) return res.status(400).json({ ok: false, error: 'Chaîne non précisée.' });
+    try {
+      const u = resumeChaines(await twitch(`/users?login=${encodeURIComponent(login)}`))[0];
+      if (!u) return res.status(404).json({ ok: false, error: `Chaîne « ${login} » introuvable.` });
+
+      const [flux, videos] = await Promise.all([
+        twitch(`/streams?user_id=${encodeURIComponent(u.id)}`),
+        twitch(`/videos?user_id=${encodeURIComponent(u.id)}&type=archive&first=20`).catch(() => null),
+      ]);
+      res.json({ ok: true, chaine: u,
+        direct: resumeDirects(flux)[0] ?? null,
+        videos: resumeVideos(videos) });
+    } catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
+  });
+
+  // --- YouTube -------------------------------------------------------------
+  //
+  // ON NE PEUT PAS METTRE YOUTUBE DANS UN CADRE, et ce n'est pas faute
+  // d'avoir cherché : `youtube.com` répond `X-Frame-Options: SAMEORIGIN` sur
+  // l'accueil, sur les résultats de recherche et jusque sur son interface
+  // téléviseur. Seules les adresses `/embed/` s'affichent, et elles ne
+  // montrent qu'une vidéo — jamais de quoi parcourir le catalogue.
+  //
+  // La navigation se fait donc CHEZ NOUS : on dresse la liste par l'API
+  // officielle, et un clic charge la vidéo dans le cadre `/embed/`. Voir
+  // `src/youtube.js` pour le détail, y compris pourquoi ce n'est pas du
+  // scraping — décision déjà prise pour Indeed.
+
+  const cleYoutube = () => process.env.YOUTUBE_API_KEY ?? '';
+  const paysYoutube = () => process.env.YOUTUBE_PAYS ?? 'FR';
+
+  routes.get('/youtube/etat', (req, res) => {
+    res.json({ ok: true, configure: Boolean(cleYoutube()), pays: paysYoutube() });
+  });
+
+  /**
+   * L'accueil. Les vidéos populaires du pays, c'est-à-dire ce que voit un
+   * visiteur NON CONNECTÉ sur youtube.com — et ça coûte une unité de quota
+   * là où une recherche en coûte cent.
+   */
+  routes.get('/youtube/accueil', async (req, res) => {
+    if (!cleYoutube()) {
+      return res.status(400).json({ ok: false, error: 'YOUTUBE_API_KEY absente du .env.' });
+    }
+    try {
+      const v = await ytPopulaires({ cle: cleYoutube(), pays: paysYoutube() });
+      res.json({ ok: true, videos: v.map(x => ({ ...x, secondes: dureeIso(x.duree) })) });
+    } catch (e) { res.status(502).json({ ok: false, error: e.message }); }
+  });
+
+  routes.get('/youtube/recherche', async (req, res) => {
+    const q = String(req.query.q ?? '').trim();
+    if (!q) return res.json({ ok: true, videos: [] });
+    if (!cleYoutube()) {
+      return res.status(400).json({ ok: false, error: 'YOUTUBE_API_KEY absente du .env.' });
+    }
+    try {
+      const v = await ytChercher({ cle: cleYoutube(), requete: q });
+      res.json({ ok: true, videos: v.map(x => ({ ...x, secondes: dureeIso(x.duree) })) });
+    } catch (e) { res.status(502).json({ ok: false, error: e.message }); }
+  });
 
   /**
    * LA DISCUSSION DE LA VUE « CHILL ».

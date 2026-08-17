@@ -11,7 +11,7 @@ import { lancerTutoriel } from './tutoriel.js';
 import { installerEditeurVilles, enregistrerVilles } from './villes.js';
 import { ouvrirEntretien, ouvrirFiche, installerEntretien, rendreDossiers } from './entretien.js';
 import { rendreChill, installerChill } from './chill.js';
-import { rendreJeux, installerJeux } from './jeux.js';
+import { installerDock, basculerDock, ouvrirDock } from './dock.js';
 import {
   rendreCarte, rendreKanban, rendreAgenda, relanceDue, rendreFocus, rendreTroisDuJour,
   actionsDuJour, celebrer,
@@ -27,7 +27,7 @@ const dansNJours = (n) => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 };
 
-const VUES = ['dashboard', 'offers', 'kanban', 'agenda', 'entretiens', 'chill', 'jeux', 'cv', 'options'];
+const VUES = ['dashboard', 'offers', 'kanban', 'agenda', 'entretiens', 'chill', 'cv', 'options'];
 const THEMES = ['vivid', 'enr', 'dark', 'cockpit'];
 
 /** Onglet fourre-tout : tout ce qui n'est rattaché à aucune ville prioritaire. */
@@ -405,7 +405,6 @@ function rendreTout() {
   else if (etat.vue === 'agenda') rendreAgenda(etat.offres, ouvrirOffre);
   else if (etat.vue === 'entretiens') rendreDossiers(toast);
   else if (etat.vue === 'chill') rendreChill();
-  else if (etat.vue === 'jeux') rendreJeux();
 
   poserIcones();
   // Les rouleaux se lancent une fois le balisage en place : anim.js écrit
@@ -1266,7 +1265,9 @@ function signalerVillesModifiees(modifie = true) {
 installerEditeurVilles({ signaler: signalerVillesModifiees });
 installerEntretien(toast);
 installerChill(toast);
-installerJeux();
+installerDock(toast);
+
+document.getElementById('lecteurBtn').addEventListener('click', () => basculerDock());
 
 document.getElementById('villesSave').addEventListener('click', async (e) => {
   e.target.disabled = true;
@@ -1312,6 +1313,9 @@ const COMMANDES = [
   { emoji: '💾', titre: 'Exporter une sauvegarde', cat: 'Action', faire: () => document.getElementById('optExport').click() },
   { emoji: '📄', titre: 'Exporter en CSV', cat: 'Action', faire: () => document.getElementById('exportBtn').click() },
   { emoji: '🎨', titre: 'Changer de thème', cat: 'Action', faire: () => themeSuivant() },
+  { emoji: '🎧', titre: 'Ouvrir le lecteur flottant', cat: 'Action', faire: () => ouvrirDock('lecteur') },
+  { emoji: '🎵', titre: 'Spotify', cat: 'Action', faire: () => ouvrirDock('spotify') },
+  { emoji: '📺', titre: 'Twitch — mes directs', cat: 'Action', faire: () => ouvrirDock('twitch') },
   { emoji: '🎬', titre: 'Rejouer l\'ouverture', cat: 'Action', faire: () => jouerIntro({ forcer: true }) },
   { emoji: '🧭', titre: 'Refaire la visite guidée', cat: 'Action',
     faire: () => lancerTutoriel({ allerA: changerVue, forcer: true }) },
@@ -1486,6 +1490,13 @@ document.addEventListener('keydown', e => {
     case 't':
       e.preventDefault();
       themeSuivant();
+      break;
+
+    // Le lecteur flottant. Ouvre, puis réduit et déplie — c'est le geste qu'on
+    // répète le plus : ranger le son sans l'arrêter.
+    case 'm':
+      e.preventDefault();
+      basculerDock();
       break;
 
     case '?':

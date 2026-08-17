@@ -69,6 +69,31 @@ test('le débriefing est honnête et n\'invente rien', () => {
 });
 
 /**
+ * UNE RÉPONSE SUGGÉRÉE N'EST PAS UNE PHRASE DU CANDIDAT.
+ *
+ * Le débriefing proposait des réponses modèles à la première personne, avec
+ * des détails inventés — un volume de projets, une mission jamais exercée. Le
+ * candidat les relit comme des citations de lui-même : « ce n'est pas moi qui
+ * ai écrit ça ». Une seule phrase de ce genre décrédibilise tout le document,
+ * et le pire des cas est qu'il la récite en séance.
+ *
+ * La trame doit donc s'annoncer comme trame, ne porter aucun fait absent du
+ * CV, et laisser un BLANC là où il faudrait un exemple.
+ */
+test('les réponses suggérées s\'annoncent comme des trames, et laissent les blancs vides', () => {
+  const p = promptDebrief(OFFRE, ANALYSE, 'CV', [{ role: 'candidat', texte: 'R' }]);
+  assert.match(p, /Trame à t'approprier/,
+    'une réponse suggérée doit être étiquetée, sans quoi elle passe pour une citation');
+  assert.match(p, /AUCUN fait que le CV ne porte pas/);
+  assert.match(p, /ni chiffre, ni volume/,
+    'c\'est le chiffre inventé qui trahit le plus vite');
+  assert.match(p, /\[ton exemple/,
+    'le blanc explicite est le seul substitut honnête à l\'exemple inventé');
+  assert.match(p, /reprends ses mots\s+EXACTS/,
+    'reformuler en mieux ce que le candidat a dit lui fait croire qu\'il l\'a dit');
+});
+
+/**
  * LA FICHE ET LES CARTES SONT LE PLUS EXPOSÉ À L'INVENTION.
  *
  * Un candidat qui récite un article inventé devant un jury juridique ne se

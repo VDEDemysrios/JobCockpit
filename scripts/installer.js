@@ -24,6 +24,7 @@ import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
+import { synchroniser as synchroniserCles } from './cles.js';
 
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(RACINE, 'dist');
@@ -258,6 +259,19 @@ export function principal(argv = process.argv.slice(2)) {
   }
 
   if (protegees) console.log(`   ⊘ ${protegees} fichier(s) de données déjà présent(s) — non touché(s)`);
+
+  // LES CLÉS AJOUTÉES DEPUIS LA PREMIÈRE INSTALLATION N'ARRIVAIENT JAMAIS ICI.
+  //
+  // Le `.env` fait partie des données : il est copié une fois, puis protégé.
+  // C'est la bonne règle — sauf pour une clé NOUVELLE, qui reste alors dans le
+  // projet pendant que l'application affiche « non configuré ». Le symptôme ne
+  // ressemble pas à un problème de fichier, et il a déjà coûté deux sessions.
+  //
+  // On complète donc ce qui manque, sans jamais toucher à ce qui est rempli.
+  const ajoutees = synchroniserCles(join(cible, '.env'));
+  if (ajoutees.length) {
+    console.log(`   ✓ .env complété depuis le projet : ${ajoutees.join(', ')}`);
+  }
 
   // Le succès de la relance est DIT, et son échec aussi. Se taire quand
   // l'application n'est pas repartie laissait croire à une mise à jour réussie

@@ -34,7 +34,6 @@
       <button data-view="agenda"><span data-ic="calendrier" data-ic-taille="18"></span> Agenda <span class="nvbadge" id="nb-agenda" style="display:none"></span></button>
       <button data-view="entretiens"><span data-ic="cible" data-ic-taille="18"></span> Entretiens <span class="nvbadge" id="nb-entretiens" style="display:none"></span></button>
       <button data-view="chill"><span data-ic="etoile" data-ic-taille="18"></span> Chill</button>
-      <button data-view="jeux"><span data-ic="colonnes" data-ic-taille="18"></span> Jeux</button>
       <button data-view="cv"><span data-ic="parchemin" data-ic-taille="18"></span> Mon CV <span class="nvbadge" id="nb-cv" style="display:none">!</span></button>
       <button data-view="options"><span data-ic="reglages" data-ic-taille="18"></span> Options</button>
     </nav>
@@ -68,6 +67,8 @@
       <div class="cmd-actions">
         <button class="btn btn-ghost" id="paletteBtn" title="Palette de commandes (Ctrl+K)">
           <span data-ic="loupe" data-ic-taille="15"></span> Rechercher</button>
+        <button class="btn btn-ghost" id="lecteurBtn" title="Lecteur flottant (M)">
+          <span data-ic="etoile" data-ic-taille="15"></span> Lecteur</button>
         <button class="btn" id="quickAdd"><span data-ic="plume" data-ic-taille="15"></span> Ajouter</button>
         <button class="btn btn-primary" id="refreshBtn">
           <span data-ic="rafraichir" data-ic-taille="15"></span> Collecter</button>
@@ -307,19 +308,9 @@
          on discute, on met du son. C'est aussi une manière de tenir dans la
          durée — chercher un emploi est long, et l'outil qui ne fait que
          rappeler ce qu'il reste à faire finit par se refermer. -->
-    <!-- ══════════════ JEUX ══════════════
-         Une pause de dix minutes entre deux candidatures n'a pas besoin d'un
-         blockbuster : elle a besoin de quelque chose qui démarre en un clic,
-         se quitte sans sauvegarder, et qui soit vraiment bon dans son genre. -->
-    <div class="view" id="view-jeux" style="display:none">
-      <div class="view-head"><div><h2><span data-ic="colonnes" data-ic-taille="17"></span> Jeux</h2>
-        <div class="vh-sub">Deux jeux complets, rien à installer.</div></div></div>
-      <div id="jeuxZone"></div>
-    </div>
-
     <div class="view" id="view-chill" style="display:none">
       <div class="view-head"><div><h2><span data-ic="etoile" data-ic-taille="17"></span> Chill</h2>
-        <div class="vh-sub">Parler d'autre chose, avec du son. Rien à connecter.</div></div></div>
+        <div class="vh-sub">Parler d'autre chose, avec du son.</div></div></div>
       <div id="chillZone"></div>
     </div>
 
@@ -467,12 +458,65 @@
     <div class="kbd-row"><span>Lancer une collecte</span><span><span class="kbd">R</span></span></div>
     <div class="kbd-row"><span>Ajouter une offre</span><span><span class="kbd">N</span></span></div>
     <div class="kbd-row"><span>Changer de thème</span><span><span class="kbd">T</span></span></div>
+    <div class="kbd-row"><span>Lecteur flottant</span><span><span class="kbd">M</span></span></div>
     <div class="kbd-row"><span>Fermer / annuler</span><span><span class="kbd">Échap</span></span></div>
     <div style="margin-top:var(--e5);text-align:right">
       <button class="btn btn-primary" id="fermerAide">Compris</button>
     </div>
   </div>
 </div>
+
+<!-- ══════════════ LE LECTEUR FLOTTANT ══════════════
+
+     FRÈRE DE `.app`, JAMAIS SON ENFANT — et c'est tout le mécanisme.
+
+     `rendreTout()` reconstruit la vue active à chaque rendu. Un lecteur posé
+     dedans verrait donc son cadre détruit et recréé au moindre changement
+     d'onglet, et la lecture repartirait de zéro : re-parenter une <iframe> la
+     recharge, la spécification l'impose. Ici, rien ne le touche.
+
+     Deuxième bénéfice, gratuit : `ouvrirSurcouche` rend `.app` inerte. Posé
+     dedans, le lecteur le deviendrait aussi — on ne pourrait plus mettre en
+     pause pendant qu'une boîte de dialogue est ouverte. -->
+<section class="dock" id="dock" aria-label="Lecteur" hidden>
+  <header class="dock-tete" id="dockTete">
+    <span class="dock-prise" aria-hidden="true"></span>
+    <nav class="dock-onglets" id="dockOnglets" aria-label="Sources">
+      <button type="button" data-dock-page="lecteur">YouTube</button>
+      <button type="button" data-dock-page="spotify">Spotify</button>
+      <button type="button" data-dock-page="twitch">Twitch</button>
+    </nav>
+    <span class="dock-resume" id="dockResume"></span>
+    <div class="dock-actions">
+      <button type="button" class="dock-bouton" data-dock="reduire" id="dockReduire"
+        title="Réduire — le son continue">–</button>
+      <button type="button" class="dock-bouton" data-dock="fermer"
+        title="Fermer le lecteur — la lecture s'arrête">×</button>
+    </div>
+  </header>
+
+  <!-- Les trois pages sont SUPERPOSÉES, jamais masquées en `display:none` :
+       une page détachée du rendu n'est plus tenue de continuer à jouer. -->
+  <div class="dock-corps" id="dockCorps">
+    <div class="dock-page actif" data-page="lecteur">
+      <div class="dock-cadre-boite" id="dockCadre"></div>
+      <form class="dock-lien" id="dockLienForm">
+        <input id="dockLien" placeholder="Lien YouTube, Twitch ou Spotify…" autocomplete="off">
+        <button class="btn" type="submit">Ouvrir</button>
+      </form>
+      <div class="dock-session" id="dockSession"></div>
+      <!-- La navigation dans YouTube se fait ICI, pas dans le cadre :
+           `youtube.com` répond `X-Frame-Options: SAMEORIGIN` sur son accueil
+           comme sur ses résultats de recherche. Seules les adresses /embed/
+           s'affichent — et elles ne montrent qu'une vidéo. -->
+      <div id="youtubePanneau"></div>
+    </div>
+    <div class="dock-page" data-page="spotify"><div id="spotifyPanneau"></div></div>
+    <div class="dock-page" data-page="twitch"><div id="twitchPanneau"></div></div>
+  </div>
+
+  <div class="dock-poignee" id="dockPoignee" title="Redimensionner"></div>
+</section>
 
 <script type="module" src="app.js"></script>
 </body>
