@@ -33,6 +33,7 @@
       <button data-view="kanban"><span data-ic="colonnes" data-ic-taille="18"></span> Kanban</button>
       <button data-view="agenda"><span data-ic="calendrier" data-ic-taille="18"></span> Agenda <span class="nvbadge" id="nb-agenda" style="display:none"></span></button>
       <button data-view="entretiens"><span data-ic="cible" data-ic-taille="18"></span> Entretiens <span class="nvbadge" id="nb-entretiens" style="display:none"></span></button>
+      <button data-view="chill"><span data-ic="etoile" data-ic-taille="18"></span> Chill</button>
       <button data-view="cv"><span data-ic="parchemin" data-ic-taille="18"></span> Mon CV <span class="nvbadge" id="nb-cv" style="display:none">!</span></button>
       <button data-view="options"><span data-ic="reglages" data-ic-taille="18"></span> Options</button>
     </nav>
@@ -300,6 +301,17 @@
          retrouver l'offre parmi deux cents pour reprendre où on s'était
          arrêté. Elle a maintenant sa vue, qui répond à la seule question qu'on
          se pose en l'ouvrant : où j'en suis, et sur quel dossier. -->
+    <!-- ══════════════ CHILL ══════════════
+         Tout le reste de l'application pousse à agir. Ici, rien ne pousse :
+         on discute, on met du son. C'est aussi une manière de tenir dans la
+         durée — chercher un emploi est long, et l'outil qui ne fait que
+         rappeler ce qu'il reste à faire finit par se refermer. -->
+    <div class="view" id="view-chill" style="display:none">
+      <div class="view-head"><div><h2><span data-ic="etoile" data-ic-taille="17"></span> Chill</h2>
+        <div class="vh-sub">Parler d'autre chose, avec du son. Rien à connecter.</div></div></div>
+      <div id="chillZone"></div>
+    </div>
+
     <div class="view" id="view-entretiens" style="display:none">
       <div class="view-head"><div><h2><span data-ic="cible" data-ic-taille="17"></span> Entretiens</h2>
         <div class="vh-sub" id="entSub"></div></div></div>

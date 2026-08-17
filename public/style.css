@@ -1908,3 +1908,54 @@ ul.mini li{margin-bottom:5px;}
 .dos-alerte{font-size:12px;color:var(--hot);background:var(--hotb);
   border-radius:var(--r2);padding:var(--e2) var(--e3);margin:0 0 var(--e3);
   line-height:1.5;}
+
+/* ═══════════════════════ CHILL ═══════════════════════
+
+   Tout le reste de l'application pousse à agir. Ici, rien ne pousse : on
+   discute, on met du son. C'est aussi une manière de tenir dans la durée —
+   un outil qui ne fait que rappeler ce qu'il reste à faire finit par se
+   refermer.                                                              */
+
+.chill-grille{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:var(--e3);align-items:start;}
+@media(max-width:980px){.chill-grille{grid-template-columns:1fr;}}
+
+.chill-parler h3,.chill-media h3{display:flex;align-items:center;gap:var(--e2);}
+.chill-vider{margin-left:auto;font-family:inherit;font-size:11px;
+  color:var(--muted);background:transparent;border:1px solid var(--line-fort);
+  border-radius:var(--r2);padding:2px 8px;cursor:pointer;text-transform:none;
+  letter-spacing:0;font-weight:var(--w-normal);}
+.chill-vider:hover{background:var(--bg2);color:var(--ink);}
+.chill-type{font-size:10.5px;color:var(--accent);text-transform:none;letter-spacing:0;}
+
+.chill-fil{display:flex;flex-direction:column;gap:var(--e2);
+  min-height:220px;max-height:46vh;overflow-y:auto;padding-right:var(--e2);}
+.chill-vide{font-size:13px;color:var(--muted);line-height:1.6;margin:0;}
+/* Les bulles ne prennent que la largeur de leur texte : une conversation de
+   trois mots ne doit pas occuper toute la colonne. */
+.chill-tour{max-width:82%;padding:var(--e2) var(--e3);border-radius:var(--r3);
+  font-size:13.5px;line-height:1.55;}
+.chill-moi{align-self:flex-end;background:var(--accent-bg);
+  border:1px solid var(--accent);color:var(--accent-ink);}
+.chill-lui{align-self:flex-start;background:var(--bg2);border:1px solid var(--line);}
+.chill-attente{opacity:.55;letter-spacing:3px;}
+
+.chill-saisie{display:flex;gap:var(--e2);align-items:flex-end;margin-top:var(--e3);}
+.chill-saisie textarea{flex:1;font-family:inherit;font-size:13.5px;color:var(--ink);
+  background:var(--panel);border:1px solid var(--line-fort);border-radius:var(--r3);
+  padding:var(--e2) var(--e3);resize:vertical;max-height:200px;line-height:1.5;}
+
+.chill-lien{display:flex;gap:var(--e2);margin-bottom:var(--e3);}
+.chill-lien input{flex:1;min-width:0;font-family:inherit;font-size:12.5px;
+  color:var(--ink);background:var(--panel);border:1px solid var(--line-fort);
+  border-radius:var(--r2);padding:5px var(--e3);}
+
+/* LE LECTEUR SE REDIMENSIONNE. On ne regarde pas un direct et on n'écoute pas
+   un album dans la même fenêtre : `resize` laisse tirer le coin, et la
+   hauteur est retenue d'une session à l'autre. */
+.chill-cadre-boite{position:relative;height:352px;min-height:120px;max-height:80vh;
+  resize:vertical;overflow:hidden;border-radius:var(--r3);border:1px solid var(--line);}
+.chill-cadre{width:100%;height:100%;border:0;display:block;}
+.chill-media-vide{padding:var(--e5);font-size:13px;color:var(--muted);line-height:1.6;}
+.chill-media-vide p{margin:0 0 var(--e2);}
+.chill-note{font-size:12px;color:var(--faint);}

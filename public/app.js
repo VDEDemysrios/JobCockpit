@@ -10,6 +10,7 @@ import { installerDepotCv } from './depot-cv.js';
 import { lancerTutoriel } from './tutoriel.js';
 import { installerEditeurVilles, enregistrerVilles } from './villes.js';
 import { ouvrirEntretien, ouvrirFiche, installerEntretien, rendreDossiers } from './entretien.js';
+import { rendreChill, installerChill } from './chill.js';
 import {
   rendreCarte, rendreKanban, rendreAgenda, relanceDue, rendreFocus, rendreTroisDuJour,
   actionsDuJour, celebrer,
@@ -25,7 +26,7 @@ const dansNJours = (n) => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 };
 
-const VUES = ['dashboard', 'offers', 'kanban', 'agenda', 'entretiens', 'cv', 'options'];
+const VUES = ['dashboard', 'offers', 'kanban', 'agenda', 'entretiens', 'chill', 'cv', 'options'];
 const THEMES = ['vivid', 'enr', 'dark', 'cockpit'];
 
 /** Onglet fourre-tout : tout ce qui n'est rattaché à aucune ville prioritaire. */
@@ -402,6 +403,7 @@ function rendreTout() {
   else if (etat.vue === 'kanban') rendreKanban(etat.offres, deposerKanban);
   else if (etat.vue === 'agenda') rendreAgenda(etat.offres, ouvrirOffre);
   else if (etat.vue === 'entretiens') rendreDossiers(toast);
+  else if (etat.vue === 'chill') rendreChill();
 
   poserIcones();
   // Les rouleaux se lancent une fois le balisage en place : anim.js écrit
@@ -1261,6 +1263,7 @@ function signalerVillesModifiees(modifie = true) {
 
 installerEditeurVilles({ signaler: signalerVillesModifiees });
 installerEntretien(toast);
+installerChill(toast);
 
 document.getElementById('villesSave').addEventListener('click', async (e) => {
   e.target.disabled = true;

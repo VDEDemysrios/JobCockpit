@@ -34,6 +34,14 @@ export const LETTRE = 'lettre';
  */
 export const ENTRETIEN = 'entretien';
 
+/**
+ * Discussion informelle. Comptée à part, comme le reste : une conversation
+ * d'une demi-heure part vite à cinquante appels. Mêlée aux analyses, elle
+ * ferait croire à une collecte devenue folle ; mêlée aux lettres, elle
+ * viderait la réserve qui protège ce qu'on ne peut pas remettre à demain.
+ */
+export const CHAT = 'chat';
+
 /** Valeurs par défaut, si `profile.json` ne dit rien. */
 const DEFAUTS = { quotaJournalier: 200, reserveLettres: 40 };
 

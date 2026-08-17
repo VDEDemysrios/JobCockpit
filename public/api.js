@@ -69,6 +69,10 @@ export const API = {
   },
   // Préparation d'entretien. L'application menait jusqu'à la candidature puis
   // s'arrêtait — or c'est l'entretien qui décide.
+  // Discuter. L'historique part du navigateur : une conversation informelle
+  // n'a pas à laisser de trace dans la base.
+  chat:              (messages) => appeler('/api/chat', { method: 'POST', body: { messages } }),
+
   entretiens:        ()        => appeler('/api/entretiens'),
   entretien:         (id)      => appeler(`/api/entretien/${id}`),
   entretienRepondre: (id, reponse) =>

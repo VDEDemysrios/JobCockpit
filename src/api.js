@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { normaliser } from './hash.js';
 import { villeDeRattachement } from './zone.js';
-import { peutRediger, noterAppel, etatQuota, LETTRE, ENTRETIEN } from './quota.js';
+import { peutRediger, noterAppel, etatQuota, LETTRE, ENTRETIEN, CHAT } from './quota.js';
 import { estConfigure, construireProfil, rendreEnv, CLES_ENV } from './configuration.js';
 import { validerVilles, decrireVille, DEPARTEMENTS, VILLES_MAX } from './villes.js';
 import { verifierOffres, aVerifier } from './liens.js';
@@ -17,6 +17,7 @@ import {
   TYPES_NOTIONS, QUESTIONS_PAR_SEANCE,
 } from './entretien.js';
 import { demander, demanderAncre, estConfigure as geminiPret, extraireJson } from './gemini.js';
+import { promptChat, resumeEtat } from './chat.js';
 import { enregistrerCv } from './cv.js';
 import {
   lireMeta, ecrireMeta, upsertOffre, transaction, noterActivite,
@@ -650,6 +651,59 @@ export function creerRoutes({ db, collecter, sources, profil }) {
     if (!o) return null;
     return { offre: o, analyse: o.analysis_json ? JSON.parse(o.analysis_json) : null };
   }
+
+  /**
+   * LA DISCUSSION DE LA VUE « CHILL ».
+   *
+   * Chercher un emploi est long et solitaire. Le reste de l'application pousse
+   * à agir ; cette route-ci ne pousse à rien. On y parle, et si la
+   * conversation dérive sur les offres, le compagnon sait de quoi il s'agit.
+   *
+   * L'historique vit CHEZ LE CLIENT et repart à chaque message : une
+   * discussion informelle n'a pas à laisser de trace dans la base, et ce qu'on
+   * dit un soir de découragement n'a pas à être relu six mois plus tard.
+   */
+  routes.post('/chat', async (req, res) => {
+    if (!geminiPret()) {
+      return res.status(400).json({ ok: false,
+        error: 'La clé Gemini est nécessaire pour discuter.' });
+    }
+
+    const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
+    if (!messages.length) {
+      return res.status(400).json({ ok: false, error: 'Aucun message.' });
+    }
+
+    // L'état réel, en ordres de grandeur. Lui verser deux cents offres
+    // coûterait cher à chaque message et le ferait répondre en catalogue.
+    const offres = db.prepare('SELECT groupe FROM offers').all();
+    const candidatures = db.prepare(
+      "SELECT COUNT(*) n FROM tracking WHERE status IS NOT NULL AND status != 'À postuler'").get().n;
+
+    const aujourdhui = new Date(); aujourdhui.setHours(0, 0, 0, 0);
+    const entretiens = db.prepare(`
+      SELECT o.titre, o.entreprise, t.entretien_date
+      FROM tracking t JOIN offers o ON o.id = t.offer_id
+      WHERE t.entretien_date IS NOT NULL AND t.entretien_date != ''
+    `).all().map(e => ({
+      titre: e.titre, entreprise: e.entreprise,
+      jours: Math.round((new Date(`${e.entretien_date}T00:00:00`) - aujourdhui) / 86400000),
+    })).filter(e => Number.isFinite(e.jours) && e.jours >= 0);
+
+    const contexte = resumeEtat({ offres, candidatures, entretiens });
+
+    let texte;
+    try {
+      texte = await demander(promptChat(messages, contexte, {
+        candidat: (profil.candidat?.nom ?? '').split(' ')[0],
+      }));
+    } catch (erreur) {
+      return res.status(502).json({ ok: false, error: `Gemini : ${erreur.message}` });
+    }
+    noterAppel(db, CHAT);
+
+    res.json({ ok: true, reponse: String(texte).trim() });
+  });
 
   /**
    * L'ÉTAT DE PRÉPARATION DE CHAQUE DOSSIER.

@@ -111,6 +111,19 @@ app.use((req, res, suite) => {
     "img-src 'self' data:",
     "connect-src 'self'",
     "font-src 'self'",
+    // LES LECTEURS DE LA VUE « CHILL », ET RIEN D'AUTRE.
+    //
+    // `default-src 'self'` interdit tout cadre externe : sans cette ligne, les
+    // lecteurs Spotify, YouTube et Twitch restent trois rectangles vides. On
+    // autorise donc les cadres, mais NOMMÉMENT — pas de joker.
+    //
+    // Ce que ça n'ouvre pas : `script-src` reste à 'self', donc aucun script
+    // tiers ne s'exécute dans la page ; `connect-src` reste à 'self', donc
+    // rien ne part vers ces domaines depuis notre code. Un cadre est une
+    // cloison, pas une porte : il a son propre contexte, et ne peut ni lire
+    // le tableau de bord ni toucher à la base.
+    "frame-src https://open.spotify.com https://www.youtube-nocookie.com "
+      + 'https://www.youtube.com https://player.twitch.tv https://embed.twitch.tv',
     "base-uri 'none'",
     "form-action 'self'",
     // Interdit d'enfermer l'application dans une iframe : c'est ce qui rend
