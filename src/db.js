@@ -179,6 +179,9 @@ export function ajouterColonnesManquantes(db) {
     // Cartes de révision d'un entretien, en JSON, avec l'avancement : une
     // notion se retient en tentant de la restituer, pas en la relisant.
     ['entretiens', 'notions', 'TEXT'],
+    // Les pages réellement consultées par le modèle lors de la recherche
+    // ancrée : de quoi aller lire le texte au lieu de croire une définition.
+    ['entretiens', 'liens', 'TEXT'],
   ];
   for (const [table, colonne, type] of NOUVELLES) {
     const existe = db.prepare(`SELECT COUNT(*) n FROM pragma_table_info(?) WHERE name = ?`)

@@ -135,10 +135,21 @@ Chaque carte :
 {
   "terme": "${t.recto}",
   "definition": "${t.verso}",
+  "memo": "LA phrase à retenir si on ne retient qu'une chose. Courte, dite à voix haute en entretien telle quelle.",
+  "piege": "l'erreur ou la confusion classique sur ce point — ou \\"\\" s'il n'y en a pas",
   "pourquoi": "une phrase : pourquoi ça compte POUR CE POSTE précisément",
-  "source": "où vérifier — article de code, nom du texte, ou site officiel",
+  "source": "la référence exacte — article, code, texte officiel",
   "sur": true ou false
 }
+
+LA FORME COMPTE AUTANT QUE LE FOND. Ces cartes se révisent la veille d'un
+entretien, pas se lisent un dimanche :
+- "definition" : trois phrases MAXIMUM. Au-delà, on ne mémorise plus, on lit.
+- "memo" : une seule phrase, prononçable telle quelle. C'est ce qui sortira
+  en séance quand la question tombera.
+- "piege" : ce que les candidats confondent. C'est souvent ce qui départage.
+- Pas de remplissage. Une carte qui n'apporte rien se supprime, on préfère
+  huit bonnes cartes à dix moyennes.
 
 Comment choisir les dix :
 - Va du général au particulier : d'abord ce qui cadre, ensuite le détail.
@@ -146,6 +157,10 @@ Comment choisir les dix :
   culture générale administrative.
 - Le recto doit pouvoir être lu SEUL, et donner envie de chercher la réponse
   avant de retourner la carte.
+
+VÉRIFIE AVANT D'AFFIRMER. Tu disposes de la recherche web : sers-t'en pour
+confirmer chaque numéro d'article, chaque délai, chaque seuil. Une référence
+que tu n'as pas pu confirmer se marque "sur": false.
 
 LE CHAMP "sur" EST LE PLUS IMPORTANT :
 - true seulement si tu réponds de l'exactitude de la définition ET de la
@@ -213,23 +228,40 @@ ${transcription(echanges)}
 # TA TÂCHE
 Pose la question ${numero} sur ${QUESTIONS_PAR_SEANCE}. UNE SEULE question.
 
-Comment la choisir :
-- Les premières portent sur le parcours et la motivation, telles que les
-  poserait vraiment un recruteur de ce secteur.
-- Ensuite, va CHERCHER LES MANQUES listés plus haut. Ce sont eux qui feront
-  échouer l'entretien réel ; les éviter ici serait rendre la répétition
-  inutile.
-- Si la réponse précédente est vague, creuse-la au lieu de passer à autre
-  chose. « Vous dites avoir piloté ce projet — qui décidait, concrètement ? »
-  Un jury relance ; il ne coche pas des cases.
-- Si l'annonce vient de la fonction publique, adopte le registre d'un jury
-  administratif : sobre, précis, attaché aux procédures et au cadre statutaire.
-- Adapte-toi au poste. Un poste juridique appelle des mises en situation
-  concrètes (« un acte vous paraît illégal, que faites-vous, dans quel
-  délai ? »), pas des généralités.
+C'EST UNE CONVERSATION, PAS UN QUESTIONNAIRE.
+Un vrai jury ACCUSE RÉCEPTION de ce qu'il vient d'entendre avant d'enchaîner.
+Une demi-phrase suffit, et elle doit reprendre un mot précis de la réponse —
+pas « très bien, merci » qui ne prouve rien :
 
-Écris UNIQUEMENT la question, telle que le jury la prononcerait. Pas de
-préambule, pas de numérotation, pas de guillemets.`;
+  « Vous parlez de veille juridique continue. Sur quels textes, concrètement,
+    et à quelle fréquence ? »
+  « Donc vous n'avez jamais rédigé de déféré. Admettons — que feriez-vous
+    demain matin si j'en pose un sur votre bureau ? »
+  « Vous dites "j'ai piloté". Qui décidait, à la fin ? »
+
+Comment choisir la relance :
+- SI LA RÉPONSE EST VAGUE, CREUSE-LA. Ne passe pas à autre chose : c'est
+  précisément là qu'un jury réel insiste, et c'est là qu'on s'effondre.
+  « Rigoureux » et « ça me correspond » ne sont pas des réponses.
+- Si elle est solide, prends-la au mot et monte d'un cran : demande le cas
+  limite, le désaccord, ce qui se passerait si.
+- Si elle esquive, dis-le sans agressivité et repose la question.
+- Reviens sur une réponse antérieure quand elle contredit la dernière : un
+  jury écoute tout l'entretien, pas la dernière phrase.
+- Les premières questions portent sur le parcours et la motivation. Ensuite,
+  va CHERCHER LES MANQUES listés plus haut : ce sont eux qui feront échouer
+  l'entretien réel, les éviter ici rendrait la répétition inutile.
+- Registre : si l'annonce vient de la fonction publique, sois sobre et précis,
+  attaché aux procédures et au cadre statutaire. Un poste juridique appelle
+  des mises en situation concrètes, pas des généralités.
+
+TON. Courtois, professionnel, jamais complaisant. Tu ne félicites pas, tu ne
+conseilles pas, tu ne commentes pas la qualité de la réponse — tu relances.
+Le débriefing viendra plus tard, ce n'est pas ton rôle ici.
+
+Écris la relance PUIS la question, en un seul paragraphe court, telle que le
+jury la prononcerait. Pas de préambule, pas de numérotation, pas de
+guillemets, pas de nom de rôle.`;
 }
 
 /**

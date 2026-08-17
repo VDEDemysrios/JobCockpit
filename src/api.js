@@ -16,7 +16,7 @@ import {
   promptQuestion, promptDebrief, promptFiche, promptNotions,
   TYPES_NOTIONS, QUESTIONS_PAR_SEANCE,
 } from './entretien.js';
-import { demander, estConfigure as geminiPret, extraireJson } from './gemini.js';
+import { demander, demanderAncre, estConfigure as geminiPret, extraireJson } from './gemini.js';
 import { enregistrerCv } from './cv.js';
 import {
   lireMeta, ecrireMeta, upsertOffre, transaction, noterActivite,
@@ -603,19 +603,21 @@ export function creerRoutes({ db, collecter, sources, profil }) {
       debrief: l?.debrief ?? null,
       fiche: l?.fiche ?? null,
       notions: l?.notions ? JSON.parse(l.notions) : [],
+      liens: l?.liens ? JSON.parse(l.liens) : [],
     };
   }
 
-  function ecrireEntretien(id, { echanges, debrief, fiche, notions }) {
+  function ecrireEntretien(id, { echanges, debrief, fiche, notions, liens }) {
     const now = new Date().toISOString();
     db.prepare(`
-      INSERT INTO entretiens (offer_id, echanges, debrief, fiche, notions, cree_le, maj_le)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO entretiens (offer_id, echanges, debrief, fiche, notions, liens, cree_le, maj_le)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(offer_id) DO UPDATE SET
         echanges = excluded.echanges, debrief = excluded.debrief,
-        fiche = excluded.fiche, notions = excluded.notions, maj_le = excluded.maj_le
+        fiche = excluded.fiche, notions = excluded.notions,
+        liens = excluded.liens, maj_le = excluded.maj_le
     `).run(id, JSON.stringify(echanges ?? []), debrief ?? null, fiche ?? null,
-           JSON.stringify(notions ?? []), now, now);
+           JSON.stringify(notions ?? []), JSON.stringify(liens ?? []), now, now);
   }
 
   /** L'offre et son analyse, telles que les prompts les attendent. */
@@ -751,9 +753,14 @@ export function creerRoutes({ db, collecter, sources, profil }) {
     // place à la fois dans le jargon et dans les textes, vu sous deux angles.
     const deja = e.notions.filter(n => (n.type ?? 'jargon') === type).map(n => n.terme);
 
-    let brut;
+    // ANCRÉ dans une recherche web : sans cela, le modèle produit des numéros
+    // d'article plausibles et se déclare sûr de lui. Pour réviser du droit
+    // avant un entretien, c'est le pire des cas.
+    let brut, sources;
     try {
-      brut = await demander(promptNotions(o.offre, o.analyse, deja, type));
+      const r = await demanderAncre(promptNotions(o.offre, o.analyse, deja, type));
+      brut = r.texte;
+      sources = r.sources;
     } catch (erreur) {
       return res.status(502).json({ ok: false, error: `Gemini : ${erreur.message}` });
     }
@@ -771,8 +778,13 @@ export function creerRoutes({ db, collecter, sources, profil }) {
     const nouvelles = liste
       .filter(c => c?.terme && c?.definition)
       .map(c => ({
-        terme: String(c.terme).slice(0, 120),
-        definition: String(c.definition).slice(0, 600),
+        terme: String(c.terme).slice(0, 300),
+        definition: String(c.definition).slice(0, 900),
+        // La phrase à ressortir telle quelle en séance. C'est elle qu'on
+        // révise en dernier, dans le train.
+        memo: String(c.memo ?? '').slice(0, 300),
+        // Ce que les candidats confondent : c'est souvent ce qui départage.
+        piege: String(c.piege ?? '').slice(0, 400),
         pourquoi: String(c.pourquoi ?? '').slice(0, 400),
         source: String(c.source ?? '').slice(0, 200),
         sur: c.sur !== false,
@@ -780,9 +792,17 @@ export function creerRoutes({ db, collecter, sources, profil }) {
         type,
       }));
 
+    // Les pages réellement consultées par le modèle, communes au lot. Elles
+    // permettent d'aller lire le texte au lieu de croire une définition.
+    const liens = (sources ?? []).slice(0, 8);
+
     e.notions = [...e.notions, ...nouvelles];
+    e.liens = [...(e.liens ?? []), ...liens]
+      .filter((l, i, t) => t.findIndex(x => x.url === l.url) === i)
+      .slice(0, 30);
     ecrireEntretien(req.params.id, e);
-    res.json({ ok: true, ajoutees: nouvelles.length, notions: e.notions });
+    res.json({ ok: true, ajoutees: nouvelles.length, notions: e.notions,
+      liens: e.liens, ancre: liens.length > 0 });
   });
 
   /** L'avancement de révision d'une carte : su, ou à revoir. */
@@ -802,7 +822,7 @@ export function creerRoutes({ db, collecter, sources, profil }) {
     // séance. Les effacer obligerait à repayer des appels pour retrouver ce
     // qu'on savait déjà.
     ecrireEntretien(req.params.id, {
-      echanges: [], debrief: null, fiche: e.fiche, notions: e.notions,
+      echanges: [], debrief: null, fiche: e.fiche, notions: e.notions, liens: e.liens,
     });
     res.json({ ok: true });
   });

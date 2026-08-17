@@ -1855,3 +1855,21 @@ ul.mini li{margin-bottom:5px;}
   margin-top:var(--e4);}
 .ent-fabs-t{font-size:11.5px;color:var(--muted);}
 .ent-fab{font-size:11.5px;padding:4px 10px;}
+
+/* Fiche renforcée, mais avalable. Trois niveaux de lecture, dans l'ordre où
+   on les consulte : le mémo la veille, la définition pour comprendre, le
+   piège pour ne pas se faire avoir. */
+.ent-memo{font-size:14px;font-weight:var(--w-semi);color:var(--accent-ink);
+  background:var(--accent-bg);border-left:3px solid var(--accent);
+  padding:var(--e2) var(--e3);border-radius:0 var(--r2) var(--r2) 0;
+  margin:0 0 var(--e3);line-height:1.5;}
+.ent-piege{font-size:12.5px;color:var(--g2);background:var(--g2b);
+  padding:var(--e2) var(--e3);border-radius:var(--r2);line-height:1.5;}
+.ent-piege span{font-weight:var(--w-semi);text-transform:uppercase;
+  font-size:10px;letter-spacing:.6px;margin-right:6px;}
+.ent-liens{margin:var(--e3) 0 0;padding-left:var(--e5);font-size:12.5px;}
+.ent-liens li{margin-bottom:4px;}
+.ent-liens a{word-break:break-word;}
+/* Le champ grandit avec la réponse : une vraie réponse d'entretien fait dix
+   lignes, et se relire dans une fenêtre de quatre est pénible. */
+.ent-saisie textarea{max-height:340px;overflow-y:auto;}

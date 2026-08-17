@@ -107,7 +107,9 @@ function rendreNotions(notions, types = {}) {
             ${n.sur ? '' : '<span class="ent-drapeau">à vérifier</span>'}
           </div>
           <div class="ent-reponse" hidden>
+            ${n.memo ? `<p class="ent-memo">${echapper(n.memo)}</p>` : ''}
             <p>${echapper(n.definition).replace(/\n/g, '<br>')}</p>
+            ${n.piege ? `<p class="ent-piege"><span>Piège</span> ${echapper(n.piege)}</p>` : ''}
             ${n.pourquoi ? `<p class="ent-pourquoi">${echapper(n.pourquoi)}</p>` : ''}
             ${n.source ? `<p class="ent-source">Source : ${echapper(n.source)}</p>` : ''}
             <div class="ent-juger">
@@ -122,6 +124,26 @@ function rendreNotions(notions, types = {}) {
       <span class="ent-fabs-t">Fabriquer 10 cartes :</span>
       ${fabriquer}
     </div>
+  </div>`;
+}
+
+/**
+ * Les pages réellement consultées pendant la recherche.
+ *
+ * C'est la différence entre croire une définition et aller lire le texte. Sur
+ * un domaine juridique, c'est la seule chose qui protège d'apprendre du faux
+ * avec confiance.
+ */
+function rendreLiens(liens) {
+  if (!liens?.length) return '';
+  return `<div class="ent-doc">
+    <div class="ent-doc-titre">Sources consultées</div>
+    <p class="ent-vide">Les pages que le modèle a réellement ouvertes pour
+      fabriquer ces cartes. Va y vérifier ce que tu comptes citer.</p>
+    <ul class="ent-liens">
+      ${liens.map(l => `<li><a href="${echapper(l.url)}" target="_blank"
+        rel="noopener">${echapper(l.titre || l.url)}</a></li>`).join('')}
+    </ul>
   </div>`;
 }
 
@@ -167,6 +189,7 @@ function rendreFil(etat) {
     </div>
 
     ${rendreNotions(etat.notions ?? [], etat.typesNotions ?? {})}
+    ${rendreLiens(etat.liens)}
 
     ${etat.debrief ? `<div class="ent-doc"><div class="ent-doc-titre">Débriefing</div>
       ${rendreTexte(etat.debrief)}</div>` : ''}
@@ -178,7 +201,26 @@ function afficher(etat) {
   boite().innerHTML = rendreFil(etat);
   const fil = document.getElementById('entFil');
   if (fil) fil.scrollTop = fil.scrollHeight;
-  document.getElementById('entReponse')?.focus();
+  const champ = document.getElementById('entReponse');
+  if (champ) {
+    champ.focus();
+    // Ctrl+Entrée envoie : on écrit plusieurs paragraphes en entretien, donc
+    // Entrée seule doit rester un saut de ligne.
+    champ.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) {
+        ev.preventDefault();
+        document.getElementById('entForm')?.requestSubmit();
+      }
+    });
+    // Le champ grandit avec la réponse : une réponse d'entretien fait dix
+    // lignes, et se relire dans une fenêtre de quatre est pénible.
+    const grandir = () => {
+      champ.style.height = 'auto';
+      champ.style.height = Math.min(champ.scrollHeight, 340) + 'px';
+    };
+    champ.addEventListener('input', grandir);
+    grandir();
+  }
 }
 
 /** Empêche le double envoi et dit ce qui se passe : un appel prend du temps. */

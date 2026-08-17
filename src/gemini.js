@@ -55,6 +55,57 @@ export class Limiteur {
 }
 
 /**
+ * Interroge Gemini EN L'ANCRANT dans une recherche web.
+ *
+ * POURQUOI, ET CE QUE ÇA CHANGE
+ * -----------------------------
+ * Sans ancrage, le modèle répond de mémoire : il produit des numéros
+ * d'article plausibles, des délais plausibles, et se déclare sûr de lui. Pour
+ * réviser un domaine juridique avant un entretien, c'est le pire des cas —
+ * on apprend du faux avec confiance, et on ne revérifie jamais ce dont on est
+ * sûr.
+ *
+ * Avec l'ancrage, le modèle lance de vraies recherches et renvoie les URL
+ * consultées. On peut donc afficher des liens cliquables : le candidat va
+ * voir le texte lui-même au lieu de croire une définition.
+ *
+ * REPLI SILENCIEUX. Si l'ancrage échoue — outil indisponible, quota, modèle
+ * qui ne le supporte pas — on retombe sur une réponse ordinaire plutôt que
+ * de ne rien rendre. Mieux vaut des cartes sans lien que pas de cartes ;
+ * l'absence de sources se voit à l'écran.
+ *
+ * @returns {Promise<{texte: string, sources: {titre: string, url: string}[], ancre: boolean}>}
+ */
+export async function demanderAncre(prompt) {
+  const genai = obtenirClient();
+
+  for (const modele of MODELES) {
+    try {
+      await limiteur.attendre();
+      const reponse = await genai.models.generateContent({
+        model: modele,
+        contents: prompt,
+        config: { tools: [{ googleSearch: {} }] },
+      });
+
+      const meta = reponse.candidates?.[0]?.groundingMetadata;
+      const sources = (meta?.groundingChunks ?? [])
+        .map(c => ({ titre: c.web?.title ?? '', url: c.web?.uri ?? '' }))
+        .filter(s => s.url);
+
+      return { texte: reponse.text, sources, ancre: sources.length > 0 };
+    } catch (erreur) {
+      const type = classerErreur(String(erreur?.message ?? erreur));
+      console.error(`   ⚠ Gemini ancré [${modele}] ${type}`);
+      // On passe au modèle suivant ; si aucun ne répond, on tente sans ancrage.
+    }
+  }
+
+  const texte = await demander(prompt);
+  return { texte, sources: [], ancre: false };
+}
+
+/**
  * Extrait un objet OU un tableau JSON d'une réponse de LLM.
  *
  * Les modèles encadrent souvent le JSON dans un bloc markdown ou l'entourent
