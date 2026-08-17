@@ -1434,6 +1434,22 @@ export function creerRoutes({ db, collecter, sources, profil,
           + 'd\'AI Studio ne vaut que pour Gemini : il en faut une créée dans '
           + 'Google Cloud, sur un projet où « YouTube Data API v3 » est activée.' });
     }
+
+    // LE PRÉFIXE, PARCE QU'IL SE VÉRIFIE D'UN COUP D'ŒIL.
+    //
+    // Une clé d'API Google Cloud commence par `AIza`. Les clés d'AI Studio,
+    // elles, commencent par `AQ.` — deux objets différents que rien ne
+    // distingue une fois collés dans un fichier, et qui échouent à cent lignes
+    // de là sur « API keys are not supported by this API ». On le dit AVANT
+    // le premier appel, pas après.
+    //
+    // C'est un AVERTISSEMENT, pas un refus : le jour où Google change de
+    // préfixe, une clé valide ne doit pas être déclarée fausse par nous.
+    if (cleYoutube() && !cleYoutube().startsWith('AIza')) {
+      return res.json({ ok: true, configure: true, pays: paysYoutube(),
+        aide: 'Cette clé ne ressemble pas à une clé d\'API Google Cloud — elles '
+          + 'commencent par « AIza ». Si l\'accueil échoue, c\'est probablement ça.' });
+    }
     res.json({ ok: true, configure: Boolean(cleYoutube()), pays: paysYoutube() });
   });
 

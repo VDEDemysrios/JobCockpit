@@ -107,8 +107,13 @@ export function rendreYoutube() {
   if (!z) return;
 
   if (!etat.configure) { z.innerHTML = rendreNonConfigure(); return; }
+  // Une clé au format inattendu n'empêche pas d'essayer : on prévient, et on
+  // laisse la navigation en place. C'est un doute, pas un verdict.
+  const doute = etat.aide
+    ? `<div class="sp-alerte"><p>${echapper(etat.aide)}</p></div>` : '';
 
   z.innerHTML = `
+    ${doute}
     <form class="sp-chercher yt-chercher" id="ytForm">
       <input id="ytQ" placeholder="Rechercher une vidéo, une chaîne, un sujet…"
         autocomplete="off" value="${echapper(recherche)}">
