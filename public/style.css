@@ -1959,3 +1959,12 @@ ul.mini li{margin-bottom:5px;}
 .chill-media-vide{padding:var(--e5);font-size:13px;color:var(--muted);line-height:1.6;}
 .chill-media-vide p{margin:0 0 var(--e2);}
 .chill-note{font-size:12px;color:var(--faint);}
+
+/* La bascule de session YouTube. Le compromis appartient à qui regarde : le
+   libellé dit ce qu'on gagne, l'infobulle ce qu'on paie. */
+.chill-compte{display:flex;align-items:center;gap:6px;font-size:12px;
+  color:var(--muted);margin-bottom:var(--e3);cursor:pointer;}
+.chill-compte input{width:15px;height:15px;flex:0 0 auto;cursor:pointer;}
+.chill-aide{display:inline-flex;align-items:center;justify-content:center;
+  width:15px;height:15px;border-radius:50%;background:var(--g0b);
+  color:var(--muted);font-size:10px;font-weight:var(--w-semi);cursor:help;}

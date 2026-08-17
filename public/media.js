@@ -15,7 +15,7 @@
 // qui va chercher elle-même son environnement cesse d'être testable.
 
 /** Reconnaît ce qu'on colle et en fait une adresse de lecteur intégrable. */
-export function versLecteur(saisie, hote = 'localhost') {
+export function versLecteur(saisie, hote = 'localhost', avecCompte = false) {
   const t = String(saisie ?? '').trim();
   if (!t) return null;
 
@@ -34,13 +34,23 @@ export function versLecteur(saisie, hote = 'localhost') {
 
   // YouTube : lien long, court, ou direct. `-nocookie` par défaut — pas de
   // raison de laisser un traceur s'installer pour écouter de la musique.
+  // LE DOMAINE EST UN CHOIX, PAS UNE FATALITÉ.
+  //
+  // `youtube-nocookie.com` n'installe pas de traceur — mais il n'emporte pas
+  // la session non plus. Sans elle : pas d'historique, pas d'abonnements, et
+  // une vidéo réservée aux connectés reste noire.
+  //
+  // Le compromis appartient à qui regarde, pas à qui écrit le code. Par
+  // défaut on protège ; `avecCompte` bascule sur le domaine ordinaire.
+  const domaineYt = avecCompte ? 'https://www.youtube.com' : 'https://www.youtube-nocookie.com';
+
   const yt = t.match(/(?:youtube\.com\/(?:watch\?v=|live\/|embed\/)|youtu\.be\/)([\w-]{11})/);
-  if (yt) return { type: 'YouTube', url: `https://www.youtube-nocookie.com/embed/${yt[1]}`, haut: 0 };
+  if (yt) return { type: 'YouTube', url: `${domaineYt}/embed/${yt[1]}`, haut: 0 };
 
   const ytList = t.match(/youtube\.com\/playlist\?list=([\w-]+)/);
   if (ytList) {
     return { type: 'YouTube',
-      url: `https://www.youtube-nocookie.com/embed/videoseries?list=${ytList[1]}`, haut: 0 };
+      url: `${domaineYt}/embed/videoseries?list=${ytList[1]}`, haut: 0 };
   }
 
   // Twitch : la chaîne, ou une rediffusion. `parent` est OBLIGATOIRE et doit

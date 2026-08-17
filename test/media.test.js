@@ -64,3 +64,42 @@ test('ce qui n\'est pas reconnu rend null, sans lever', () => {
     assert.equal(versLecteur(entree), null);
   }
 });
+
+/**
+ * LE DOMAINE YOUTUBE EST UN CHOIX.
+ *
+ * `youtube-nocookie.com` n'installe pas de traceur, mais n'emporte pas la
+ * session : pas d'abonnements, et une vidéo réservée aux connectés reste
+ * noire. Le compromis appartient à qui regarde — d'où la bascule.
+ */
+test('YouTube bascule entre domaine sobre et session du compte', () => {
+  const lien = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+
+  const sobre = versLecteur(lien, 'localhost', false);
+  assert.match(sobre.url, /youtube-nocookie\.com/,
+    'par défaut on protège : rien ne doit suivre l\'utilisateur');
+
+  const connecte = versLecteur(lien, 'localhost', true);
+  assert.match(connecte.url, /^https:\/\/www\.youtube\.com\/embed\//,
+    'demandé explicitement, on passe par le domaine qui porte la session');
+  assert.ok(!connecte.url.includes('nocookie'));
+});
+
+/** Les deux domaines doivent rester couverts par la politique de sécurité. */
+test('les deux domaines YouTube sont ceux autorisés par la CSP', () => {
+  const AUTORISES = [
+    'https://open.spotify.com', 'https://www.youtube-nocookie.com',
+    'https://www.youtube.com', 'https://player.twitch.tv', 'https://embed.twitch.tv',
+  ];
+  for (const [entree, compte] of [
+    ['https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT', false],
+    ['https://www.youtube.com/watch?v=dQw4w9WgXcQ', false],
+    ['https://www.youtube.com/watch?v=dQw4w9WgXcQ', true],
+    ['https://www.twitch.tv/zerator', false],
+  ]) {
+    const r = versLecteur(entree, 'localhost', compte);
+    const origine = new URL(r.url).origin;
+    assert.ok(AUTORISES.includes(origine),
+      `${origine} n'est pas dans frame-src : le cadre resterait vide`);
+  }
+});

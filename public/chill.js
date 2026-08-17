@@ -46,6 +46,9 @@ function lireMedia() {
   try { return JSON.parse(localStorage.getItem(CLE_MEDIA) ?? 'null'); } catch { return null; }
 }
 
+/** Passer par youtube.com (session, abonnements) plutôt que le domaine sobre. */
+const avecCompte = () => localStorage.getItem('bp_chill_compte') === '1';
+
 function rendreFil(fil) {
   if (!fil.length) {
     return `<p class="chill-vide">De quoi tu veux parler ? Du dernier film que
@@ -103,6 +106,17 @@ export function rendreChill() {
           <input id="chillLien" placeholder="Lien Spotify, YouTube, Twitch…" autocomplete="off">
           <button class="btn" type="submit">Ouvrir</button>
         </form>
+
+        <!-- LE COMPROMIS APPARTIENT À QUI REGARDE, pas à qui écrit le code.
+             Décoché : youtube-nocookie.com — rien ne te suit, mais tu n'es
+             connecté à rien. Coché : youtube.com — ton compte, tes
+             abonnements, ton historique, et les traceurs qui vont avec. -->
+        <label class="chill-compte">
+          <input type="checkbox" id="chillCompte" ${avecCompte() ? 'checked' : ''}>
+          Utiliser ma session YouTube
+          <span class="chill-aide" title="Coché : les vidéos passent par youtube.com — ton compte et tes abonnements fonctionnent, les traceurs de YouTube aussi. Décoché : youtube-nocookie.com — rien ne te suit, mais une vidéo réservée aux connectés restera noire.">?</span>
+        </label>
+
         <div class="chill-cadre-boite" id="chillCadre">${rendreMedia(media)}</div>
       </div>
     </div>`;
@@ -123,6 +137,20 @@ export function installerChill(toast) {
   const zone = document.getElementById('chillZone');
   if (!zone) return;
 
+  zone.addEventListener('change', (e) => {
+    if (e.target.id !== 'chillCompte') return;
+    localStorage.setItem('bp_chill_compte', e.target.checked ? '1' : '0');
+    // Le lecteur déjà ouvert garde son ancien domaine : on le redemande, sans
+    // quoi le réglage ne prendrait effet qu'au lien suivant — et donnerait
+    // l'impression de ne rien faire.
+    const media = lireMedia();
+    if (media?.type === 'YouTube') {
+      localStorage.removeItem(CLE_MEDIA);
+      rendreChill();
+      document.getElementById('chillLien')?.focus();
+    }
+  });
+
   zone.addEventListener('click', (e) => {
     const b = e.target.closest('[data-chill]');
     if (!b) return;
@@ -142,7 +170,7 @@ export function installerChill(toast) {
 
     if (e.target.id === 'chillLienForm') {
       const champ = document.getElementById('chillLien');
-      const media = versLecteur(champ?.value, location.hostname);
+      const media = versLecteur(champ?.value, location.hostname, avecCompte());
       if (!media) return toast('Lien non reconnu — Spotify, YouTube ou Twitch.', 'erreur');
       localStorage.setItem(CLE_MEDIA, JSON.stringify(media));
       rendreChill();
