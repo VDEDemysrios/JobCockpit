@@ -366,3 +366,33 @@ test('lancer d\'un côté fait taire l\'autre', () => {
     assert.match(source, /CustomEvent\('jc:media'/, `${nom} n'annonce plus sa lecture`);
   }
 });
+
+/**
+ * LES LIENS DU LECTEUR TWITCH NE DOIVENT PAS ÉJECTER DE L'APPLICATION.
+ *
+ * Le bandeau du cadre porte le nom de la chaîne et des boutons d'abonnement.
+ * Ces liens sont chez Twitch : rien d'ici ne peut savoir qu'on a cliqué, ni
+ * sur quoi — la spécification l'interdit, et c'est ce qui empêche aussi Twitch
+ * de lire le tableau de bord. Les rediriger est donc impossible ; les empêcher
+ * d'ouvrir le navigateur ne l'est pas.
+ *
+ * `allow-popups` rouvrirait la porte, `allow-top-navigation` emporterait la
+ * page entière. Les quatre gardées sont celles sans lesquelles le lecteur ne
+ * joue pas.
+ */
+test('le cadre Twitch ne peut ni ouvrir de fenêtre ni emporter la page', () => {
+  const tw = readFileSync(new URL('../public/twitch-ui.js', import.meta.url), 'utf8');
+  const bac = tw.match(/const BAC_A_SABLE = '([^']*)'/);
+  assert.ok(bac, 'le bac à sable du cadre Twitch a disparu');
+
+  const permissions = bac[1].split(/\s+/);
+  for (const interdite of ['allow-popups', 'allow-top-navigation',
+    'allow-popups-to-escape-sandbox', 'allow-top-navigation-by-user-activation']) {
+    assert.ok(!permissions.includes(interdite),
+      `« ${interdite} » remettrait les liens du bandeau en état d'éjecter hors de l'app`);
+  }
+  for (const requise of ['allow-scripts', 'allow-same-origin']) {
+    assert.ok(permissions.includes(requise), `sans « ${requise} » le lecteur ne joue pas`);
+  }
+  assert.match(tw, /sandbox="\$\{BAC_A_SABLE\}"/, 'le cadre doit porter le bac à sable');
+});

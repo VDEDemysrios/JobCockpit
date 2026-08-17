@@ -1420,6 +1420,20 @@ export function creerRoutes({ db, collecter, sources, profil,
   const paysYoutube = () => process.env.YOUTUBE_PAYS ?? 'FR';
 
   routes.get('/youtube/etat', (req, res) => {
+    // LA MÊME CLÉ QUE GEMINI, ET ÇA NE SE VOIT PAS.
+    //
+    // Les deux sont des « clés d'API Google », les deux se collent dans le
+    // même fichier, et activer « YouTube Data API v3 » sur le projet de la
+    // clé Gemini donne toutes les raisons de croire que c'est réglé. Ça ne
+    // l'est pas : mesuré, la clé d'AI Studio répond 200 sur Gemini et 401 sur
+    // YouTube. Sans ce contrôle, l'onglet s'annonce configuré puis échoue à
+    // chaque appel — et l'erreur, elle, parle d'OAuth.
+    if (cleYoutube() && cleYoutube() === (process.env.GEMINI_API_KEY ?? '')) {
+      return res.json({ ok: true, configure: false, pays: paysYoutube(),
+        aide: 'YOUTUBE_API_KEY porte la même valeur que GEMINI_API_KEY. Une clé '
+          + 'd\'AI Studio ne vaut que pour Gemini : il en faut une créée dans '
+          + 'Google Cloud, sur un projet où « YouTube Data API v3 » est activée.' });
+    }
     res.json({ ok: true, configure: Boolean(cleYoutube()), pays: paysYoutube() });
   });
 

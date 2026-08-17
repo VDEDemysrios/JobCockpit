@@ -24,7 +24,7 @@
 import { API } from './api.js';
 import { echapper } from './format.js';
 
-let etat = { configure: false, pays: 'FR' };
+let etat = { configure: false, pays: 'FR', aide: '' };
 let videos = [];
 let recherche = '';
 let charge = false;
@@ -47,6 +47,7 @@ const minutes = (s) => (s
 
 function rendreNonConfigure() {
   return `<div class="sp-vide">
+    ${etat.aide ? `<div class="sp-alerte"><p>${echapper(etat.aide)}</p></div>` : ''}
     <p><strong>Naviguer dans YouTube depuis l'application</strong> — l'accueil,
       la recherche, et la lecture dans le cadre.</p>
     <p class="sp-note">Sans cette clé, l'onglet marche quand même : colle
@@ -154,7 +155,7 @@ async function charger(quoi) {
 export async function ouvrirYoutube(toast) {
   try {
     const d = await API.youtubeEtat();
-    etat = { configure: d.configure, pays: d.pays ?? 'FR' };
+    etat = { configure: d.configure, pays: d.pays ?? 'FR', aide: d.aide ?? '' };
   } catch (e) {
     etat = { ...etat, configure: false };
     if (toast) toast(e.message, 'erreur');

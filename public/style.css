@@ -2533,11 +2533,12 @@ body.dock-glisse iframe{pointer-events:none;}
 /* LE CADRE DE L'ONGLET TWITCH. On regarde Twitch dans Twitch : envoyer le
    direct dans l'onglet nommé « YouTube » faisait quitter la liste au moment
    précis où l'on hésitait entre deux chaînes. */
-.tw-cadre{margin-bottom:var(--e3);}
+.tw-lecteur{margin-bottom:var(--e3);}
 .tw-fermer-cadre{position:absolute;top:6px;right:6px;width:24px;height:24px;
   border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;
   line-height:1;cursor:pointer;opacity:0;transition:opacity .15s;}
-.tw-cadre:hover .tw-fermer-cadre,.tw-fermer-cadre:focus-visible{opacity:1;}
+.tw-lecteur:hover .tw-fermer-cadre,.tw-fermer-cadre:focus-visible{opacity:1;}
+.tw-note-cadre{margin:var(--e2) 0 0;}
 
 /* ── L'onglet YouTube ───────────────────────────────────────────────────
    Le cadre garde ses proportions de vidéo, et la NAVIGATION se déroule en

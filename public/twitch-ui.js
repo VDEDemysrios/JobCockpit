@@ -333,15 +333,43 @@ const revenir = () => aller(pile.pop() ?? { nom: 'accueil' }, { empiler: false }
 const CLE_MEDIA_TW = 'jc.twitch.media';
 const cadre = () => document.getElementById('twitchCadre');
 
+/**
+ * LES LIENS DU LECTEUR TWITCH, ET CE QU'ON PEUT VRAIMENT EN FAIRE.
+ *
+ * Le bandeau du lecteur porte le nom de la chaîne, « Gérer votre abonnement »,
+ * un bouton de partage. Ces liens sont DANS le cadre, donc sur le domaine de
+ * Twitch : aucun script d'ici ne peut savoir qu'on a cliqué, ni sur quoi. La
+ * spécification l'interdit, et c'est exactement ce qui empêche Twitch de lire
+ * le tableau de bord derrière. Les « ouvrir dans l'onglet » est donc
+ * impossible, et il vaut mieux le dire que le promettre.
+ *
+ * Ce qui est possible : les EMPÊCHER d'éjecter hors de l'application. Un cadre
+ * `sandbox` sans `allow-popups` ni `allow-top-navigation` ne peut ouvrir
+ * aucune fenêtre et ne peut pas emporter la page avec lui. Le clic ne fait
+ * alors rien du tout, au lieu de faire surgir le navigateur.
+ *
+ * Les quatre permissions gardées sont celles sans lesquelles le lecteur ne
+ * joue pas : ses scripts, son propre stockage (`allow-same-origin` ne donne
+ * aucun accès ici — le cadre reste sur l'origine de Twitch), ses formulaires
+ * et la diffusion vers un écran externe.
+ */
+const BAC_A_SABLE = 'allow-scripts allow-same-origin allow-forms allow-presentation';
+
 function poserCadre(url, { titre = 'Twitch' } = {}) {
   const boite = cadre();
   if (!boite) return;
   boite.hidden = false;
-  boite.innerHTML = `<iframe class="dock-cadre" src="${echapper(url)}"
-    title="Lecteur ${echapper(titre)}" allow="autoplay; encrypted-media;
-    picture-in-picture; clipboard-write; fullscreen"
-    allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
-    <button class="tw-fermer-cadre" data-tw="fermer-cadre" title="Arrêter">×</button>`;
+  boite.innerHTML = `<div class="dock-cadre-boite">
+      <iframe class="dock-cadre" src="${echapper(url)}"
+        title="Lecteur ${echapper(titre)}" sandbox="${BAC_A_SABLE}"
+        allow="autoplay; encrypted-media; picture-in-picture; clipboard-write; fullscreen"
+        allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+      <button class="tw-fermer-cadre" data-tw="fermer-cadre" title="Arrêter">×</button>
+    </div>
+    <p class="sp-note tw-note-cadre">Les liens du bandeau Twitch ci-dessus sont
+      inertes : ils sont dans le cadre, donc chez Twitch, et rien d'ici ne peut
+      les détourner. Pour ouvrir une chaîne, clique-la dans la liste en
+      dessous — ou colle son adresse dans la recherche.</p>`;
 }
 
 /**
