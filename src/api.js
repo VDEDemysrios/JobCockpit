@@ -24,7 +24,9 @@ import {
   porteesManquantes, fusionnerPortees, nombreDePistes, pisteDeLEntree, resumeFile,
 } from './spotify.js';
 import { chercherParoles, resumeParoles } from './paroles.js';
-import { populaires as ytPopulaires, chercher as ytChercher, dureeIso } from './youtube.js';
+import {
+  populaires as ytPopulaires, chercher as ytChercher, chaine as ytChaine, dureeIso,
+} from './youtube.js';
 import {
   demanderCode, reclamerJeton, rafraichirJeton, estExpire as twitchExpire,
   validerJeton, revoquer as revoquerTwitch,
@@ -1477,6 +1479,28 @@ export function creerRoutes({ db, collecter, sources, profil,
     try {
       const v = await ytChercher({ cle: cleYoutube(), requete: q });
       res.json({ ok: true, videos: v.map(x => ({ ...x, secondes: dureeIso(x.duree) })) });
+    } catch (e) { res.status(502).json({ ok: false, error: e.message }); }
+  });
+
+  /**
+   * UNE CHAÎNE ET SES VIDÉOS, DANS L'ONGLET.
+   *
+   * Cliquer le nom d'un YouTuber ouvrait le champ vide : le nom seul ne mène
+   * nulle part, l'API veut l'identifiant de la chaîne. La vignette le porte
+   * désormais (`chaineId`), et cette route rend la fiche + les dernières
+   * vidéos — de quoi rester dans l'application au lieu d'aller sur le site.
+   */
+  routes.get('/youtube/chaine', async (req, res) => {
+    const id = String(req.query.id ?? '').trim();
+    if (!id) return res.status(400).json({ ok: false, error: 'Chaîne non précisée.' });
+    if (!cleYoutube()) {
+      return res.status(400).json({ ok: false, error: 'YOUTUBE_API_KEY absente du .env.' });
+    }
+    try {
+      const d = await ytChaine({ cle: cleYoutube(), id });
+      if (!d) return res.status(404).json({ ok: false, error: 'Chaîne introuvable.' });
+      res.json({ ok: true, chaine: d.chaine,
+        videos: d.videos.map(x => ({ ...x, secondes: dureeIso(x.duree) })) });
     } catch (e) { res.status(502).json({ ok: false, error: e.message }); }
   });
 

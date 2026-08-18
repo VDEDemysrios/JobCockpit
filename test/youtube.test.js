@@ -14,7 +14,7 @@
 // parfaitement affichées, dont aucune ne lance quoi que ce soit.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { populaires, chercher, dureeIso, COUT } from '../src/youtube.js';
+import { populaires, chercher, chaine, abonnes, dureeIso, COUT } from '../src/youtube.js';
 
 const reponse = (corps, statut = 200) => async (url) => ({
   ok: statut < 400, status: statut, json: async () => corps, _url: url,
@@ -105,4 +105,88 @@ test('la durée ISO devient des secondes', () => {
 test('aucune vidéo ne lève rien', async () => {
   assert.deepEqual(await populaires({ cle: 'K' }, reponse({})), []);
   assert.deepEqual(await chercher({ cle: 'K', requete: 'x' }, reponse({ items: [] })), []);
+});
+
+/**
+ * LE NOM D'UNE CHAÎNE MÈNE À SA PAGE — À CONDITION D'AVOIR SON IDENTIFIANT.
+ *
+ * Le libellé seul ne sert à rien : deux chaînes peuvent le partager, et l'API
+ * réclame l'identifiant. Chaque vignette doit donc porter `chaineId`, sinon le
+ * nom cliquable ouvre le vide.
+ */
+test('chaque vignette porte l\'identifiant de sa chaîne', async () => {
+  const v = await populaires({ cle: 'K' }, reponse({ items: [
+    { id: 'v1', snippet: { title: 'T', channelTitle: 'Chaîne', channelId: 'UC_42' } }] }));
+  assert.equal(v[0].chaineId, 'UC_42');
+  assert.equal(v[0].chaine, 'Chaîne');
+});
+
+/**
+ * UNE CHAÎNE ET SES VIDÉOS EN TROIS APPELS, ET L'ENCHAÎNEMENT COMPTE.
+ *
+ * `/channels` donne la playlist cachée « uploads » — le SEUL moyen d'atteindre
+ * les vidéos d'une chaîne, il n'existe pas de « /channel/videos ».
+ * `/playlistItems` en donne les identifiants mais NI durée NI vues.
+ * `/videos` complète avec durée et vues, pour que les vignettes de la chaîne
+ * soient identiques à celles de l'accueil.
+ */
+test('une chaîne enchaîne channels → playlistItems → videos', async () => {
+  const appels = [];
+  const faux = async (url) => {
+    appels.push(url);
+    if (url.includes('/channels')) {
+      return { ok: true, status: 200, json: async () => ({ items: [{
+        snippet: { title: 'La Chaîne', description: 'desc',
+          thumbnails: { medium: { url: 'http://a' } } },
+        statistics: { subscriberCount: '1500000' },
+        contentDetails: { relatedPlaylists: { uploads: 'UU_xyz' } },
+      }] }) };
+    }
+    if (url.includes('/playlistItems')) {
+      return { ok: true, status: 200, json: async () => ({ items: [
+        { contentDetails: { videoId: 'v1' } },
+        { contentDetails: { videoId: 'v2' } }] }) };
+    }
+    return { ok: true, status: 200, json: async () => ({ items: [
+      { id: 'v1', snippet: { title: 'Une', channelTitle: 'La Chaîne', channelId: 'UC1' },
+        contentDetails: { duration: 'PT3M' }, statistics: { viewCount: '10' } },
+      { id: 'v2', snippet: { title: 'Deux', channelTitle: 'La Chaîne', channelId: 'UC1' },
+        contentDetails: { duration: 'PT5M' }, statistics: { viewCount: '20' } }] }) };
+  };
+
+  const { chaine: fiche, videos } = await chaine({ cle: 'K', id: 'UC1' }, faux);
+  assert.equal(fiche.nom, 'La Chaîne');
+  assert.equal(fiche.abonnes, 1500000);
+  assert.equal(videos.length, 2);
+  assert.equal(videos[0].id, 'v1');
+  assert.equal(videos[0].secondes ?? null, null, 'la durée est ajoutée côté serveur, pas ici');
+
+  assert.ok(appels[0].includes('/channels'), '1) la chaîne');
+  assert.ok(appels[1].includes('/playlistItems'), '2) sa playlist « uploads »');
+  assert.ok(appels[2].includes('/videos'), '3) les vidéos, pour durée et vues');
+  assert.ok(appels[2].includes('v1%2Cv2') || appels[2].includes('v1,v2'),
+    'les identifiants des vidéos partent groupés en un seul appel');
+});
+
+/** Une chaîne sans playlist « uploads » n'est pas une panne : elle n'a rien publié. */
+test('une chaîne sans vidéos rend une liste vide, pas une erreur', async () => {
+  const faux = async () => ({ ok: true, status: 200, json: async () => ({ items: [{
+    snippet: { title: 'Vide' }, statistics: {}, contentDetails: {},
+  }] }) });
+  const d = await chaine({ cle: 'K', id: 'UCx' }, faux);
+  assert.deepEqual(d.videos, []);
+  assert.equal(d.chaine.nom, 'Vide');
+});
+
+/** Les abonnés cachés valent `null`, pas zéro : « 0 abonné » serait un mensonge. */
+test('les abonnés cachés ne deviennent pas zéro', async () => {
+  const faux = async () => ({ ok: true, status: 200, json: async () => ({ items: [{
+    snippet: { title: 'X' },
+    statistics: { hiddenSubscriberCount: true, subscriberCount: '0' },
+    contentDetails: {},
+  }] }) });
+  const d = await chaine({ cle: 'K', id: 'UCy' }, faux);
+  assert.equal(d.chaine.abonnes, null);
+  assert.equal(abonnes(null), '', 'et le formatage d\'un compte absent ne rend rien');
+  assert.equal(abonnes(1500000), '1.5 M abonnés');
 });

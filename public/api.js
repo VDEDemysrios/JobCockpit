@@ -110,6 +110,8 @@ export const API = {
   youtubeEtat:       ()        => appeler('/api/youtube/etat'),
   youtubeAccueil:    ()        => appeler('/api/youtube/accueil'),
   youtubeRecherche:  (q)       => appeler(`/api/youtube/recherche?q=${encodeURIComponent(q)}`),
+  // La chaîne d'un YouTuber, dans l'onglet : sa fiche et ses dernières vidéos.
+  youtubeChaine:     (id)      => appeler(`/api/youtube/chaine?id=${encodeURIComponent(id)}`),
   // L'interrupteur du lecteur intégré. Il commande aussi la politique de
   // sécurité du serveur : il faut recharger la page pour qu'elle prenne effet.
   spotifyLecteurLocal: (actif) =>

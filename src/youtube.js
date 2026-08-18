@@ -102,6 +102,66 @@ export async function chercher({ cle, requete, combien = 24 }, recuperer = fetch
 }
 
 /**
+ * UNE CHAÎNE, ET SES DERNIÈRES VIDÉOS.
+ *
+ * Trois appels, et aucun n'est évitable :
+ *
+ *   1. `/channels` — le nom, l'avatar, les abonnés, ET la playlist cachée
+ *      « uploads » où YouTube range tout ce qu'une chaîne publie. C'est le
+ *      seul moyen d'obtenir ses vidéos : il n'existe pas de « /channel/videos »
+ *      direct dans l'API.
+ *   2. `/playlistItems` — le contenu de cette playlist. Mais il ne porte NI
+ *      durée NI nombre de vues : juste les identifiants et les titres.
+ *   3. `/videos` — les mêmes identifiants, cette fois avec durée et vues, pour
+ *      que les vignettes de la chaîne soient identiques à celles de l'accueil.
+ *
+ * Coût : 3 unités de quota, là où une recherche en coûte 100. C'est bon
+ * marché — l'ouverture d'une chaîne peut se faire des dizaines de fois par jour
+ * sans entamer le plafond.
+ */
+export async function chaine({ cle, id, combien = 24 }, recuperer = fetch) {
+  const info = await appeler('/channels', {
+    part: 'snippet,statistics,contentDetails', id,
+  }, cle, recuperer);
+  const c = info?.items?.[0];
+  if (!c) return null;
+
+  const s = c.snippet ?? {};
+  const fiche = {
+    id,
+    nom: s.title ?? '',
+    description: s.description ?? '',
+    avatar: s.thumbnails?.medium?.url ?? s.thumbnails?.default?.url ?? null,
+    abonnes: c.statistics?.hiddenSubscriberCount
+      ? null
+      : Number(c.statistics?.subscriberCount ?? 0) || null,
+  };
+
+  const uploads = c.contentDetails?.relatedPlaylists?.uploads;
+  if (!uploads) return { chaine: fiche, videos: [] };
+
+  const pl = await appeler('/playlistItems', {
+    part: 'contentDetails', playlistId: uploads,
+    maxResults: String(Math.min(50, combien)),
+  }, cle, recuperer);
+  const ids = (pl?.items ?? []).map(i => i.contentDetails?.videoId).filter(Boolean);
+  if (!ids.length) return { chaine: fiche, videos: [] };
+
+  const vids = await appeler('/videos', {
+    part: 'snippet,contentDetails,statistics', id: ids.join(','),
+  }, cle, recuperer);
+  return { chaine: fiche, videos: resume(vids?.items, (v) => v.id) };
+}
+
+/** Les abonnés, comme YouTube les écrit : « 1,2 M ». `null` si la chaîne les cache. */
+export function abonnes(n) {
+  if (!n) return '';
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1).replace('.0', '')} M abonnés`;
+  if (n >= 1e3) return `${Math.round(n / 1e3)} k abonnés`;
+  return `${n} abonnés`;
+}
+
+/**
  * Réduit une réponse à ce qu'une vignette affiche.
  *
  * L'identifiant ne se trouve PAS au même endroit selon le point d'accès :
@@ -118,6 +178,10 @@ function resume(items, identifiant) {
       id,
       titre: s.title ?? '',
       chaine: s.channelTitle ?? '',
+      // L'identifiant de la chaîne, pour pouvoir OUVRIR sa page depuis une
+      // vignette. Le nom seul ne suffit pas : deux chaînes peuvent le
+      // partager, et l'API veut l'identifiant, jamais le libellé.
+      chaineId: s.channelId ?? null,
       publie: s.publishedAt ?? null,
       vignette: s.thumbnails?.medium?.url ?? s.thumbnails?.default?.url ?? null,
       vues: Number(v.statistics?.viewCount ?? 0) || null,
