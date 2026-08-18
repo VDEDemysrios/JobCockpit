@@ -22,7 +22,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  # `write` — et pas `read` : la dernière étape crée la release.
+  contents: write
 
 jobs:
   windows:
@@ -30,6 +31,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Les notes de version sont reprises du message de l'étiquette :
+          # sans historique complet, `git tag -l --format` ne renvoie rien.
+          fetch-depth: 0
 
       # NODE 24, ET CE N'EST PAS ANODIN.
       #
@@ -180,3 +185,41 @@ jobs:
           github-artifact-id: ${{ steps.televerser.outputs.artifact-id }}
           wait-for-completion: true
           output-artifact-directory: signe
+
+
+      # ═══════════════════ PUBLICATION ═══════════════════
+      #
+      # Sans cette étape, une étiquette de version ne produisait qu'un
+      # artefact : visible des seuls titulaires d'un compte GitHub, effacé au
+      # bout de trente jours. La 1.0 a donc dû être publiée à la main — un
+      # geste qu'on oublie, et qui laisse le dépôt annoncer une version que
+      # personne ne peut télécharger.
+      #
+      # `gh` est préinstallé sur les machines GitHub, et `GITHUB_TOKEN` est
+      # fourni automatiquement : aucun secret à créer.
+      - name: Publier la version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $etiquette = "${{ github.ref_name }}"
+          $version = $etiquette -replace '^v', ''
+
+          # Le nom porte la version : un fichier « JobCockpit-windows.zip »
+          # dans le dossier des téléchargements ne dit pas ce qu'il contient.
+          $archive = "JobCockpit-$version-windows.zip"
+          Copy-Item JobCockpit-windows.zip $archive
+
+          # Le message de l'étiquette fait les notes de version. À défaut,
+          # GitHub les déduit des commits — jamais de release muette.
+          $notes = (git tag -l --format='%(contents)' $etiquette) -join "`n"
+          if ([string]::IsNullOrWhiteSpace($notes)) {
+            gh release create $etiquette $archive empreinte.txt `
+              --title "Job Cockpit $version" --generate-notes
+          } else {
+            $notes | Out-File -FilePath notes.md -Encoding utf8
+            gh release create $etiquette $archive empreinte.txt `
+              --title "Job Cockpit $version" --notes-file notes.md
+          }
+          Write-Host "Publiée : $archive"
