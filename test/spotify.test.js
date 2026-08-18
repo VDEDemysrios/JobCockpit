@@ -308,6 +308,33 @@ test('le rang de départ ne s\'applique qu\'à un contexte', () => {
     'commencer au début n\'a pas besoin d\'être demandé');
 });
 
+/**
+ * LE MORCEAU DANS SON ALBUM — POURQUOI « SUIVANT » NE MARCHAIT PAS.
+ *
+ * Lancé seul, un titre part en `{uris:[…]}` : Spotify en fait une file d'UN
+ * élément, et « suivant »/« précédent » n'ont rien où aller — mesuré, ni le
+ * SDK ni l'API REST n'avancent. Joué DANS le contexte de son album, la lecture
+ * continue et les deux boutons fonctionnent. `offset` par URI démarre l'album
+ * pile sur ce morceau, pas à son début.
+ */
+test('un morceau lancé avec son album garde un « suivant »', () => {
+  assert.deepEqual(
+    corpsDeLecture({ uri: 'spotify:track:t', contexte: 'spotify:album:a' }),
+    { context_uri: 'spotify:album:a', offset: { uri: 'spotify:track:t' } });
+
+  // Sans album connu, on retombe sur le morceau seul — mieux qu'une erreur.
+  assert.deepEqual(corpsDeLecture({ uri: 'spotify:track:t', contexte: null }),
+    { uris: ['spotify:track:t'] });
+  assert.deepEqual(corpsDeLecture({ uri: 'spotify:track:t', contexte: '' }),
+    { uris: ['spotify:track:t'] });
+
+  // Le contexte ne détourne PAS la lecture d'une playlist : elle reste jouée
+  // comme contexte, à son rang.
+  assert.deepEqual(
+    corpsDeLecture({ uri: 'spotify:playlist:p', depart: 5, contexte: 'spotify:album:a' }),
+    { context_uri: 'spotify:playlist:p', offset: { position: 5 } });
+});
+
 test('les appareils sont réduits à ce qu\'un menu affiche', () => {
   const a = resumeAppareils({ devices: [
     { id: '1', name: 'Portable', type: 'Computer', is_active: true, volume_percent: 40 },

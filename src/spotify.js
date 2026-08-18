@@ -297,9 +297,23 @@ export function resumeLecture(d) {
  * lequel commencer. Combiné à la lecture aléatoire, c'est ce qui fait qu'une
  * playlist ne redémarre pas trois fois de suite sur le même titre.
  */
-export function corpsDeLecture({ uri, depart } = {}) {
+export function corpsDeLecture({ uri, depart, contexte } = {}) {
   if (!uri) return undefined;
-  if (uri.startsWith('spotify:track:')) return { uris: [uri] };
+  if (uri.startsWith('spotify:track:')) {
+    // UN MORCEAU DANS SON ALBUM, ET POURQUOI « SUIVANT » NE MARCHAIT PAS.
+    //
+    // Lancé seul, un titre part en `{uris:[…]}` : Spotify en fait une file
+    // d'UN élément. « suivant » et « précédent » n'ont alors rien où aller —
+    // ni le SDK ni l'API REST ne peuvent avancer dans une file vide, et le
+    // silence tombe à la fin du morceau. Mesuré : les deux boutons sans effet
+    // sur un titre de recherche, une playlist entière les fait marcher.
+    //
+    // Joué DANS le contexte de son album, la lecture continue après le titre
+    // ET les deux boutons fonctionnent. `offset` par URI démarre l'album pile
+    // sur ce morceau, pas à son début.
+    if (contexte?.startsWith('spotify:')) return { context_uri: contexte, offset: { uri } };
+    return { uris: [uri] };
+  }
   const corps = { context_uri: uri };
   if (Number.isInteger(depart) && depart > 0) corps.offset = { position: depart };
   return corps;

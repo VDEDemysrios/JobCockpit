@@ -891,7 +891,7 @@ export function creerRoutes({ db, collecter, sources, profil,
   };
 
   routes.post('/spotify/commande', async (req, res) => {
-    const { action, uri, depart, valeur, aleatoire } = req.body ?? {};
+    const { action, uri, depart, contexte, valeur, aleatoire } = req.body ?? {};
     const a = ACTIONS_SPOTIFY[action];
     if (!a) return res.status(400).json({ ok: false, error: 'Action inconnue.' });
 
@@ -904,7 +904,9 @@ export function creerRoutes({ db, collecter, sources, profil,
       }
       await spotify(a.chemin(valeur), {
         methode: a.methode,
-        corps: action === 'lire' ? corpsDeLecture({ uri, depart }) : undefined,
+        // `contexte` : l'album du morceau, pour que « suivant » existe. Voir
+        // `corpsDeLecture`.
+        corps: action === 'lire' ? corpsDeLecture({ uri, depart, contexte }) : undefined,
       });
       res.json({ ok: true });
     } catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
@@ -954,6 +956,9 @@ export function creerRoutes({ db, collecter, sources, profil,
           uri: t.uri, titre: t.name,
           artistes: (t.artists ?? []).map(a => a.name).join(', '),
           album: t.album?.name ?? '',
+          // L'album SERT DE CONTEXTE : lancé dans son album, un titre garde un
+          // « suivant ». Voir `corpsDeLecture`.
+          albumUri: t.album?.uri ?? null,
           duree: t.duration_ms ?? 0,
           pochette: grandePochette(t.album?.images),
         })),
@@ -1015,6 +1020,7 @@ export function creerRoutes({ db, collecter, sources, profil,
         vus.add(t.uri);
         recents.push({ uri: t.uri, titre: t.name ?? '',
           artistes: (t.artists ?? []).map(a => a.name).join(', '),
+          albumUri: t.album?.uri ?? null,
           pochette: grandePochette(t.album?.images) });
       }
       res.json({ ok: true, recents: recents.slice(0, 10) });

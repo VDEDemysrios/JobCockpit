@@ -240,6 +240,8 @@ function rendreListe(items, { melange = false, enfiler = false, ouvrable = false
     <button ${ouvrable ? `data-ouvrir="${echapper(i.uri)}"`
     : `data-uri="${echapper(contexte ?? i.uri)}"`}
       ${contexte ? `data-depart="${i.rang ?? 0}"` : ''}
+      ${!contexte && !ouvrable && i.albumUri
+    ? `data-contexte="${echapper(i.albumUri)}"` : ''}
       ${i.pistes ? `data-pistes="${i.pistes}"` : ''}>
       ${vignette(i)}
       <span class="sp-l-infos">
@@ -732,8 +734,18 @@ export function installerSpotify(toast) {
     if (action === 'volume') { local.volume = o.valeur; return volumeLocal(o.valeur); }
     if (action === 'position') return positionLocale(o.valeur);
     if (action === 'lire' && !o.uri) return commandeLocale('lire');
-    if (['pause', 'suivant', 'precedent'].includes(action)) return commandeLocale(action);
-    return false;   // aléatoire, répétition et lancement d'un contexte passent par l'API
+    if (action === 'pause') return commandeLocale('pause');
+
+    // SUIVANT ET PRÉCÉDENT PASSENT PAR L'API, PAS LE SDK — ET C'EST MESURÉ.
+    //
+    // `nextTrack()` / `previousTrack()` du SDK agissent sur sa file LOCALE
+    // (`track_window`), qui reste vide ou périmée quand la lecture a été lancée
+    // par l'API — le cas normal ici. Constaté : le bouton « suivant » ne
+    // bougeait pas, et « précédent » sautait au mauvais titre. L'API REST, elle,
+    // agit sur l'état de lecture qui fait autorité chez Spotify : elle connaît
+    // le vrai contexte et sa file. On perd un aller-retour, on gagne la
+    // justesse.
+    return false;   // suivant, précédent, aléatoire, répétition, contexte → API
   };
 
   const changerAppareil = async (id) => {
@@ -774,6 +786,9 @@ export function installerSpotify(toast) {
         uri: piste.dataset.uri,
         aleatoire: melanger,
         depart: melanger ? depart(Number(piste.dataset.pistes)) : (rang ?? 0),
+        // L'album du morceau, quand on le connaît : lancé dans son contexte, il
+        // garde un « suivant » au lieu de tomber dans le silence.
+        contexte: piste.dataset.contexte,
       });
     }
 
