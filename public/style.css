@@ -979,7 +979,19 @@ ul.mini li{margin-bottom:5px;}
 /* Cette page s'affiche AVANT qu'un profil existe. Elle ne réutilise donc rien
    du cadre de l'application — pas de rail, pas de vues, pas de données — et
    défile normalement : c'est un formulaire, pas un poste de travail. */
-.bv-page{overflow:auto;height:auto;}
+/* LE DÉFILEMENT SE REND À <html>, PAS À <body>.
+
+   La molette agit sur l'élément de défilement du DOCUMENT — <html> — et
+   la règle ci-dessus le fige à 100 % de hauteur en overflow:hidden, pour
+   les besoins du cadre applicatif. Poser overflow:auto sur .bv-page ne
+   suffit donc pas : le contenu débordait bien, mais <html> le coupait et
+   la molette ne trouvait rien à faire défiler. Sur un écran de 720 px, les
+   1 220 px du formulaire d'installation étaient inatteignables — on ne
+   pouvait tout simplement pas finir l'installation.
+
+   Une règle CSS ne peut pas remonter du <body> vers son parent : d'où la
+   classe posée directement sur <html> par les pages concernées. */
+html.page-libre,html.page-libre>body{height:auto;min-height:100%;overflow:visible;}
 /* Comme `.app` : l'empilement est POSÉ, pas déduit. La nappe d'ambiance passe
    dessous, et le texte reste sur un fond franc. */
 .bv,.porte{position:relative;z-index:1;}
@@ -2612,3 +2624,11 @@ body.dock-glisse iframe{pointer-events:none;}
 .sp-fil-nom{flex:1;min-width:0;font-size:12.5px;font-weight:var(--w-semi);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .sp-fil .sp-action{opacity:1;}
+
+/* Le pas-à-pas d obtention de cle : une liste numerotee lisible, aeree,
+   qu on suit d un oeil en gardant l autre sur la console Google. */
+.bv-etapes{margin:var(--e3) 0 var(--e4);padding-left:1.4em;display:flex;
+  flex-direction:column;gap:var(--e3);font-size:13.5px;line-height:1.65;color:var(--ink-2);}
+.bv-etapes li{padding-left:.2em;}
+.bv-etapes code{font-family:var(--mono);font-size:12px;background:var(--bg2);
+  padding:1px 5px;border-radius:4px;}

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="vivid" data-densite="normale" data-anim="on">
+<html lang="fr" class="page-libre" data-theme="vivid" data-densite="normale" data-anim="on">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -68,6 +68,33 @@
           <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">créer une clé ↗</a></span>
         <input id="GEMINI_API_KEY" maxlength="200" placeholder="AIza…">
       </label>
+
+      <!-- Ce repli est OUVERT par défaut, contrairement aux autres de la page :
+           c'est l'étape sur laquelle on se bloque, et un lien seul ne suffit
+           pas quand on n'a jamais vu la console Google. -->
+      <details class="bv-plus" open>
+        <summary>Comment obtenir cette clé — 2 minutes, gratuit</summary>
+        <ol class="bv-etapes">
+          <li>Ouvre <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>
+            et connecte-toi avec un compte Google — le tien suffit.</li>
+          <li>Clique sur <strong>« Create API key »</strong>.</li>
+          <li>Si on te demande un projet, prends celui qui est proposé ou clique
+            <strong>« Create project »</strong> : son nom n'a aucune importance.</li>
+          <li>Une longue suite de caractères apparaît, commençant par <code>AIza</code>.
+            Copie-la et <strong>colle-la dans le champ ci-dessus</strong>.</li>
+        </ol>
+        <p class="bv-aide">
+          <strong>C'est gratuit</strong> et sans carte bancaire, dans la limite d'un
+          quota journalier. Quand il est atteint, l'application continue de collecter
+          et de classer les offres — elle cesse simplement de les analyser jusqu'au
+          lendemain.
+        </p>
+        <p class="bv-aide">
+          La clé reste sur ton ordinateur, dans le fichier <code>.env</code>. Elle
+          n'est envoyée qu'à Google, au moment d'analyser une offre ou d'écrire une
+          lettre.
+        </p>
+      </details>
       <details class="bv-plus">
         <summary>Les autres sources</summary>
         <label class="bv-champ">
