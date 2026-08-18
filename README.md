@@ -13,6 +13,10 @@ exception près, signalée plus bas.
 > s'occupe de la configuration.
 
 ---
+> **Tu veux reprendre le code**, sur un autre ordinateur ou après une pause ?
+> → [docs/REPRENDRE.md](docs/REPRENDRE.md) : installation, ce qui n'est pas
+> dans le dépôt, décisions à ne pas relitiger, et comment publier une version.
+
 
 ## Sommaire
 
