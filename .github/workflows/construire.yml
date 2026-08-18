@@ -233,7 +233,12 @@ jobs:
           $existe = gh release view $etiquette 2>$null
           if ($LASTEXITCODE -eq 0) {
             Write-Host "Release existante : mise à jour."
-            gh release edit $etiquette --title "Job Cockpit $version" @optionsNotes
+            # `--draft=false` EST INDISPENSABLE ICI, et le piège est vicieux :
+            # supprimer une étiquette fait repasser sa release en BROUILLON
+            # côté GitHub. Sans cette option, l'étape réussit, met bien à jour
+            # le brouillon… qui reste invisible du public. La 1.5.0 a disparu
+            # ainsi, sans la moindre erreur dans le journal.
+            gh release edit $etiquette --draft=false --title "Job Cockpit $version" @optionsNotes
             gh release upload $etiquette $archive empreinte.txt --clobber
           } else {
             gh release create $etiquette $archive empreinte.txt `
