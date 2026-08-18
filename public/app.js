@@ -767,6 +767,11 @@ function brancherCarte(carte, offre) {
     ouvrirLettre(carte, offre, e.currentTarget);
   });
 
+  carte.querySelector('[data-act="relance"]')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    ouvrirRelance(carte, offre, e.currentTarget);
+  });
+
   carte.querySelector('[data-act="entretien"]')?.addEventListener('click', (e) => {
     e.preventDefault();
     ouvrirEntretien(offre, toast);
@@ -784,6 +789,56 @@ async function rafraichirStats() {
     const r = await API.stats();
     etat.stats = r.stats;
   } catch { /* le dashboard continue avec les chiffres précédents */ }
+}
+
+// ------------------------------------------------------ relance de candidature
+
+/**
+ * Rédige et affiche la relance, avec de quoi la copier.
+ *
+ * Rien n'est enregistré : une relance se copie et part de la messagerie de
+ * l'utilisateur. On la régénère à volonté — le ton d'une relance se retente
+ * plus qu'une lettre.
+ */
+async function ouvrirRelance(carte, offre, bouton) {
+  const zone = carte.querySelector('.relance-zone');
+  if (!zone) return;
+
+  const libelle = bouton.innerHTML;
+  bouton.disabled = true;
+  bouton.innerHTML = icone('plume', 14) + ' Rédaction…';
+  try {
+    const r = await API.relance(offre.id);
+    zone.innerHTML = `
+      <div class="relance-mail">
+        <div class="relance-champ">
+          <span class="relance-etiq">Objet</span>
+          <span class="relance-objet">${echapper(r.objet)}</span>
+          <button class="btn btn-mini" data-copier-objet>Copier</button>
+        </div>
+        <pre class="relance-corps">${echapper(r.corps)}</pre>
+        <div class="relance-pied">
+          <button class="btn btn-primary btn-mini" data-copier-corps>Copier le message</button>
+          <button class="btn btn-mini" data-relancer>Régénérer</button>
+          <span class="sp-note">Candidature envoyée il y a ${r.jours} j · rien n'est enregistré</span>
+        </div>
+      </div>`;
+    zone.querySelector('[data-copier-objet]')?.addEventListener('click', () => {
+      navigator.clipboard.writeText(r.objet).then(() => toast('Objet copié.'));
+    });
+    zone.querySelector('[data-copier-corps]')?.addEventListener('click', () => {
+      navigator.clipboard.writeText(r.corps).then(() => toast('Message copié — colle-le dans ta messagerie.'));
+    });
+    zone.querySelector('[data-relancer]')?.addEventListener('click', () => {
+      zone.innerHTML = '';
+      ouvrirRelance(carte, offre, bouton);
+    });
+  } catch (err) {
+    toast(err.message, 'erreur');
+  } finally {
+    bouton.disabled = false;
+    bouton.innerHTML = libelle;
+  }
 }
 
 // ------------------------------------------------------ lettre de motivation

@@ -916,6 +916,22 @@ ul.mini li{margin-bottom:5px;}
 .relance-flag{font-size:12px;color:var(--hot);font-weight:var(--w-semi);
   display:inline-flex;align-items:center;gap:5px;}
 
+/* LE COURRIEL DE RELANCE, PRÊT À COPIER.
+   Objet et corps séparés — on colle l'un dans le champ « objet », l'autre dans
+   le corps du message. Rien n'est enregistré : c'est un brouillon jetable. */
+.btn-mini{padding:3px 10px;font-size:12px;}
+.relance-mail{border:1px solid var(--bord);border-radius:var(--r2);
+  background:var(--bg2);padding:var(--e3);margin-top:var(--e2);}
+.relance-champ{display:flex;align-items:center;gap:var(--e2);margin-bottom:var(--e2);
+  padding-bottom:var(--e2);border-bottom:1px solid var(--bord);}
+.relance-etiq{font-size:10.5px;font-weight:var(--w-semi);text-transform:uppercase;
+  letter-spacing:.6px;color:var(--faint);flex:0 0 auto;}
+.relance-objet{flex:1;min-width:0;font-weight:var(--w-medium);color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.relance-corps{white-space:pre-wrap;font-family:inherit;font-size:13px;
+  line-height:1.6;color:var(--ink);margin:0 0 var(--e3);}
+.relance-pied{display:flex;align-items:center;gap:var(--e2);flex-wrap:wrap;}
+
 /* Le bouton d'une action portée par un message. Il doit se voir sans voler la
    vedette au texte : c'est une issue qu'on propose, pas une injonction. */
 .toast-action{margin-left:var(--e3);background:transparent;

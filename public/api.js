@@ -164,6 +164,9 @@ export const API = {
   timeline:      (limite = 60) => appeler(`/api/timeline?limite=${limite}`),
 
   lettre:        (id)          => appeler(`/api/letter/${id}`),
+  // Rédige la relance d'une candidature sans réponse. Rien n'est enregistré :
+  // le courriel se copie et s'envoie depuis la messagerie de l'utilisateur.
+  relance:       (id)          => appeler(`/api/relance/${id}`, { method: 'POST', body: {} }),
   genererLettre: (id, options) => appeler(`/api/letter/${id}`, { method: 'POST', body: options ?? {} }),
   majLettre:     (id, contenu) => appeler(`/api/letter/${id}`, { method: 'PATCH', body: { contenu } }),
   urlDocx:       (id)          => `/api/letter/${id}/docx`,

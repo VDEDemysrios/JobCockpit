@@ -42,6 +42,7 @@ import { calculerStats, isoLocal } from './stats.js';
 import { offreId } from './hash.js';
 import { scorer } from './scoring.js';
 import { genererLettre, extraireCoordonnees } from './letter.js';
+import { genererRelance } from './relance.js';
 import { construireDocx, nomFichier } from './letterDocx.js';
 import { construireDossier, nomDossier } from './dossier.js';
 import { extraireOffreCollee } from './paste.js';
@@ -2035,6 +2036,46 @@ export function creerRoutes({ db, collecter, sources, profil,
     else noterActivite(db);
 
     res.json({ ok: true, contenu, editee: false });
+  });
+
+  /**
+   * RÉDIGER LA RELANCE D'UNE CANDIDATURE.
+   *
+   * L'application repérait déjà les candidatures sans réponse « à relancer » —
+   * elle s'arrêtait à l'alerte. Ici elle rédige le courriel : court, adossé à
+   * l'offre et au délai écoulé, prêt à copier. Pas d'enregistrement en base :
+   * une relance se copie, s'envoie depuis SA messagerie, et n'a pas à laisser
+   * de brouillon derrière elle.
+   */
+  routes.post('/relance/:id', async (req, res) => {
+    const offre = lireOffreComplete(req.params.id);
+    if (!offre) return res.status(404).json({ ok: false, error: 'Offre introuvable.' });
+
+    const suivi = db.prepare('SELECT status, sent_date FROM tracking WHERE offer_id = ?')
+      .get(req.params.id);
+    if (!suivi?.sent_date) {
+      return res.status(400).json({ ok: false,
+        error: 'Cette candidature n\'a pas de date d\'envoi — rien à relancer.' });
+    }
+
+    const feuVert = peutRediger(db, profil);
+    if (!feuVert.ok) return res.status(503).json({ ok: false, error: feuVert.raison });
+
+    const jours = Math.max(0,
+      Math.floor((Date.now() - new Date(suivi.sent_date + 'T12:00:00').getTime()) / 86400000));
+    const coordonnees = extraireCoordonnees(cv(), profil.candidat ?? {});
+
+    let relance;
+    try {
+      relance = await genererRelance({ offre, coordonnees, jours, statut: suivi.status });
+    } catch { relance = null; }
+
+    if (!relance) {
+      return res.status(503).json({ ok: false,
+        error: 'La rédaction a échoué (quota Gemini atteint ou service indisponible). Réessaie dans quelques minutes.' });
+    }
+    noterAppel(db, LETTRE);
+    res.json({ ok: true, ...relance, jours });
   });
 
   routes.patch('/letter/:id', (req, res) => {

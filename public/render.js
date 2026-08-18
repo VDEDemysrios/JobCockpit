@@ -444,6 +444,20 @@ export function rendreCarte(offre, actions) {
     </div>
     <textarea class="notes-area" data-champ="notes" placeholder="Notes : contact, prépa entretien, ressenti…">${echapper(s.notes)}</textarea></div>`;
 
+  // RELANCE — seulement une fois la candidature partie : relancer une offre où
+  // l'on n'a pas postulé n'a aucun sens. L'app rédige le courriel ; il se copie
+  // et s'envoie depuis la messagerie, rien n'est enregistré ici.
+  if (postule) {
+    detail += `<div class="sec" data-relance="${offre.id}">
+      <div class="lbl fix">${icone('plume', 13)} RELANCE
+        ${due ? '<span class="relance-flag">⏰ à faire</span>' : ''}</div>
+      <div class="letter-actions">
+        <button class="btn" data-act="relance">${icone('plume', 14)} Rédiger la relance</button>
+      </div>
+      <div class="relance-zone"></div>
+    </div>`;
+  }
+
   // Lettre de motivation
   detail += `<div class="sec" data-lettre="${offre.id}">
     <div class="lbl fix">${icone('plume', 13)} LETTRE DE MOTIVATION</div>
