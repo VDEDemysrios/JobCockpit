@@ -2556,44 +2556,50 @@ body.dock-glisse iframe{pointer-events:none;}
   line-height:1;cursor:pointer;opacity:0;transition:opacity .15s;}
 .tw-lecteur:hover .tw-fermer-cadre,.tw-fermer-cadre:focus-visible{opacity:1;}
 
-/* ── L'onglet YouTube ───────────────────────────────────────────────────
-   Le cadre garde ses proportions de vidéo, et la NAVIGATION se déroule en
-   dessous : `youtube.com` refuse d'être mis en cadre, la liste vient donc de
-   l'API officielle et un clic charge la vidéo dans le lecteur. */
-/* LA GRILLE, ET POURQUOI PAS UNE LISTE.
-   Une vignette de 78 pixels ne montre rien : on choisissait donc au titre,
-   comme dans un tableur, alors que c'est l'image qui fait reconnaître une
-   vidéo. La grille reprend la forme que tout le monde connaît, et ses
-   colonnes s'ajustent à la largeur du lecteur — qui est redimensionnable, et
-   qu'une grille figée laissait soit à moitié vide, soit débordante. */
-.yt-grille{list-style:none;margin:0;padding:0;display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:var(--e3) var(--e2);}
-/* LA CARTE EST UN CONTENEUR, PAS UN BOUTON — ET C'EST OBLIGÉ.
-   Le nom de la chaîne doit être cliquable pour ouvrir sa page. Un bouton ne
-   peut pas être imbriqué dans un autre bouton : la carte est donc un `<div>`
-   avec DEUX cibles distinctes — la vignette + le titre (lance la vidéo), et le
-   nom de la chaîne (ouvre la chaîne). `color:var(--ink)` sur le conteneur,
-   sinon les boutons héritent du gris de bouton par défaut du navigateur et les
-   titres sortent délavés sur fond sombre. */
-.yt-carte{display:flex;flex-direction:column;gap:4px;width:100%;color:var(--ink);}
-.yt-lien-video{display:flex;flex-direction:column;gap:5px;width:100%;padding:0;
+/* ═══════════════ LA CARTE MÉDIA, PARTAGÉE YOUTUBE ET TWITCH ═══════════════
+   Un seul modèle de vignette pour les deux onglets : vidéo YouTube, direct ou
+   rediffusion Twitch. Avant, YouTube était en cartes et Twitch en lignes
+   tassées sans date — deux langages pour la même chose, et « on ne s'y
+   retrouvait pas ». Désormais : image large, titre sur deux lignes, méta et
+   DATE en dessous, partout pareil.
+
+   LA CARTE EST UN CONTENEUR, PAS UN BOUTON. Le nom de chaîne (YouTube) doit
+   être cliquable à part, et un bouton ne s'imbrique pas dans un bouton : la
+   vignette + le titre lancent la lecture, le nom ouvre la chaîne.
+   `color:var(--ink)` sur le conteneur, sinon les boutons prennent le gris de
+   bouton par défaut du navigateur et les titres sortent délavés.
+
+   La grille s'ajuste à la largeur du lecteur, qui est redimensionnable —
+   figée, elle laisserait soit un vide, soit un débordement horizontal. */
+.med-grille{list-style:none;margin:0 0 var(--e3);padding:0;display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:var(--e3) var(--e2);}
+.med-carte{display:flex;flex-direction:column;gap:3px;width:100%;color:var(--ink);}
+.med-lien{display:flex;flex-direction:column;gap:5px;width:100%;padding:0;
   background:none;border:0;cursor:pointer;text-align:left;color:inherit;}
-.yt-cadre-vignette{position:relative;display:block;width:100%;}
-.yt-vignette{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;
+.med-cadre{position:relative;display:block;width:100%;}
+.med-vignette{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;
   border-radius:var(--r2);background:var(--bg2);
   transition:transform .15s,box-shadow .15s;}
-.yt-lien-video:hover .yt-vignette{transform:translateY(-2px);box-shadow:var(--sh2);}
-.yt-duree{position:absolute;right:5px;bottom:5px;padding:1px 4px;border-radius:3px;
-  background:rgba(0,0,0,.78);color:#fff;font-size:10.5px;
-  font-variant-numeric:tabular-nums;}
-.yt-carte-titre{font-size:12px;line-height:1.35;font-weight:var(--w-medium);color:var(--ink);
+.med-lien:hover .med-vignette{transform:translateY(-2px);box-shadow:var(--sh2);}
+/* Les pastilles sur la vignette : durée en bas à droite, direct en haut à
+   gauche. Deux repères qu'on lit sans lire. */
+.med-badge{position:absolute;font-size:10.5px;line-height:1.4;padding:1px 5px;
+  border-radius:3px;font-variant-numeric:tabular-nums;}
+.med-badge.duree{right:5px;bottom:5px;background:rgba(0,0,0,.78);color:#fff;}
+.med-badge.live{left:5px;top:5px;background:var(--hot);color:#fff;
+  font-weight:var(--w-semi);letter-spacing:.3px;}
+.med-titre{font-size:12px;line-height:1.35;font-weight:var(--w-medium);color:var(--ink);
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-.yt-carte-meta{font-size:11px;color:var(--muted);white-space:nowrap;
+.med-meta{font-size:11px;color:var(--muted);white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;}
+/* La ligne du dessous : vues et DATE, l'information qui manquait. */
+.med-sous{font-size:10.5px;color:var(--faint);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;}
 /* Le nom de la chaîne : un bouton qui ne ressemble pas à un bouton, jusqu'au
    survol où il s'annonce cliquable. */
 .yt-lien-chaine{font-family:inherit;font-size:11px;color:var(--muted);
-  background:none;border:0;padding:0;cursor:pointer;}
+  background:none;border:0;padding:0;cursor:pointer;text-align:left;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
 .yt-lien-chaine:hover{color:var(--accent);text-decoration:underline;}
 
 /* LE BANDEAU DE LA VIDÉO EN COURS, au-dessus du lecteur.

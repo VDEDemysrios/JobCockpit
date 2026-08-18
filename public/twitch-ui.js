@@ -26,7 +26,7 @@
 // fois. Quatre vues et une pile de retour — c'est ce qu'il faut pour ne plus
 // avoir de raison d'aller sur le site.
 import { API } from './api.js';
-import { echapper } from './format.js';
+import { echapper, depuisRelatif } from './format.js';
 import { destinationTwitch, sansDemarrageAuto } from './media.js';
 
 let etat = { configure: false, connecte: false, login: '' };
@@ -45,8 +45,14 @@ const zone = () => document.getElementById('twitchPanneau');
 
 const nombre = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace('.0', '')} k` : String(n ?? 0));
 
-/** « 3h20m10s » tel que Twitch l'écrit, en quelque chose qui se lit. */
-const duree = (d) => String(d ?? '').replace('h', ' h ').replace('m', ' min ').replace('s', ' s').trim();
+/** « 3h20m10s » tel que Twitch l'écrit → « 3:20:10 », lisible sur une pastille. */
+const dureeCompacte = (d) => {
+  const m = String(d ?? '').match(/(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?/);
+  if (!m) return '';
+  const [, h, mi, s] = m.map(x => Number(x || 0));
+  const p = (n) => String(n).padStart(2, '0');
+  return h ? `${h}:${p(mi)}:${p(s)}` : `${mi}:${p(s)}`;
+};
 
 const parent = () => encodeURIComponent(location.hostname);
 
@@ -117,18 +123,25 @@ function rendreCode() {
 
 // ────────────────────────────────────────────── les briques d'affichage
 
+// UN DIRECT EST UNE CARTE, comme une vidéo — même langage pour les deux
+// onglets. La pastille rouge dit « en direct » d'un coup d'œil, et la ligne du
+// bas porte le jeu et le nombre de spectateurs.
 function rendreDirect(s) {
   return `<li>
-    <button data-chaine="${echapper(s.login)}" title="${echapper(s.titre)}">
-      ${s.vignette
-    ? `<img class="tw-vignette" src="${echapper(s.vignette)}" alt="" loading="lazy">`
-    : '<span class="sp-vignette"></span>'}
-      <span class="tw-infos">
-        <span class="tw-nom">${echapper(s.nom)}</span>
-        <span class="tw-jeu">${echapper(s.jeu || s.titre)}</span>
-      </span>
-      <span class="tw-vus">● ${nombre(s.spectateurs)}</span>
-    </button></li>`;
+    <div class="med-carte">
+      <button class="med-lien" data-chaine="${echapper(s.login)}" title="${echapper(s.titre)}">
+        <span class="med-cadre">
+          ${s.vignette
+    ? `<img class="med-vignette" src="${echapper(s.vignette)}" alt="" loading="lazy">`
+    : '<span class="med-vignette"></span>'}
+          <span class="med-badge live">● EN DIRECT</span>
+        </span>
+        <span class="med-titre">${echapper(s.titre || s.nom)}</span>
+      </button>
+      <span class="med-meta">${echapper(s.nom)}</span>
+      <span class="med-sous">${echapper(s.jeu || '—')} · ${nombre(s.spectateurs)} spectateurs</span>
+    </div>
+  </li>`;
 }
 
 function rendreCategorie(c) {
@@ -145,17 +158,25 @@ function rendreCategorie(c) {
 // YouTube, et les deux panneaux écoutent le même conteneur : une rediffusion
 // Twitch partait alors dans un lecteur YouTube, avec un identifiant qui n'y
 // désigne rien.
+//
+// La rediffusion en CARTE, avec sa durée sur la pastille et — enfin — SA DATE
+// sous le titre. Une archive sans âge ne se trie pas de l'œil.
 function rendreVideo(v) {
+  const sous = [`${nombre(v.vues)} vues`, depuisRelatif(v.publie)].filter(Boolean).join(' · ');
   return `<li>
-    <button data-tw-video="${echapper(v.id)}" title="${echapper(v.titre)}">
-      ${v.vignette
-    ? `<img class="tw-vignette" src="${echapper(v.vignette)}" alt="" loading="lazy">`
-    : '<span class="sp-vignette"></span>'}
-      <span class="tw-infos">
-        <span class="tw-nom">${echapper(v.titre)}</span>
-        <span class="tw-jeu">${echapper(duree(v.duree))} · ${nombre(v.vues)} vues</span>
-      </span>
-    </button></li>`;
+    <div class="med-carte">
+      <button class="med-lien" data-tw-video="${echapper(v.id)}" title="${echapper(v.titre)}">
+        <span class="med-cadre">
+          ${v.vignette
+    ? `<img class="med-vignette" src="${echapper(v.vignette)}" alt="" loading="lazy">`
+    : '<span class="med-vignette"></span>'}
+          ${v.duree ? `<span class="med-badge duree">${echapper(dureeCompacte(v.duree))}</span>` : ''}
+        </span>
+        <span class="med-titre">${echapper(v.titre)}</span>
+      </button>
+      <span class="med-sous">${sous}</span>
+    </div>
+  </li>`;
 }
 
 /** La barre de navigation : d'où l'on vient, et où l'on est. */
@@ -174,11 +195,10 @@ const enChargement = (quoi) => `<div class="sp-rien">${contenu.charge
 
 function rendreAccueil() {
   return `
+    <div class="tw-titre">Tes chaînes, en direct maintenant</div>
     ${contenu.directs?.length
-    ? `<div class="tw-titre">Tes chaînes, en direct maintenant</div>
-       <ul class="sp-liste tw-liste">${contenu.directs.map(rendreDirect).join('')}</ul>`
-    : `<div class="tw-titre">Tes chaînes, en direct maintenant</div>
-       ${enChargement('Aucune des chaînes que tu suis n\'émet en ce moment.')}`}
+    ? `<ul class="med-grille">${contenu.directs.map(rendreDirect).join('')}</ul>`
+    : enChargement('Aucune des chaînes que tu suis n\'émet en ce moment.')}
 
     <div class="tw-titre">Parcourir les catégories</div>
     ${contenu.categories?.length
@@ -189,7 +209,7 @@ function rendreAccueil() {
 function rendreVueCategorie() {
   return `${rendreFil(contenu.categorie?.nom ?? 'Catégorie')}
     ${contenu.directs?.length
-    ? `<ul class="sp-liste tw-liste">${contenu.directs.map(rendreDirect).join('')}</ul>`
+    ? `<ul class="med-grille">${contenu.directs.map(rendreDirect).join('')}</ul>`
     : enChargement('Personne n\'émet dans cette catégorie.')}`;
 }
 
@@ -223,7 +243,7 @@ function rendreVueChaine() {
 
     <div class="tw-titre">Rediffusions</div>
     ${contenu.videos?.length
-    ? `<ul class="sp-liste tw-liste">${contenu.videos.map(rendreVideo).join('')}</ul>`
+    ? `<ul class="med-grille">${contenu.videos.map(rendreVideo).join('')}</ul>`
     : enChargement('Cette chaîne n\'a pas de rediffusion publique.')}`;
 }
 

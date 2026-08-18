@@ -19,7 +19,7 @@
 // fait laisser Indeed de côté — et une page qu'on analyse à la main casse au
 // premier changement de balisage, sans prévenir.
 import { API } from './api.js';
-import { echapper } from './format.js';
+import { echapper, depuisRelatif } from './format.js';
 
 let etat = { configure: false, pays: 'FR', aide: '' };
 let videos = [];
@@ -92,34 +92,40 @@ function rendreNonConfigure() {
  * l'une lance la vidéo, l'autre ouvre la chaîne.
  */
 function rendreVideo(v) {
-  const meta = v.chaineId
+  // Le nom de chaîne est cliquable (ouvre la chaîne) quand on a son
+  // identifiant ; sinon, texte simple. Bouton à part : on ne peut pas
+  // l'imbriquer dans le bouton de la vignette.
+  const chaine = v.chaineId
     ? `<button class="yt-lien-chaine" data-chaine-yt="${echapper(v.chaineId)}"
-        title="Ouvrir la chaîne">${echapper(v.chaine)}</button>${
-  v.vues ? ` · ${nombre(v.vues)}` : ''}`
-    : `${echapper(v.chaine)}${v.vues ? ` · ${nombre(v.vues)}` : ''}`;
+        title="Ouvrir la chaîne">${echapper(v.chaine)}</button>`
+    : `<span class="yt-lien-chaine">${echapper(v.chaine)}</span>`;
+  // Vues ET DATE, l'information qui manquait : « 101 k vues · il y a 3 j ».
+  const sous = [v.vues ? nombre(v.vues) : '', depuisRelatif(v.publie)]
+    .filter(Boolean).join(' · ');
 
   // La vignette porte AUSSI sa chaîne : quand on lance la vidéo, le bandeau
   // au-dessus du lecteur en a besoin pour offrir « aller à la chaîne ».
   return `<li>
-    <div class="yt-carte">
-      <button class="yt-lien-video" data-video="${echapper(v.id)}"
+    <div class="med-carte">
+      <button class="med-lien" data-video="${echapper(v.id)}"
         data-vid-chaine="${echapper(v.chaineId ?? '')}"
         data-vid-chaine-nom="${echapper(v.chaine ?? '')}" title="${echapper(v.titre)}">
-        <span class="yt-cadre-vignette">
+        <span class="med-cadre">
           ${v.vignette
-    ? `<img class="yt-vignette" src="${echapper(v.vignette)}" alt="" loading="lazy">`
-    : '<span class="yt-vignette"></span>'}
-          ${v.secondes ? `<span class="yt-duree">${minutes(v.secondes)}</span>` : ''}
+    ? `<img class="med-vignette" src="${echapper(v.vignette)}" alt="" loading="lazy">`
+    : '<span class="med-vignette"></span>'}
+          ${v.secondes ? `<span class="med-badge duree">${minutes(v.secondes)}</span>` : ''}
         </span>
-        <span class="yt-carte-titre">${echapper(v.titre)}</span>
+        <span class="med-titre">${echapper(v.titre)}</span>
       </button>
-      <span class="yt-carte-meta">${meta}</span>
+      <span class="med-meta">${chaine}</span>
+      ${sous ? `<span class="med-sous">${sous}</span>` : ''}
     </div>
   </li>`;
 }
 
 const grille = (liste, vide) => (liste.length
-  ? `<ul class="yt-grille">${liste.map(rendreVideo).join('')}</ul>`
+  ? `<ul class="med-grille">${liste.map(rendreVideo).join('')}</ul>`
   : `<div class="sp-rien">${vide}</div>`);
 
 /** La barre de recherche, commune à l'accueil et aux résultats. */

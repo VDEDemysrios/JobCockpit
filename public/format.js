@@ -94,6 +94,30 @@ export function etiquetteFraicheur(age) {
   return ['old', '🥀 ' + age + ' j'];
 }
 
+/**
+ * Âge compact et lisible d'une date : « hier », « il y a 3 j », « il y a
+ * 2 sem. », « il y a 5 mois », « il y a 2 ans ».
+ *
+ * C'est le format des vidéos — YouTube comme Twitch. Sans lui, on ne savait
+ * pas si une vidéo datait d'hier ou de trois ans, et une liste d'archives sans
+ * âge ne se trie pas de l'œil. Une date FUTURE ne rend rien plutôt qu'un
+ * « il y a -1 j » : mieux vaut le silence qu'un chiffre faux.
+ */
+export function depuisRelatif(iso) {
+  if (!iso) return '';
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return '';
+  const j = Math.floor((Date.now() - t) / 86400000);
+  if (j < 0) return '';
+  if (j === 0) return "aujourd'hui";
+  if (j === 1) return 'hier';
+  if (j < 7) return `il y a ${j} j`;
+  if (j < 30) return `il y a ${Math.floor(j / 7)} sem.`;
+  if (j < 365) return `il y a ${Math.floor(j / 30)} mois`;
+  const a = Math.floor(j / 365);
+  return `il y a ${a} an${a > 1 ? 's' : ''}`;
+}
+
 /** Date lisible : « 28 juillet 2026 ». */
 export function dateLisible(iso) {
   if (!iso) return '—';
