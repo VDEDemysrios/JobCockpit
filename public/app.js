@@ -20,6 +20,7 @@ import { rendreDashboard, rendreCourbe, rendreStats, rendreIndicateurMaj } from 
 import { rendreCv } from './cv.js';
 import { animerCompteurs } from './anim.js';
 import { imprimerSuivi } from './impression.js';
+import { imprimerRapport } from './rapport.js';
 
 const dansNJours = (n) => {
   const d = new Date(Date.now() + n * 86400000);
@@ -1235,6 +1236,14 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
   // récapitulatif.
   const r = imprimerSuivi(etat.offres, { nom: etat.meta?.candidat ?? '' });
   if (r.ok) toast(`${pluriel(r.total, 'ligne')} — choisis « Enregistrer au format PDF »`);
+  else toast(r.message, 'err');
+});
+
+document.getElementById('bilanBtn').addEventListener('click', () => {
+  // Le bilan hebdo : une synthèse, pas la liste. Il s'appuie sur les stats
+  // déjà chargées pour le tunnel cumulé.
+  const r = imprimerRapport(etat.offres, etat.stats, { nom: etat.meta?.candidat ?? '' });
+  if (r.ok) toast('Bilan de la semaine — choisis « Enregistrer au format PDF »');
   else toast(r.message, 'err');
 });
 
