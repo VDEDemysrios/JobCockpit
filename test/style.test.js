@@ -425,3 +425,31 @@ test('le bandeau du lecteur Twitch ouvre nos vues, sans recharger le cadre', () 
   assert.match(tw, /data-page-chaine[\s\S]{0,200}aller\(\{ nom: 'chaine'/,
     'le clic sur le nom doit mener à la vue chaîne, pas relancer le direct');
 });
+
+/**
+ * LE BANDEAU « ALLER À LA CHAÎNE » AU-DESSUS DU LECTEUR YOUTUBE.
+ *
+ * Une fois la vidéo lancée, le cadre est celui de YouTube : le nom de la
+ * chaîne qui s'y affiche est chez eux, aucun clic d'ici ne l'atteint, et le
+ * nom dans la liste passe sous le lecteur. On ne pouvait donc plus rejoindre
+ * la chaîne. Le bandeau `#youtubeBandeau` répond à ça — mais seulement s'il
+ * reste HORS du panneau redessiné : posé dedans, `rendreYoutube()` l'effacerait
+ * au premier rafraîchissement, et le remplir rechargerait le lecteur.
+ */
+test('le bandeau chaîne YouTube est hors du panneau, et ne touche pas le lecteur', () => {
+  const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  const page = html.match(/data-page="lecteur">[\s\S]*?<div id="youtubePanneau">/);
+  assert.ok(page, 'la page « lecteur » a changé de forme');
+  assert.ok(page[0].includes('id="youtubeBandeau"'),
+    'le bandeau doit être dans la page lecteur, avant le panneau');
+  assert.ok(page[0].indexOf('youtubeBandeau') < page[0].indexOf('youtubePanneau'),
+    'le bandeau est frère du panneau et le précède, jamais dedans');
+
+  const yt = readFileSync(new URL('../public/youtube-ui.js', import.meta.url), 'utf8');
+  const remplir = yt.match(/function montrerBandeau\([\s\S]*?\n}/);
+  assert.ok(remplir, 'montrerBandeau a disparu');
+  assert.ok(!remplir[0].includes('dockCadre') && !remplir[0].includes('rendreYoutube'),
+    'remplir le bandeau ne doit ni toucher au cadre ni redessiner le panneau');
+  assert.match(remplir[0], /data-chaine-yt=/,
+    'le bandeau porte un bouton qui ouvre la chaîne');
+});

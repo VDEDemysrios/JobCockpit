@@ -98,9 +98,13 @@ function rendreVideo(v) {
   v.vues ? ` · ${nombre(v.vues)}` : ''}`
     : `${echapper(v.chaine)}${v.vues ? ` · ${nombre(v.vues)}` : ''}`;
 
+  // La vignette porte AUSSI sa chaîne : quand on lance la vidéo, le bandeau
+  // au-dessus du lecteur en a besoin pour offrir « aller à la chaîne ».
   return `<li>
     <div class="yt-carte">
-      <button class="yt-lien-video" data-video="${echapper(v.id)}" title="${echapper(v.titre)}">
+      <button class="yt-lien-video" data-video="${echapper(v.id)}"
+        data-vid-chaine="${echapper(v.chaineId ?? '')}"
+        data-vid-chaine-nom="${echapper(v.chaine ?? '')}" title="${echapper(v.titre)}">
         <span class="yt-cadre-vignette">
           ${v.vignette
     ? `<img class="yt-vignette" src="${echapper(v.vignette)}" alt="" loading="lazy">`
@@ -192,6 +196,36 @@ async function charger(quoi) {
   rendreYoutube();
 }
 
+/**
+ * LE BANDEAU DE LA VIDÉO EN COURS.
+ *
+ * Une fois la vidéo lancée, le cadre est celui de YouTube : le nom de la
+ * chaîne qui s'y affiche est chez eux, aucun clic d'ici ne l'atteint. On ne
+ * pouvait donc plus rejoindre la chaîne — le nom dans la liste passait sous le
+ * lecteur, et celui dans la vidéo ouvrait le navigateur.
+ *
+ * Ce bandeau, posé AU-DESSUS du lecteur (`#youtubeBandeau`, hors du panneau
+ * redessiné), nomme la chaîne du morceau en cours et l'ouvre ici d'un clic.
+ * C'est la même réponse que pour Twitch : on ne détourne pas le cadre, on met
+ * notre propre repère à côté.
+ */
+const bandeau = () => document.getElementById('youtubeBandeau');
+
+function montrerBandeau(id, nom) {
+  const b = bandeau();
+  if (!b) return;
+  if (!id) { b.hidden = true; b.innerHTML = ''; return; }
+  b.hidden = false;
+  b.innerHTML = `<span class="yt-bandeau-label">En lecture ·</span>
+    <button class="yt-lien-chaine yt-bandeau-chaine" data-chaine-yt="${echapper(id)}"
+      title="Ouvrir la chaîne">${echapper(nom || 'la chaîne')}</button>`;
+}
+
+function cacherBandeau() {
+  const b = bandeau();
+  if (b) { b.hidden = true; b.innerHTML = ''; }
+}
+
 /** Ouvre la chaîne d'un YouTuber : sa fiche et ses dernières vidéos. */
 async function ouvrirChaine(id) {
   vue = 'chaine';
@@ -242,6 +276,8 @@ export function installerYoutube(toast, lancer) {
     if (v) {
       // On passe par `versLecteur` du côté du dock, qui choisit le domaine.
       jouer(`https://www.youtube.com/watch?v=${v.dataset.video}`);
+      // Et on nomme sa chaîne au-dessus du lecteur, pour pouvoir y aller.
+      montrerBandeau(v.dataset.vidChaine, v.dataset.vidChaineNom);
       return;
     }
 
@@ -249,6 +285,12 @@ export function installerYoutube(toast, lancer) {
     if (!b) return;
     if (b.dataset.yt === 'accueil') { recherche = ''; return charger('accueil'); }
     if (b.dataset.yt === 'retour') { vue = 'liste'; return rendreYoutube(); }
+  });
+
+  // Un autre onglet (Twitch) s'est mis à jouer : le lecteur YouTube s'est tu,
+  // son bandeau n'a plus lieu d'être.
+  document.addEventListener('jc:media', (e) => {
+    if (e.detail?.source !== 'lecteur') cacherBandeau();
   });
 
   z.addEventListener('submit', (e) => {

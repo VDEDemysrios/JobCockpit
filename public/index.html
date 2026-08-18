@@ -507,6 +507,11 @@
            s'affichent. Un clic sur une vignette charge la vidéo dans le
            cadre. -->
       <div class="dock-cadre-boite" id="dockCadre"></div>
+      <!-- Le bandeau de la vidéo en cours : le nom de sa chaîne, cliquable.
+           Le nom affiché DANS la vidéo est chez YouTube, donc injoignable — ce
+           bandeau-ci est à nous et ouvre la chaîne dans l'onglet. Frère du
+           panneau, jamais dedans : `rendreYoutube()` le laisse tranquille. -->
+      <div id="youtubeBandeau" class="yt-bandeau" hidden></div>
       <div id="youtubePanneau"></div>
     </div>
     <div class="dock-page" data-page="spotify"><div id="spotifyPanneau"></div></div>

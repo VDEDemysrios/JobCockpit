@@ -2368,7 +2368,7 @@ body.dock-glisse iframe{pointer-events:none;}
 .tw-retour{font-size:11.5px;color:var(--muted);background:var(--bg2);
   border:1px solid var(--bord);border-radius:var(--r1);padding:3px 9px;
   cursor:pointer;transition:color .15s,border-color .15s;}
-.tw-retour:hover{color:var(--txt);border-color:var(--accent);}
+.tw-retour:hover{color:var(--ink);border-color:var(--accent);}
 .tw-fil-titre{font-size:12px;font-weight:var(--w-medium);white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;}
 
@@ -2547,7 +2547,7 @@ body.dock-glisse iframe{pointer-events:none;}
 .tw-bandeau{display:flex;align-items:center;gap:var(--e2);
   padding:var(--e2) 0;min-height:34px;}
 .tw-bandeau:empty{display:none;}
-.tw-lien-chaine{font-size:12.5px;font-weight:var(--w-semi);color:var(--txt);
+.tw-lien-chaine{font-size:12.5px;font-weight:var(--w-semi);color:var(--ink);
   background:none;border:0;padding:0;cursor:pointer;text-align:left;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
 .tw-lien-chaine:hover{color:var(--accent);text-decoration:underline;}
@@ -2595,6 +2595,14 @@ body.dock-glisse iframe{pointer-events:none;}
 .yt-lien-chaine{font-family:inherit;font-size:11px;color:var(--muted);
   background:none;border:0;padding:0;cursor:pointer;}
 .yt-lien-chaine:hover{color:var(--accent);text-decoration:underline;}
+
+/* LE BANDEAU DE LA VIDÉO EN COURS, au-dessus du lecteur.
+   Le nom de chaîne affiché DANS la vidéo est chez YouTube, donc injoignable ;
+   celui-ci est à nous et ouvre la chaîne dans l'onglet. */
+.yt-bandeau{display:flex;align-items:center;gap:6px;padding:var(--e2) 0 0;}
+.yt-bandeau[hidden]{display:none;}
+.yt-bandeau-label{font-size:11px;color:var(--faint);}
+.yt-bandeau-chaine{font-size:12px;font-weight:var(--w-semi);color:var(--ink);}
 .yt-chercher{margin-bottom:var(--e2);}
 .yt-pourquoi{margin-top:var(--e3);padding-top:var(--e3);border-top:1px solid var(--line);}
 .sp-lien-note{margin-left:auto;font-family:inherit;font-size:10.5px;
