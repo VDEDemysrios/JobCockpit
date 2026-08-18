@@ -121,7 +121,52 @@ export function rendreDashboard(stats, offres, meta, options = {}) {
     { centre: String(s.total), sousCentre: 'offres' }
   );
 
+  rendreConversion(stats.parSource);
+
   rendreIndicateurMaj(meta);
+}
+
+/**
+ * LA CONVERSION PAR SOURCE — ce qui manquait, et qui répond à « qu'est-ce qui
+ * marche ». Le donut dit d'où viennent les OFFRES ; ce tableau dit d'où
+ * viennent les RÉPONSES. Une source qui déverse mille annonces sans aboutir
+ * vaut moins qu'un flux qui en donne dix dont trois répondent.
+ *
+ * Tant qu'on a peu postulé, la colonne « réponses » reste vide et le dit :
+ * mieux vaut « pas encore » qu'un taux calculé sur deux candidatures.
+ */
+function rendreConversion(parSource) {
+  const cible = document.getElementById('conversionSources');
+  if (!cible) return;
+
+  const total = parSource.reduce((t, x) => t + x.envoyees, 0);
+  if (!total) {
+    cible.innerHTML = '<p class="note-panel">Tu n\'as pas encore assez postulé pour '
+      + 'que la conversion parle. Elle se remplira à mesure que les réponses arrivent.</p>';
+    return;
+  }
+
+  const lignes = parSource.filter(x => x.envoyees > 0)
+    .sort((a, b) => b.reponses - a.reponses || b.envoyees - a.envoyees)
+    .map(x => {
+      const taux = x.envoyees ? Math.round(x.reponses / x.envoyees * 100) : 0;
+      return `<tr>
+        <td>${SOURCE_LABEL[x.source] ?? x.source}</td>
+        <td class="num">${x.n}</td>
+        <td class="num">${x.envoyees}</td>
+        <td class="num">${x.reponses || '—'}</td>
+        <td class="num">${x.entretiens || '—'}</td>
+        <td class="num conv-taux ${taux >= 25 ? 'bon' : ''}">${x.reponses ? taux + ' %' : '—'}</td>
+      </tr>`;
+    }).join('');
+
+  cible.innerHTML = `<table class="conv-table">
+    <thead><tr><th>Source</th><th class="num">Collectées</th><th class="num">Envoyées</th>
+      <th class="num">Réponses</th><th class="num">Entretiens</th><th class="num">Taux</th></tr></thead>
+    <tbody>${lignes}</tbody>
+  </table>
+  <p class="note-panel">« Réponse » = entretien ou refus (l'employeur s'est manifesté).
+    Le taux ne s'affiche qu'une fois une réponse reçue.</p>`;
 }
 
 /** Courbe de rythme, selon la période choisie dans le sélecteur segmenté. */

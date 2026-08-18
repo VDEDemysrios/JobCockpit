@@ -114,3 +114,31 @@ test('la tendance compare la semaine en cours à la précédente', () => {
   assert.equal(stats.performance.envoisSemainePrecedente, 1);
   assert.equal(stats.performance.tendance, 0);
 });
+
+/**
+ * LA CONVERSION PAR SOURCE — d'où viennent les RÉPONSES, pas juste les offres.
+ * Une réponse = entretien ou refus (l'employeur s'est manifesté) ; « Relancé »
+ * reste notre action, pas la sienne.
+ */
+test('la conversion par source distingue envoyées et réponses', () => {
+  const db = baseAvecOffre({ id: 'a1', statut: 'Entretien', envoiLe: '2026-07-25' });
+  // une seconde offre de la même source, envoyée sans réponse
+  upsertOffre(db, {
+    id: 'a2', source: 'france-travail', sourcesAll: ['france-travail'], externalId: 'y',
+    titre: 'Juriste', entreprise: 'X', ville: 'Nancy (54)', contrat: 'CDI',
+    dateOffre: '2026-07-20', lien: 'https://e.fr', description: 'd',
+    groupe: 1, score: 6, scoreDetail: { positifs: [], negatifs: [], eliminatoires: [] },
+    analysisJson: null, isManual: 0, horsZone: 0, departement: '54', salaireSource: null,
+  });
+  db.prepare(`INSERT INTO tracking (offer_id, status, sent_date, relance_date, notes, pinned)
+              VALUES ('a2', 'Envoyé', '2026-07-26', '', '', 0)`).run();
+
+  const s = calculerStats(db, { aujourdhui: '2026-07-28' });
+  const ft = s.parSource.find(x => x.source === 'france-travail');
+  db.close();
+
+  assert.equal(ft.n, 2, 'deux offres collectées');
+  assert.equal(ft.envoyees, 2, 'les deux envoyées');
+  assert.equal(ft.reponses, 1, 'une seule réponse — l\'entretien ; « Envoyé » n\'en est pas une');
+  assert.equal(ft.entretiens, 1);
+});

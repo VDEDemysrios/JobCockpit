@@ -140,10 +140,24 @@ export function calculerStats(db, options = {}) {
     GROUP BY ville ORDER BY n DESC LIMIT 12`)
     .map(r => ({ ville: nettoyerVille(r.ville), n: Number(r.n), envoyees: Number(r.envoyees ?? 0) }));
 
+  // Par source : non plus « combien collectées », mais LA CONVERSION —
+  // combien envoyées, combien de réponses. C'est la seule façon de savoir
+  // quelle source rapporte des ENTRETIENS, pas juste des annonces à trier.
+  // Un job board qui déverse mille offres dont aucune n'aboutit vaut moins
+  // qu'un flux de niche qui en donne dix dont trois répondent.
   const parSource = tous(`
-    SELECT COALESCE(source, 'inconnue') source, COUNT(*) n
-    FROM offers GROUP BY source ORDER BY n DESC`)
-    .map(r => ({ source: r.source, n: Number(r.n) }));
+    SELECT COALESCE(o.source, 'inconnue') source, COUNT(*) n,
+      SUM(CASE WHEN t.status IN ('Envoyé','Relancé','Entretien','Refus') THEN 1 ELSE 0 END) envoyees,
+      SUM(CASE WHEN t.status IN ('Entretien','Refus') THEN 1 ELSE 0 END) reponses,
+      SUM(CASE WHEN t.status = 'Entretien' THEN 1 ELSE 0 END) entretiens
+    FROM offers o LEFT JOIN tracking t ON t.offer_id = o.id
+    GROUP BY source ORDER BY n DESC`)
+    .map(r => ({
+      source: r.source, n: Number(r.n),
+      envoyees: Number(r.envoyees ?? 0),
+      reponses: Number(r.reponses ?? 0),
+      entretiens: Number(r.entretiens ?? 0),
+    }));
 
   const parContrat = tous(`
     SELECT COALESCE(NULLIF(TRIM(contrat), ''), 'Non précisé') contrat, COUNT(*) n

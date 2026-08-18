@@ -954,6 +954,16 @@ ul.mini li{margin-bottom:5px;}
 .cva-tag.fort{background:var(--accent-bg,rgba(90,130,255,.12));
   border-color:transparent;color:var(--accent);font-weight:var(--w-medium);}
 
+/* LA CONVERSION PAR SOURCE — d'où viennent les réponses, pas juste les offres. */
+.conv-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+.conv-table th{text-align:left;font-weight:var(--w-semi);color:var(--faint);
+  font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;
+  padding:0 8px 6px;border-bottom:1px solid var(--bord);}
+.conv-table td{padding:6px 8px;border-bottom:1px solid var(--line,var(--bord));color:var(--ink);}
+.conv-table .num{text-align:right;font-variant-numeric:tabular-nums;}
+.conv-table tr:last-child td{border-bottom:0;}
+.conv-taux.bon{color:var(--good,#3a9d5d);font-weight:var(--w-semi);}
+
 /* Le bouton d'une action portée par un message. Il doit se voir sans voler la
    vedette au texte : c'est une issue qu'on propose, pas une injonction. */
 .toast-action{margin-left:var(--e3);background:transparent;
