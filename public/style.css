@@ -932,6 +932,28 @@ ul.mini li{margin-bottom:5px;}
   line-height:1.6;color:var(--ink);margin:0 0 var(--e3);}
 .relance-pied{display:flex;align-items:center;gap:var(--e2);flex-wrap:wrap;}
 
+/* CV ADAPTÉ + ÉCART.
+   L'écart d'abord (ce qui manque, à savoir avant d'envoyer), le CV taillé
+   ensuite. L'écart est en teinte d'alerte douce, pas rouge vif : c'est une
+   information à traiter, pas une faute. */
+.cva-titre{font-size:11px;font-weight:var(--w-semi);text-transform:uppercase;
+  letter-spacing:.5px;color:var(--faint);margin-bottom:var(--e2);}
+.cva-ecart{border:1px solid var(--bord);border-left:3px solid var(--warn, #d08a3e);
+  border-radius:var(--r2);background:var(--bg2);padding:var(--e3);margin-top:var(--e2);}
+.cva-manques{margin:0 0 var(--e2);padding-left:1.1em;font-size:13px;line-height:1.55;}
+.cva-kw{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;
+  align-items:center;gap:5px;margin-bottom:var(--e2);}
+.cva-cv{border:1px solid var(--bord);border-radius:var(--r2);background:var(--bg2);
+  padding:var(--e3);margin-top:var(--e2);}
+.cva-accroche{font-size:13.5px;line-height:1.6;color:var(--ink);
+  font-style:italic;margin:0 0 var(--e3);}
+.cva-points{margin:0 0 var(--e3);padding-left:1.1em;font-size:13px;line-height:1.6;}
+.cva-forces{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:var(--e3);}
+.cva-tag{font-size:11.5px;padding:2px 8px;border-radius:999px;
+  background:var(--bg1);border:1px solid var(--bord);color:var(--muted);}
+.cva-tag.fort{background:var(--accent-bg,rgba(90,130,255,.12));
+  border-color:transparent;color:var(--accent);font-weight:var(--w-medium);}
+
 /* Le bouton d'une action portée par un message. Il doit se voir sans voler la
    vedette au texte : c'est une issue qu'on propose, pas une injonction. */
 .toast-action{margin-left:var(--e3);background:transparent;

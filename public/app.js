@@ -772,6 +772,11 @@ function brancherCarte(carte, offre) {
     ouvrirRelance(carte, offre, e.currentTarget);
   });
 
+  carte.querySelector('[data-act="cvadapte"]')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    ouvrirCvAdapte(carte, offre, e.currentTarget);
+  });
+
   carte.querySelector('[data-act="entretien"]')?.addEventListener('click', (e) => {
     e.preventDefault();
     ouvrirEntretien(offre, toast);
@@ -832,6 +837,72 @@ async function ouvrirRelance(carte, offre, bouton) {
     zone.querySelector('[data-relancer]')?.addEventListener('click', () => {
       zone.innerHTML = '';
       ouvrirRelance(carte, offre, bouton);
+    });
+  } catch (err) {
+    toast(err.message, 'erreur');
+  } finally {
+    bouton.disabled = false;
+    bouton.innerHTML = libelle;
+  }
+}
+
+// ------------------------------------------------------ CV adapté à l'offre
+
+/**
+ * Adapte le CV à l'offre et montre l'écart. Deux blocs :
+ *   · CE QUI MANQUE — ce que l'offre exige et que le CV ne prouve pas, à
+ *     connaître AVANT d'envoyer ;
+ *   · LE CV TAILLÉ — accroche, points réordonnés, atouts à mettre en avant,
+ *     copiables.
+ */
+async function ouvrirCvAdapte(carte, offre, bouton) {
+  const zone = carte.querySelector('.cvadapte-zone');
+  if (!zone) return;
+
+  const libelle = bouton.innerHTML;
+  bouton.disabled = true;
+  bouton.innerHTML = icone('cible', 14) + ' Adaptation…';
+  try {
+    const r = await API.cvAdapte(offre.id);
+    const a = r.adapte;
+    const ec = r.ecart ?? { manques: [], motsCles: [] };
+    const puces = (liste) => liste.map(x => `<li>${echapper(x)}</li>`).join('');
+    const aCopier = [
+      a.accroche,
+      '',
+      ...a.points.map(p => `• ${p}`),
+      ...(a.forces.length ? ['', 'Atouts : ' + a.forces.join(' · ')] : []),
+    ].join('\n');
+
+    zone.innerHTML = `
+      ${(ec.manques.length || ec.motsCles.length) ? `
+      <div class="cva-ecart">
+        <div class="cva-titre">Ce que l'offre demande et que ton CV ne montre pas</div>
+        ${ec.manques.length ? `<ul class="cva-manques">${puces(ec.manques)}</ul>` : ''}
+        ${ec.motsCles.length ? `<div class="cva-kw">Mots-clés absents :
+          ${ec.motsCles.map(k => `<span class="cva-tag">${echapper(k)}</span>`).join('')}</div>` : ''}
+        <p class="sp-note">À combler, à contourner en entretien, ou à assumer — mais à savoir avant d'envoyer.</p>
+      </div>` : ''}
+
+      <div class="cva-cv">
+        <div class="cva-titre">Ton CV, taillé pour ce poste</div>
+        <p class="cva-accroche">${echapper(a.accroche)}</p>
+        <ul class="cva-points">${puces(a.points)}</ul>
+        ${a.forces.length ? `<div class="cva-forces">
+          ${a.forces.map(f => `<span class="cva-tag fort">${echapper(f)}</span>`).join('')}</div>` : ''}
+        <div class="relance-pied">
+          <button class="btn btn-primary btn-mini" data-copier-cv>Copier</button>
+          <button class="btn btn-mini" data-refaire>Régénérer</button>
+          <span class="sp-note">Réordonné depuis ton CV — rien d'inventé.</span>
+        </div>
+      </div>`;
+
+    zone.querySelector('[data-copier-cv]')?.addEventListener('click', () => {
+      navigator.clipboard.writeText(aCopier).then(() => toast('CV adapté copié.'));
+    });
+    zone.querySelector('[data-refaire]')?.addEventListener('click', () => {
+      zone.innerHTML = '';
+      ouvrirCvAdapte(carte, offre, bouton);
     });
   } catch (err) {
     toast(err.message, 'erreur');

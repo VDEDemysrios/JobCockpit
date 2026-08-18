@@ -43,6 +43,7 @@ import { offreId } from './hash.js';
 import { scorer } from './scoring.js';
 import { genererLettre, extraireCoordonnees } from './letter.js';
 import { genererRelance } from './relance.js';
+import { genererCvAdapte, calculerEcart } from './cvadapte.js';
 import { construireDocx, nomFichier } from './letterDocx.js';
 import { construireDossier, nomDossier } from './dossier.js';
 import { extraireOffreCollee } from './paste.js';
@@ -2076,6 +2077,54 @@ export function creerRoutes({ db, collecter, sources, profil,
     }
     noterAppel(db, LETTRE);
     res.json({ ok: true, ...relance, jours });
+  });
+
+  /**
+   * CV ADAPTÉ À L'OFFRE, ET ÉCART HONNÊTE.
+   *
+   * Deux choses en une réponse :
+   *   · l'ÉCART — ce que l'offre exige et que le CV ne montre pas, plus les
+   *     mots-clés absents. Tiré de l'analyse EXISTANTE, sans nouvel appel ;
+   *   · le CV ADAPTÉ — accroche et points réordonnés pour cette offre, du CV
+   *     réel. Là, un appel au modèle.
+   *
+   * Comme la lettre, une offre sans analyse est analysée à la demande : sans
+   * elle, l'adaptation retombe sur l'annonce seule.
+   */
+  routes.post('/cv-adapte/:id', async (req, res) => {
+    const offre = lireOffreComplete(req.params.id);
+    if (!offre) return res.status(404).json({ ok: false, error: 'Offre introuvable.' });
+
+    const texteCv = cv();
+    if (!texteCv) {
+      return res.status(400).json({ ok: false,
+        error: 'CV absent. Lancer : npm run extract-cv -- "chemin/vers/CV.docx"' });
+    }
+    const feuVert = peutRediger(db, profil);
+    if (!feuVert.ok) return res.status(503).json({ ok: false, error: feuVert.raison });
+
+    let analyse = offre.analysis_json ? JSON.parse(offre.analysis_json) : null;
+    if (!analyse) {
+      try {
+        analyse = await analyserOffre(offre, texteCv);
+        if (analyse) {
+          noterAppel(db, LETTRE);
+          db.prepare('UPDATE offers SET analysis_json = ?, analysis_at = ? WHERE id = ?')
+            .run(JSON.stringify(analyse), new Date().toISOString(), req.params.id);
+        }
+      } catch { /* on adapte sur la seule annonce, moins bien mais pas rien */ }
+    }
+
+    let adapte;
+    try { adapte = await genererCvAdapte({ offre, analyse, cv: texteCv }); }
+    catch { adapte = null; }
+
+    if (!adapte) {
+      return res.status(503).json({ ok: false,
+        error: 'L\'adaptation a échoué (quota Gemini atteint ou service indisponible). Réessaie dans quelques minutes.' });
+    }
+    noterAppel(db, LETTRE);
+    res.json({ ok: true, adapte, ecart: calculerEcart(analyse) });
   });
 
   routes.patch('/letter/:id', (req, res) => {

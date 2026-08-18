@@ -468,6 +468,16 @@ export function rendreCarte(offre, actions) {
     <div class="letter-zone"></div>
   </div>`;
 
+  // CV ADAPTÉ + ÉCART — tailler le dossier à l'offre, et voir ce qui manque
+  // avant d'envoyer. Le CV part sinon identique pour tous les postes.
+  detail += `<div class="sec" data-cvadapte="${offre.id}">
+    <div class="lbl fix">${icone('cible', 13)} CV ADAPTÉ À CETTE OFFRE</div>
+    <div class="letter-actions">
+      <button class="btn" data-act="cvadapte">${icone('cible', 14)} Adapter mon CV</button>
+    </div>
+    <div class="cvadapte-zone"></div>
+  </div>`;
+
   // PRÉPARATION D'ENTRETIEN — seulement une fois la candidature partie.
   //
   // La proposer sur une offre où l'on n'a pas postulé serait mettre la

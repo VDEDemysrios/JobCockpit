@@ -167,6 +167,8 @@ export const API = {
   // Rédige la relance d'une candidature sans réponse. Rien n'est enregistré :
   // le courriel se copie et s'envoie depuis la messagerie de l'utilisateur.
   relance:       (id)          => appeler(`/api/relance/${id}`, { method: 'POST', body: {} }),
+  // CV taillé pour l'offre + l'écart (ce qu'elle exige et que le CV ne montre pas).
+  cvAdapte:      (id)          => appeler(`/api/cv-adapte/${id}`, { method: 'POST', body: {} }),
   genererLettre: (id, options) => appeler(`/api/letter/${id}`, { method: 'POST', body: options ?? {} }),
   majLettre:     (id, contenu) => appeler(`/api/letter/${id}`, { method: 'PATCH', body: { contenu } }),
   urlDocx:       (id)          => `/api/letter/${id}/docx`,
