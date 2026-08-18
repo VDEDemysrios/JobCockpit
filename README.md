@@ -86,6 +86,9 @@ configurées sont simplement ignorées.
 | **France Travail** | [francetravail.io](https://francetravail.io) | `client_id` + `client_secret` | Moyen — 15 min |
 | **Jooble** | [fr.jooble.org/api/about](https://fr.jooble.org/api/about) | Une clé API | Moyen — sur demande |
 | **Flux RSS** | *aucune inscription* | rien à créer | Facile — voir §6 |
+| **Spotify** *(onglet Chill)* | [developer.spotify.com](https://developer.spotify.com/dashboard) | un `Client ID` | Facile — 5 min |
+| **Twitch** *(onglet Chill)* | [dev.twitch.tv](https://dev.twitch.tv/console/apps) | un `Client ID` | Facile — 5 min |
+| **YouTube** *(onglet Chill)* | [console.cloud.google.com](https://console.cloud.google.com) | une clé API | Moyen — 10 min |
 
 ### Ce que chaque service apporte
 
@@ -179,7 +182,7 @@ Laisser `email` et `telephone` vides fait chercher ces valeurs dans le CV.
 
 ## 4. Utiliser le tableau de bord
 
-### Les 6 vues
+### Les 8 vues
 
 - **📊 Tableau de bord** — *tout est là.* Il s'ouvre sur **ce que tu dois faire
   maintenant**, classé par urgence : relances en retard d'abord, entretiens à
@@ -199,6 +202,16 @@ Laisser `email` et `telephone` vides fait chercher ces valeurs dans le CV.
 - **🧲 Kanban** — glisse une carte d'une colonne à l'autre pour changer son statut.
 - **📅 Agenda** — un calendrier du mois avec une pastille par relance, puis la
   liste chronologique, les retards en rouge.
+- **🎤 Entretiens** — la préparation d'entretien. L'application joue le jury :
+  elle pose les questions qu'on te posera vraiment sur CETTE offre, tu réponds,
+  et elle te débriefe ensuite — ce qui a porté, ce qui sonnait creux. Tu peux
+  aussi générer une **fiche de révision** et des **cartes** à relire la veille.
+  Une séance est conservée : on prépare un entretien sur plusieurs jours, en
+  reprenant là où on s'était arrêté.
+- **🎧 Chill** — de quoi souffler entre deux candidatures : de la musique
+  (Spotify), des directs (Twitch), des vidéos (YouTube) et quelques jeux.
+  **Ces trois services demandent chacun une clé** pour fonctionner
+  pleinement — voir §2. Sans clé, l'onglet s'affiche et te dit quoi ajouter.
 - **📄 Mon CV** — **le document que tu envoies**, à ouvrir d'un clic : c'est lui,
   tel quel, qui part en pièce jointe de tes candidatures. Avec la **couverture
   de tes mots-clés** : chaque motif positif de ton scoring y est confronté au
@@ -508,7 +521,7 @@ de légalité* ») sont retirées.
 ### Les flux déjà configurés
 
 `profile.json` en contient **31**, tous vérifiés sur des données réelles le
-29 juillet 2026. Ensemble, ils remontent **326 offres distinctes**, dont 265
+à la mise en place. Ensemble, ils remontent **326 offres distinctes**, dont 265
 passent le filtre de zone et 136 arrivent en groupe 1 « Prioritaire ».
 
 - **29 flux « Choisir le Service Public »** — c'est **la meilleure source du
@@ -532,7 +545,7 @@ passent le filtre de zone et 136 arrivent en groupe 1 « Prioritaire ».
   écarte tout seul ce qui est hors de tes villes.
 
 > **Les autres sites d'emploi français ont fermé leurs flux.** Vérifié un par
-> un le 29 juillet 2026 : Indeed (404), Cadremploi (404), APEC (404), Jobijoba
+> un : Indeed (404), Cadremploi (404), APEC (404), Jobijoba
 > (410), Jooble (403), Meteojob (404), Welcome to the Jungle (406). Inutile de
 > les chercher. Côté employeurs EnR, les `/feed/` de Valeco, JPee et EDF
 > PowerSolutions existent mais publient des **actualités**, pas des offres.
