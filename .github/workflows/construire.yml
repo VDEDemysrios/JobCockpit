@@ -211,15 +211,32 @@ jobs:
           $archive = "JobCockpit-$version-windows.zip"
           Copy-Item JobCockpit-windows.zip $archive
 
-          # Le message de l'étiquette fait les notes de version. À défaut,
-          # GitHub les déduit des commits — jamais de release muette.
-          $notes = (git tag -l --format='%(contents)' $etiquette) -join "`n"
-          if ([string]::IsNullOrWhiteSpace($notes)) {
-            gh release create $etiquette $archive empreinte.txt `
-              --title "Job Cockpit $version" --generate-notes
+          # LES NOTES VIENNENT DU DÉPÔT, PAS DE L'ÉTIQUETTE.
+          #
+          # Première tentative : le message de l'étiquette annotée. Elle a
+          # produit des notes fausses — `actions/checkout` recrée les
+          # étiquettes en version ALLÉGÉE, et `%(contents)` renvoie alors le
+          # message du commit visé, pas celui de l'étiquette. Silencieusement.
+          #
+          # Un fichier versionné, lui, se relit avant publication.
+          $notes = "docs/versions/$version.md"
+          if (Test-Path $notes) {
+            $optionsNotes = @('--notes-file', $notes)
           } else {
-            $notes | Out-File -FilePath notes.md -Encoding utf8
+            Write-Warning "Pas de $notes — notes déduites des commits."
+            $optionsNotes = @('--generate-notes')
+          }
+
+          # IDEMPOTENT : republier une étiquette ne doit pas échouer. Cela
+          # arrive dès qu'une version est reconstruite — correction de la
+          # chaîne, signature ajoutée, notes corrigées.
+          $existe = gh release view $etiquette 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release existante : mise à jour."
+            gh release edit $etiquette --title "Job Cockpit $version" @optionsNotes
+            gh release upload $etiquette $archive empreinte.txt --clobber
+          } else {
             gh release create $etiquette $archive empreinte.txt `
-              --title "Job Cockpit $version" --notes-file notes.md
+              --title "Job Cockpit $version" @optionsNotes
           }
           Write-Host "Publiée : $archive"
