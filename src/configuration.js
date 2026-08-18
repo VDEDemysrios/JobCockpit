@@ -181,6 +181,9 @@ export const CLES_ENV = [
   'ADZUNA_APP_ID', 'ADZUNA_APP_KEY',
   'FRANCE_TRAVAIL_CLIENT_ID', 'FRANCE_TRAVAIL_CLIENT_SECRET',
   'JOOBLE_API_KEY',
+  // Onglet Chill. Facultatives : sans elles l'onglet s'affiche et indique
+  // quoi ajouter, plutôt que de rester vide sans explication.
+  'SPOTIFY_CLIENT_ID', 'TWITCH_CLIENT_ID', 'YOUTUBE_API_KEY',
 ];
 
 /**

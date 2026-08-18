@@ -161,3 +161,26 @@ test('un profil abîmé est signalé, jamais remplacé en douce', () => {
   assert.match(erreur.chemin, /profile\.json$/);
   rmSync(dossier, { recursive: true, force: true });
 });
+
+// L'onglet Chill s'affichait vide sans que rien ne l'explique : les clés
+// Spotify, Twitch et YouTube n'étaient proposées nulle part à l'installation,
+// et la liste blanche du .env les aurait de toute façon jetées.
+test('les clés de l\'onglet Chill sont écrites dans le .env', () => {
+  const env = rendreEnv({
+    SPOTIFY_CLIENT_ID: 'sp123',
+    TWITCH_CLIENT_ID: 'tw456',
+    YOUTUBE_API_KEY: 'AIzaYT',
+  });
+
+  assert.match(env, /^SPOTIFY_CLIENT_ID=sp123$/m);
+  assert.match(env, /^TWITCH_CLIENT_ID=tw456$/m);
+  assert.match(env, /^YOUTUBE_API_KEY=AIzaYT$/m);
+});
+
+// Ces trois-là sont facultatives : leur absence ne doit pas empêcher
+// l'installation, ni faire disparaître les clés de recherche d'emploi.
+test('une installation sans clé Chill reste valide', () => {
+  const env = rendreEnv({ GEMINI_API_KEY: 'abc' });
+  assert.match(env, /^GEMINI_API_KEY=abc$/m);
+  assert.match(env, /^SPOTIFY_CLIENT_ID=$/m, 'la ligne existe, vide');
+});

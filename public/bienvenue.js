@@ -6,7 +6,8 @@
 // précisément à créer.
 
 const CLES = ['GEMINI_API_KEY', 'ADZUNA_APP_ID', 'ADZUNA_APP_KEY',
-  'FRANCE_TRAVAIL_CLIENT_ID', 'FRANCE_TRAVAIL_CLIENT_SECRET', 'JOOBLE_API_KEY'];
+  'FRANCE_TRAVAIL_CLIENT_ID', 'FRANCE_TRAVAIL_CLIENT_SECRET', 'JOOBLE_API_KEY',
+  'SPOTIFY_CLIENT_ID', 'TWITCH_CLIENT_ID', 'YOUTUBE_API_KEY'];
 
 /** Exemples proposés en filigrane, pour montrer la forme attendue. */
 const EXEMPLES_INTITULES = ['énergies renouvelables', 'chef de projet', 'juriste environnement'];

@@ -63,10 +63,25 @@ const ETAPES = [
       + 'sur lui que reposent l\'analyse et les lettres.',
   },
   {
+    vue: 'offers', cible: '#grid .card',
+    titre: "La lettre, puis le dossier",
+    texte: "Déplie une offre : le programme rédige une lettre adossée à ton CV, "
+      + "que tu peux retoucher. Le bouton « Dossier complet » la télécharge avec "
+      + "ton CV, dans un seul fichier prêt à joindre à un mail.",
+  },
+  {
+    vue: 'entretiens', cible: '[data-view="entretiens"]',
+    titre: "Répéter devant un jury qui ne dort pas",
+    texte: "Un entretien décroché ? Cet onglet pose les questions qu'on te posera "
+      + "vraiment sur CETTE offre, écoute tes réponses, puis te débriefe. Il en tire "
+      + "aussi une fiche et des cartes à relire la veille.",
+  },
+  {
     vue: 'dashboard', cible: '#paletteBtn',
-    titre: 'Tout est à portée de Ctrl+K',
-    texte: 'La palette ouvre une vue, retrouve une offre par son nom, lance une '
-      + 'collecte. Et « ? » affiche tous les raccourcis. Bonne recherche.',
+    titre: "Tout est à portée de Ctrl+K",
+    texte: "La palette ouvre une vue, retrouve une offre par son nom, lance une "
+      + "collecte. Et « ? » affiche tous les raccourcis. L'onglet Chill, lui, ne sert "
+      + "à rien d'utile — c'est fait exprès. Bonne recherche.",
   },
 ];
 

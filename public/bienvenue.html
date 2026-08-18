@@ -100,20 +100,121 @@
         <label class="bv-champ">
           <span>Adzuna — Application ID
             <a href="https://developer.adzuna.com" target="_blank" rel="noopener">s'inscrire ↗</a></span>
-          <input id="ADZUNA_APP_ID" maxlength="200">
-        </label>
+          <input id="ADZUNA_APP_ID" maxlength="200"></label>
+        <details class="bv-plus">
+          <summary>Comment obtenir ces identifiants</summary>
+          <ol class="bv-etapes">
+            <li>Ouvre <a href="https://developer.adzuna.com" target="_blank" rel="noopener">developer.adzuna.com</a> et clique sur <strong>« Sign up »</strong>.</li>
+            <li>Renseigne ton e-mail. Adzuna t'envoie tes identifiants par courriel, sous une minute.</li>
+            <li>Le message contient un <strong>Application ID</strong> (8 chiffres) et une <strong>Application Key</strong> (32 caractères) : recopie les deux ci-dessous.</li>
+          </ol>
+          <p class="bv-aide">Gratuit, sans carte bancaire. Adzuna agrège une large part des offres du marché privé.</p>
+        </details>
         <label class="bv-champ"><span>Adzuna — Application Key</span>
           <input id="ADZUNA_APP_KEY" maxlength="200"></label>
         <label class="bv-champ">
           <span>France Travail — client_id
             <a href="https://francetravail.io" target="_blank" rel="noopener">s'inscrire ↗</a></span>
           <input id="FRANCE_TRAVAIL_CLIENT_ID" maxlength="200"></label>
+        <details class="bv-plus">
+          <summary>Comment obtenir ces identifiants</summary>
+          <ol class="bv-etapes">
+            <li>Crée un compte sur <a href="https://francetravail.io" target="_blank" rel="noopener">francetravail.io</a>, puis une <strong>application</strong>.</li>
+            <li>Le formulaire réclame une <strong>URL publique</strong> et refuse <code>localhost</code>. N'importe quelle page publique fait l'affaire — ton profil LinkedIn, par exemple.</li>
+            <li><strong>Souscris ensuite à l'API « Offres d'emploi v2 »</strong>. C'est une étape à part, que presque tout le monde oublie : sans elle, chaque collecte échoue en erreur 401.</li>
+            <li>Recopie le <strong>client_id</strong> et le <strong>client_secret</strong> ci-dessous.</li>
+          </ol>
+          <p class="bv-aide">C'est la source la plus riche : la seule qui donne la description complète des offres.</p>
+        </details>
         <label class="bv-champ"><span>France Travail — client_secret</span>
           <input id="FRANCE_TRAVAIL_CLIENT_SECRET" type="password" maxlength="200"></label>
         <label class="bv-champ">
           <span>Jooble
             <a href="https://fr.jooble.org/api/about" target="_blank" rel="noopener">demander ↗</a></span>
           <input id="JOOBLE_API_KEY" maxlength="200"></label>
+        <details class="bv-plus">
+          <summary>Comment obtenir cette clé</summary>
+          <ol class="bv-etapes">
+            <li>Ouvre <a href="https://fr.jooble.org/api/about" target="_blank" rel="noopener">fr.jooble.org/api/about</a> et remplis le formulaire de demande.</li>
+            <li>La clé arrive par courriel, en général sous 24 h.</li>
+          </ol>
+          <p class="bv-aide">Facultatif. Jooble est l'agrégateur dont la couverture ressemble le plus à Indeed.</p>
+        </details>
+      </details>
+
+      <!-- Les trois clés de l'onglet Chill. Elles ne servent PAS à chercher un
+           emploi : d'où un repli distinct, et un ton qui l'assume. -->
+      <details class="bv-plus">
+        <summary>Musique, directs et vidéos — l'onglet Chill</summary>
+        <p class="bv-aide">
+          Rien à voir avec la recherche d'emploi : c'est de quoi souffler entre
+          deux candidatures. Sans ces clés, l'onglet s'affiche quand même et
+          t'indique quoi ajouter. Tu peux le faire plus tard, dans <code>.env</code>.
+        </p>
+
+        <label class="bv-champ">
+          <span>Spotify — Client ID
+            <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">créer une app ↗</a></span>
+          <input id="SPOTIFY_CLIENT_ID" maxlength="200"></label>
+        <details class="bv-plus">
+          <summary>Comment obtenir ce Client ID</summary>
+          <ol class="bv-etapes">
+            <li>Ouvre <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a>
+              et connecte-toi avec ton compte Spotify habituel.</li>
+            <li>Clique <strong>« Create app »</strong>. Nom et description : ce que tu veux.</li>
+            <li>Dans <strong>Redirect URI</strong>, colle exactement
+              <code>http://127.0.0.1:3000/spotify/retour</code>, puis <strong>« Add »</strong>.</li>
+            <li>Coche <strong>Web API</strong>, accepte les conditions, enregistre.</li>
+            <li>Dans <strong>Settings</strong>, copie le <strong>Client ID</strong> ci-dessus.</li>
+          </ol>
+          <p class="bv-aide">
+            Le <em>Client Secret</em> ne sert pas ici : la connexion passe par un
+            flux qui n'en demande aucun. Ne le colle nulle part.
+            <strong>Un compte Spotify Premium est nécessaire</strong> pour la lecture.
+          </p>
+        </details>
+
+        <label class="bv-champ">
+          <span>Twitch — Client ID
+            <a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noopener">créer une app ↗</a></span>
+          <input id="TWITCH_CLIENT_ID" maxlength="200"></label>
+        <details class="bv-plus">
+          <summary>Comment obtenir ce Client ID</summary>
+          <ol class="bv-etapes">
+            <li>Ouvre <a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noopener">dev.twitch.tv/console/apps</a>
+              et connecte-toi. Twitch exige une <strong>double authentification</strong> sur ton compte.</li>
+            <li><strong>« Enregistrer votre application »</strong>. Nom : ce que tu veux.</li>
+            <li>URL de redirection : <code>http://localhost:3000</code>.
+              Catégorie : <em>Application Integration</em>.</li>
+            <li>Type de client : <strong>Public</strong>.</li>
+            <li>Valide, puis <strong>« Gérer »</strong> et copie le <strong>Client ID</strong>.</li>
+          </ol>
+          <p class="bv-aide">
+            Sans cette clé, le lecteur Twitch fonctionne quand même : c'est la
+            recherche de chaînes et de catégories qui en a besoin.
+          </p>
+        </details>
+
+        <label class="bv-champ">
+          <span>YouTube — clé API
+            <a href="https://console.cloud.google.com" target="_blank" rel="noopener">console Google ↗</a></span>
+          <input id="YOUTUBE_API_KEY" maxlength="200"></label>
+        <details class="bv-plus">
+          <summary>Comment obtenir cette clé</summary>
+          <ol class="bv-etapes">
+            <li>Ouvre <a href="https://console.cloud.google.com" target="_blank" rel="noopener">console.cloud.google.com</a>
+              et crée un projet — son nom n'a pas d'importance.</li>
+            <li>Menu <strong>« API et services » → « Bibliothèque »</strong>, cherche
+              <strong>YouTube Data API v3</strong>, puis <strong>« Activer »</strong>.</li>
+            <li><strong>« Identifiants » → « Créer des identifiants » → « Clé API »</strong>.</li>
+            <li>Copie la clé ci-dessus. Elle commence par <code>AIza</code>.</li>
+          </ol>
+          <p class="bv-aide">
+            C'est une clé <strong>différente</strong> de celle de Gemini, même si
+            les deux commencent pareil et viennent de Google. Sans elle, la
+            lecture d'une vidéo marche ; c'est la recherche qui ne répond pas.
+          </p>
+        </details>
       </details>
     </section>
 

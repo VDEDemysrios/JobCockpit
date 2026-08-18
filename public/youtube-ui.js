@@ -123,7 +123,6 @@ export function rendreYoutube() {
     <div class="tw-titre">${recherche
     ? `Résultats pour « ${echapper(recherche)} »`
     : `Tendances · ${echapper(etat.pays)}`}
-      <button class="sp-lien-note" data-yt="ouvrir-site">ouvrir youtube.com</button>
     </div>
 
     ${panne ? `<div class="sp-alerte"><p>${echapper(panne)}</p></div>` : ''}
@@ -191,10 +190,6 @@ export function installerYoutube(toast, lancer) {
     const b = e.target.closest('[data-yt]');
     if (!b) return;
     if (b.dataset.yt === 'accueil') { recherche = ''; return charger('accueil'); }
-    if (b.dataset.yt === 'ouvrir-site') {
-      window.open('https://www.youtube.com/', '_blank');
-      signaler('YouTube s\'ouvre dans un onglet : son accueil refuse le cadre.');
-    }
   });
 
   z.addEventListener('submit', (e) => {
