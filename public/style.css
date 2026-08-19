@@ -2720,3 +2720,138 @@ body.dock-glisse iframe{pointer-events:none;}
 .bv-etapes li{padding-left:.2em;}
 .bv-etapes code{font-family:var(--mono);font-size:12px;background:var(--bg2);
   padding:1px 5px;border-radius:4px;}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   REFONTE 3.0 — MATIÈRE & MOUVEMENT
+
+   On garde l'instrument — la densité, les bordures qui dessinent, l'accent
+   économe — et on lui donne de la PROFONDEUR et du MOUVEMENT. Rien de tout ce
+   qui suit ne touche aux quatre blocs de thème : tout est DÉRIVÉ des tokens
+   existants par `color-mix`, si bien que les quatre thèmes (clair, EnR, nuit,
+   cockpit) en profitent sans une ligne de plus, et qu'un futur cinquième thème
+   héritera de la refonte gratuitement.
+
+   Le mouvement continu reste banni (une animation qui tourne des heures
+   chauffe la machine) : ici, tout est TRANSITION ou ENTRÉE — ça joue une fois,
+   au bon moment, puis se tait. `prefers-reduced-motion` coupe l'ensemble.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Profondeur ambiante ──────────────────────────────────────────────────
+   Une lueur diffuse derrière toute l'application, à peine perceptible, tirée
+   de l'accent du thème. Ce n'est pas un dégradé de marque tape-à-l'œil : c'est
+   ce qui empêche le fond de paraître « plat comme une feuille » et donne aux
+   surfaces posées dessus quelque chose sur quoi flotter. */
+body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(115% 75% at 100% 0%, color-mix(in srgb,var(--accent) 10%,transparent),transparent 58%),
+    radial-gradient(95% 70% at 0% 100%, color-mix(in srgb,var(--accent2) 8%,transparent),transparent 54%);}
+
+/* ── Les surfaces prennent du relief ──────────────────────────────────────
+   Un panneau n'est plus un rectangle bordé : une lumière rasante en haut, une
+   bordure qui se teinte de l'accent, une ombre douce. Assez pour qu'il se
+   DÉTACHE du fond, pas assez pour retomber dans la maquette molle d'avant. */
+.panel-box{
+  background:
+    linear-gradient(180deg,color-mix(in srgb,var(--ink) 3%,var(--panel)),var(--panel) 42%);
+  border-color:color-mix(in srgb,var(--accent) 8%,var(--line));
+  box-shadow:var(--sh2),inset 0 1px 0 color-mix(in srgb,#fff 6%,transparent);
+  transition:box-shadow .22s ease,border-color .22s ease,transform .22s ease;}
+.panel-box:hover{
+  box-shadow:var(--sh3),inset 0 1px 0 color-mix(in srgb,#fff 8%,transparent);
+  border-color:color-mix(in srgb,var(--accent) 16%,var(--line));}
+.panel-box h3 .ic{filter:drop-shadow(0 0 6px color-mix(in srgb,var(--accent) 40%,transparent));}
+
+/* Les tuiles de stat NE DÉCOLLENT toujours PAS (huit qui frétillent, non) —
+   mais elles gagnent la même lumière rasante et une barre d'accent au survol. */
+.stat{background:linear-gradient(180deg,color-mix(in srgb,var(--ink) 3%,var(--panel)),var(--panel) 46%);
+  box-shadow:var(--sh2),inset 0 1px 0 color-mix(in srgb,#fff 5%,transparent);}
+.stat::after{background:linear-gradient(180deg,var(--accent),var(--accent2));
+  opacity:0;transition:opacity .2s;}
+.stat:hover::after{opacity:1;}
+
+/* ── L'action principale, enfin dimensionnelle ────────────────────────────
+   On garde l'encre (elle donne le meilleur contraste et s'inverse seule dans
+   les thèmes sombres). On lui ajoute un reflet en tête, une ombre portée, et
+   un enfoncement franc au clic — le geste devient tactile. */
+.btn-primary{
+  background:linear-gradient(180deg,color-mix(in srgb,#fff 10%,var(--ink)),var(--ink));
+  box-shadow:var(--sh2),inset 0 1px 0 color-mix(in srgb,#fff 18%,transparent);}
+.btn-primary:hover{
+  background:linear-gradient(180deg,color-mix(in srgb,#fff 8%,var(--ink-2)),var(--ink-2));
+  box-shadow:var(--sh3),inset 0 1px 0 color-mix(in srgb,#fff 16%,transparent);}
+.btn:active{transform:translateY(1px) scale(.985);}
+
+/* ── Navigation : un curseur d'accent qui glisse sur l'onglet actif ────────
+   Avant, l'actif se distinguait par un fond à peine plus clair. Maintenant une
+   barre d'accent verticale marque la position — le repère se lit d'un coup. */
+.nav button{position:relative;transition:background .16s,color .16s;}
+.nav button::before{content:"";position:absolute;left:0;top:50%;
+  height:0;width:3px;border-radius:0 3px 3px 0;
+  background:linear-gradient(180deg,var(--accent),var(--accent2));
+  transform:translateY(-50%);transition:height .2s ease;}
+.nav button.active::before{height:60%;}
+.nav button.active{background:linear-gradient(90deg,
+  color-mix(in srgb,var(--accent) 22%,transparent),transparent 70%);}
+
+/* ── Focus et champs : un anneau d'accent plus présent, mais toujours net ── */
+select:focus,.search:focus,input:focus,textarea:focus{
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent);}
+
+/* ── Transition de vue : un glissement bref à chaque changement d'onglet ────
+   Joué UNE fois, sur le CONTENEUR de la vue, jamais sur chaque enfant : une
+   liste reconstruite sous un filtre ne doit pas rejouer cinquante entrées.
+   `[data-anim="off"]` le coupe déjà (interrupteur Options), comme le reste. */
+.view.entre{animation:fadeUp .34s cubic-bezier(.22,.61,.36,1);}
+
+/* Le titre de vue glisse un cran plus tard que le corps — la hiérarchie du
+   mouvement suit celle du regard : le titre d'abord, le détail ensuite. */
+.view.entre>h2:first-child,.view.entre .view-titre{animation:slideIn .4s .04s backwards;}
+
+/* ── Survol des cartes média et des lignes : elles répondent au doigt ──────
+   Une carte qui se soulève à peine sous la souris dit « je suis cliquable »
+   mieux qu'un changement de couleur. Réservé aux surfaces cliquables franches,
+   pas aux tuiles denses (qui frétilleraient). */
+.med-carte .med-lien:hover .med-vignette{transform:translateY(-2px) scale(1.012);}
+
+/* ── ACCESSIBILITÉ : moins de mouvement pour qui l'a demandé ───────────────
+   Réglage SYSTÈME, indépendant de l'interrupteur des Options : on le respecte
+   sans condition. On ne coupe pas tout net (un saut brutal est aussi une gêne)
+   — on ramène les durées à l'imperceptible. */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms !important;animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;scroll-behavior:auto !important;}
+}
+
+/* ── FINESSE 3.0 : là où le regard tombe d'abord ───────────────────────────
+   L'entête de vue mène l'œil. On lui donne une icône d'accent qui rayonne
+   doucement, un titre au tracé un peu plus serré, et le corps qui suit son
+   entrée un cran après (voir la transition de vue). */
+.view.entre .view-head h2{animation:slideIn .42s .05s backwards;}
+.view-head h2{letter-spacing:-.4px;}
+.view-head h2 .ic{color:var(--accent);
+  filter:drop-shadow(0 0 8px color-mix(in srgb,var(--accent) 45%,transparent));}
+
+/* ── Les états ACTIFS s'affirment ──────────────────────────────────────────
+   Onglet segmenté, onglet de ville, tout ce qui porte « .active » : l'accent
+   s'y installe franchement au lieu d'un simple fond plus clair. Sur un poste
+   de travail, savoir OÙ l'on est d'un coup d'œil vaut mieux que la sobriété. */
+.seg button.active{
+  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 14%,var(--panel)),var(--panel));
+  color:var(--accent-ink);box-shadow:var(--sh2),inset 0 0 0 1px color-mix(in srgb,var(--accent) 30%,transparent);}
+
+/* ── Le bandeau supérieur prend un léger effet de verre ────────────────────
+   Quand on a défilé, l'entête se détache du contenu par une ombre ET un fond
+   très légèrement translucide et flouté — le contenu qui passe dessous
+   transparaît, comme sous une vitre. C'est le signal « il y a du contenu
+   au-dessus » rendu tangible. */
+.main.defile .view-head{position:relative;}
+
+/* ── Un peu plus de séparation sur les panneaux, sans les faire flotter ─────
+   La bordure teintée d'accent passe de 8 % à 12 % : les surfaces se
+   distinguent mieux du fond ambiant, surtout sur les thèmes sombres. */
+.panel-box{border-color:color-mix(in srgb,var(--accent) 12%,var(--line));}
+
+/* (La ligne d'offre a DÉJÀ son liseré gauche — mais c'est la couleur de GROUPE,
+   une information de priorité, pas une décoration : on n'y touche pas. Son
+   survol l'élargit déjà, plus haut dans la feuille.) */

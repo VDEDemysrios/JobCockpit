@@ -262,6 +262,16 @@ function changerVue(vue) {
   });
   document.getElementById('sidebar').classList.remove('open');
 
+  // La vue GLISSE à l'arrivée : on retire puis remet la classe, avec un reflow
+  // entre les deux, pour rejouer l'animation même si l'on revient sur la même
+  // vue. `[data-anim="off"]` et `prefers-reduced-motion` la neutralisent — la
+  // règle CSS s'en charge, rien à tester ici.
+  const actif = document.getElementById('view-' + vue);
+  actif.classList.remove('entre');
+  void actif.offsetWidth;
+  actif.classList.add('entre');
+  actif.addEventListener('animationend', () => actif.classList.remove('entre'), { once: true });
+
   rendreTout();
 
   // C'est la VUE qui défile désormais, plus la page : la remettre en haut
