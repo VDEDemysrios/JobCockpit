@@ -1068,7 +1068,7 @@ export function creerRoutes({ db, collecter, sources, profil,
             { ...t, album: info }, i)) });
       }
       const [info, d] = await Promise.all([
-        spotify(`/playlists/${id}?fields=name,images`),
+        spotify(`/playlists/${id}?fields=name,images,owner(id),collaborative,snapshot_id`),
         // UN REFUS SUR LE CONTENU N'EST PAS UN REFUS SUR LA PLAYLIST.
         //
         // Mesuré sur les 36 playlists du compte : les 12 qui lui appartiennent
@@ -1082,8 +1082,18 @@ export function creerRoutes({ db, collecter, sources, profil,
           return { refuse: e.message };
         }),
       ]);
+      // MODIFIABLE ET INSTANTANÉ VONT ENSEMBLE.
+      //
+      // Retirer un morceau se fait par sa POSITION, et une position n'a de
+      // sens que dans une version donnée de la playlist. Le `snapshot_id` dit
+      // laquelle : sans lui, une playlist modifiée entre-temps ferait
+      // supprimer le mauvais titre — le pire défaut possible ici, puisqu'on
+      // ne s'en aperçoit que bien plus tard.
+      const moi = await identifiant().catch(() => null);
       res.json({ ok: true, type, contexte: uri,
         nom: info?.name ?? '', pochette: grandePochette(info?.images),
+        modifiable: Boolean(moi && (info?.owner?.id === moi || info?.collaborative)),
+        instantane: info?.snapshot_id ?? null,
         // Le drapeau vaut mieux qu'une liste vide : « aucune piste » et « on
         // n'a pas le droit de les lire » ne se disent pas pareil à l'écran.
         restreint: Boolean(d?.refuse),
@@ -1136,6 +1146,49 @@ export function creerRoutes({ db, collecter, sources, profil,
    * L'appel part D'ICI et pas du navigateur : `connect-src` reste fermé, et le
    * titre écouté ne quitte pas la machine par un chemin qu'on ne contrôle pas.
    */
+  /**
+   * RETIRE UN MORCEAU D'UNE PLAYLIST.
+   *
+   * PAR SA POSITION, ET PAS SEULEMENT PAR SON ADRESSE. Supprimer par URI
+   * seule retire TOUTES les occurrences du morceau : sur une playlist où
+   * un titre revient deux fois — ça arrive plus qu'on ne croit — on en
+   * perdrait une qu'on voulait garder, sans le voir.
+   *
+   * Le `snapshot_id` accompagne la position : il désigne la VERSION de la
+   * playlist sur laquelle ce rang a été lu. Si elle a changé depuis,
+   * Spotify refuse plutôt que de supprimer à côté.
+   *
+   * LA FORME DU CORPS EST UN PIÈGE. La documentation historique parle de
+   * `{tracks:[{uri}]}` ; sur `/items`, ce corps est refusé par un « No uris
+   * provided » qui décrit mal le problème. C'est `{uris, positions}` qu'il
+   * faut envoyer.
+   */
+  routes.post('/spotify/playlist/retirer', async (req, res) => {
+    const playlist = String(req.body?.playlist ?? '').replace(/^spotify:playlist:/, '');
+    const uri = String(req.body?.uri ?? '');
+    const rang = Number(req.body?.rang);
+    const instantane = String(req.body?.instantane ?? '');
+
+    if (!/^[A-Za-z0-9]+$/.test(playlist)) {
+      return res.status(400).json({ ok: false, error: 'Playlist inconnue.' });
+    }
+    if (!uri.startsWith('spotify:track:') || !Number.isInteger(rang) || rang < 0) {
+      return res.status(400).json({ ok: false, error: 'Morceau à retirer non reconnu.' });
+    }
+    try {
+      await spotify(`/playlists/${playlist}/items`, {
+        methode: 'DELETE',
+        corps: { uris: [uri], positions: [rang],
+          ...(instantane ? { snapshot_id: instantane } : {}) },
+      });
+      res.json({ ok: true });
+    } catch (e) {
+      const message = e.statut === 403 || /Premium/.test(e.message)
+        ? 'Spotify refuse : cette playlist ne t\'appartient pas.'
+        : e.message;
+      res.status(e.statut ?? 502).json({ ok: false, error: message });
+    }
+  });
   routes.get('/spotify/paroles', async (req, res) => {
     const { titre, artistes, album, duree } = req.query;
     if (!titre || !artistes) return res.json({ ok: true, paroles: { trouve: false } });

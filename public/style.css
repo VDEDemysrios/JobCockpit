@@ -3359,3 +3359,8 @@ select:focus,.search:focus,input:focus,textarea:focus{
   background:var(--panel);border:1px solid var(--line-fort);border-radius:99px;
   padding:3px 6px;max-width:96px;cursor:pointer;}
 @media(max-width:600px){.ch-voix-sel{display:none;}}
+
+/* Le retrait d'un morceau : rouge au survol seulement. Rouge en permanence,
+   une liste de deux cents titres ressemble à un champ de mines ; incolore, on
+   ne distingue pas l'action qui enlève de celle qui ajoute. */
+.sp-oter:hover{color:var(--hot);}

@@ -108,6 +108,11 @@ export const API = {
   // une playlist qui lui appartient.
   spotifyAjouter:    (playlist, uri) =>
     appeler('/api/spotify/playlist', { method: 'POST', body: { playlist, uri } }),
+  // Le retrait passe par le RANG et l'instantané de la playlist : par URI
+  // seule, Spotify retirerait toutes les occurrences du morceau.
+  spotifyRetirer:    (playlist, uri, rang, instantane) =>
+    appeler('/api/spotify/playlist/retirer',
+      { method: 'POST', body: { playlist, uri, rang, instantane } }),
   spotifyRecents:    ()        => appeler('/api/spotify/recents'),
   spotifyContenu:    (uri)     => appeler(`/api/spotify/contenu?uri=${encodeURIComponent(uri)}`),
   spotifyParoles:    (l)       => appeler('/api/spotify/paroles?' + new URLSearchParams({

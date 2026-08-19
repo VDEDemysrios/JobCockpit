@@ -247,7 +247,7 @@ function vignette(i, classe = '') {
  * possible était de lancer les quatre-vingts titres.
  */
 function rendreListe(items, { melange = false, enfiler = false, ouvrable = false,
-  contexte = null } = {}) {
+  contexte = null, retirer = false } = {}) {
   if (!items.length) return '';
   return `<ul class="sp-liste">${items.map(i => `<li>
     <button ${ouvrable ? `data-ouvrir="${echapper(i.uri)}"`
@@ -264,6 +264,9 @@ function rendreListe(items, { melange = false, enfiler = false, ouvrable = false
       </span>
       ${i.duree ? `<span class="sp-temps">${duree(i.duree)}</span>` : ''}
     </button>
+    ${retirer ? `<button class="sp-action sp-oter" data-retirer-piste="${echapper(i.uri)}"
+      data-rang="${i.rang ?? 0}" data-titre="${echapper(i.titre ?? '')}"
+      title="Retirer de cette playlist">−</button>` : ''}
     ${enfiler ? `<button class="sp-action" data-classer="${echapper(i.uri)}"
       data-titre="${echapper(i.titre ?? i.nom ?? '')}"
       title="Ajouter à une playlist, ou à la suite">＋</button>` : ''}
@@ -297,7 +300,11 @@ function rendreOuvert() {
       </div>` : ''}
     </div>
     ${ouvert.pistes.length
-    ? rendreListe(ouvert.pistes, { enfiler: true, contexte: ouvert.contexte })
+    ? rendreListe(ouvert.pistes, { enfiler: true, contexte: ouvert.contexte,
+      // Le retrait n'est proposé que là où il est possible : sur une
+      // playlist qu'on possède. Un bouton qui échoue en 403 fait croire
+      // que l'application est cassée.
+      retirer: ouvert.modifiable })
     : (ouvert.restreint ? rendreRestreinte() : '<div class="sp-rien">Chargement…</div>')}`;
 }
 
@@ -754,7 +761,10 @@ async function ouvrirContenu(uri) {
   try {
     const d = await API.spotifyContenu(uri);
     ouvert = { nom: d.nom ?? '', pochette: d.pochette ?? null,
-      contexte: d.contexte, pistes: d.pistes ?? [], restreint: Boolean(d.restreint) };
+      contexte: d.contexte, pistes: d.pistes ?? [], restreint: Boolean(d.restreint),
+      // Ce qu'il faut pour RETIRER : le droit, et la version de la playlist
+      // dans laquelle les rangs qu'on vient de lire ont un sens.
+      modifiable: Boolean(d.modifiable), instantane: d.instantane ?? null };
   } catch (err) {
     ouvert = null;
     signaler(err.message, 'erreur');
@@ -850,6 +860,28 @@ export function installerSpotify(toast) {
     // on veut réécouter le passage qu'on vient de lire.
     const parole = e.target.closest('.sp-parole');
     if (parole) return commander('position', { valeur: Number(parole.dataset.t) });
+
+    const oter = e.target.closest('[data-retirer-piste]');
+    if (oter && ouvert?.contexte) {
+      const titre = oter.dataset.titre;
+      // ON DEMANDE, ET C'EST DÉLIBÉRÉ. Il n'y a pas d'annulation : une fois
+      // le morceau sorti, le seul recours est de le retrouver et de le
+      // remettre. Le projet applique déjà cette règle au nettoyage des
+      // offres — une suppression ne doit pas être ce que fait un clic parti
+      // tout seul.
+      if (!confirm(`Retirer « ${titre} » de « ${ouvert.nom} » ?`)) return;
+      try {
+        await API.spotifyRetirer(ouvert.contexte, oter.dataset.retirerPiste,
+          Number(oter.dataset.rang), ouvert.instantane);
+        signaler(`« ${titre} » retiré.`);
+        // On RELIT la playlist plutôt que de retirer la ligne à l'écran : les
+        // rangs de toutes les pistes suivantes viennent de changer, et
+        // l'instantané aussi. Garder l'ancien affichage ferait supprimer le
+        // voisin au clic d'après.
+        await ouvrirContenu(ouvert.contexte);
+      } catch (err) { signaler(err.message, 'erreur'); }
+      return;
+    }
 
     const classer = e.target.closest('[data-classer]');
     if (classer) {

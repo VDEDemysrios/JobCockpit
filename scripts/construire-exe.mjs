@@ -99,7 +99,24 @@ execFileSync(process.execPath, ['--experimental-sea-config', config], { stdio: '
 etape(3, 'Copie du moteur Node et identité du fichier…');
 
 const exe = join(SORTIE, 'JobCockpit.exe');
-copyFileSync(process.execPath, exe);
+try {
+  copyFileSync(process.execPath, exe);
+} catch (e) {
+  // UN ANTIVIRUS QUI REFUSE CE NOM, ET RIEN QUI LE DISE.
+  //
+  // Mesuré : copier le même moteur vers `autre.exe` passe, vers
+  // `JobCockpit.exe` échoue en EPERM. Ce n'est donc ni un droit d'accès ni
+  // un fichier verrouillé — c'est le NOM que le bouclier refuse. Rendue
+  // brute, la pile d'appels envoie chercher du côté des permissions du
+  // dossier, ce qui ne mène nulle part.
+  console.error('\n❌ Impossible d\'écrire dist/JobCockpit.exe.\n');
+  console.error(`   ${e.code ?? ''} ${e.message}\n`);
+  console.error('   Si la copie du même fichier sous un AUTRE nom fonctionne, c\'est');
+  console.error('   l\'antivirus qui refuse celui-ci — le cas est documenté dans');
+  console.error('   docs/HANDOFF.md §4. Exclure le dossier du projet et celui de');
+  console.error('   l\'application, puis relancer.\n');
+  process.exit(1);
+}
 console.log(`      ${poids(exe)} (moteur nu)`);
 
 // ────────────────────────────────────── 3 bis. L'identité du fichier

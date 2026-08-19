@@ -163,10 +163,40 @@ export function principal(argv = process.argv.slice(2)) {
   const cible = argv.find(a => !a.startsWith('--')) ?? DEFAUT;
   const premiere = !existsSync(join(cible, 'JobCockpit.exe'));
 
-  // 1. L'exécutable doit exister et être à jour.
-  if (!existsSync(join(DIST, 'JobCockpit.exe'))) {
+  // 1. L'EXÉCUTABLE DOIT EXISTER AVANT QU'ON TOUCHE À QUOI QUE CE SOIT.
+  //
+  // Ce contrôle a été ajouté après avoir DÉTRUIT une installation qui
+  // marchait. La construction avait échoué — Avast refusait d'écrire un
+  // fichier nommé `JobCockpit.exe` — et l'installation a continué : elle a
+  // remplacé `public\`, les lanceurs et l'icône, puis annoncé « Mis à
+  // jour ». Le dossier s'est retrouvé sans programme, et l'application ne
+  // démarrait plus du tout.
+  //
+  // Une mise à jour qui échoue doit laisser l'existant INTACT. On vérifie
+  // donc tout avant la première écriture, et on s'arrête sans rien casser.
+  const source = join(DIST, 'JobCockpit.exe');
+  if (!existsSync(source)) {
     console.log('⚙  Aucun exécutable construit — construction en cours…\n');
-    execFileSync(process.execPath, [join(RACINE, 'scripts/construire-exe.mjs')], { stdio: 'inherit' });
+    try {
+      execFileSync(process.execPath, [join(RACINE, 'scripts/construire-exe.mjs')], { stdio: 'inherit' });
+    } catch {
+      console.error('\n❌ La construction a échoué. Rien n\'a été touché.\n');
+      process.exit(1);
+    }
+  }
+
+  // Un exécutable de quelques kilo-octets est un reste de construction
+  // interrompue, pas un programme : le copier casserait tout aussi bien.
+  const POIDS_MINIMAL = 50 * 1024 * 1024;
+  if (!existsSync(source) || statSync(source).size < POIDS_MINIMAL) {
+    console.error('\n❌ Installation refusée : aucun exécutable exploitable dans dist/.\n');
+    console.error(`   Attendu : ${source}`);
+    if (existsSync(source)) console.error(`   Trouvé  : ${mo(statSync(source).size)} — beaucoup trop petit.`);
+    console.error('\n   L\'installation existante n\'a PAS été modifiée.');
+    console.error('\n   Cause la plus fréquente : un antivirus refuse d\'écrire un fichier');
+    console.error('   nommé JobCockpit.exe. Exclure le dossier du projet et celui de');
+    console.error('   l\'application règle la question — voir docs/HANDOFF.md §4.\n');
+    process.exit(1);
   }
 
   mkdirSync(cible, { recursive: true });
@@ -179,7 +209,19 @@ export function principal(argv = process.argv.slice(2)) {
   if (tournait) console.log('   ⏹ application arrêtée le temps de la mise à jour');
 
   // 2. Le programme, toujours remplacé.
-  copyFileSync(join(DIST, 'JobCockpit.exe'), join(cible, 'JobCockpit.exe'));
+  const arrivee = join(cible, 'JobCockpit.exe');
+  try {
+    copyFileSync(source, arrivee);
+  } catch (e) {
+    console.error(`\n❌ Copie du programme impossible : ${e.message}`);
+    console.error('   Un antivirus bloque probablement ce nom de fichier.');
+    console.error('   L\'application est peut-être inutilisable : relance après exclusion.\n');
+    process.exit(1);
+  }
+  if (!existsSync(arrivee) || statSync(arrivee).size < POIDS_MINIMAL) {
+    console.error('\n❌ Le programme copié est absent ou tronqué. Relance après exclusion.\n');
+    process.exit(1);
+  }
   rmSync(join(cible, 'public'), { recursive: true, force: true });
   cpSync(join(DIST, 'public'), join(cible, 'public'), { recursive: true });
   copyFileSync(join(DIST, 'LISEZ-MOI.txt'), join(cible, 'LISEZ-MOI.txt'));
