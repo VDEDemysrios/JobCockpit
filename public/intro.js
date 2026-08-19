@@ -212,6 +212,15 @@ export function jouerIntro({ forcer = false } = {}) {
     ['--titre-retard', `${BALAYAGE.debut + BALAYAGE.duree + 150}ms`],
   ]) ecran.style.setProperty(nom, valeur);
 
+  // LE FOND CINÉMATOGRAPHIQUE, derrière tout. Une grille d'instrument qui se
+  // révèle, et une ligne d'ignition qui balaie l'écran au démarrage — l'écran
+  // s'ALLUME avant que le radar se mette en marche, comme un poste de pilotage
+  // qu'on met sous tension. Purement décoratif : posé en premier, donc dessous.
+  const fond = document.createElement('div');
+  fond.className = 'intro-fond';
+  fond.setAttribute('aria-hidden', 'true');
+  fond.innerHTML = '<div class="intro-grille"></div><div class="intro-scan"></div>';
+
   const scene = document.createElement('div');
   scene.className = 'intro-radar';
   scene.innerHTML = `
@@ -229,9 +238,19 @@ export function jouerIntro({ forcer = false } = {}) {
     scene.appendChild(el);
   }
 
+  // LE BLOOM DE FIN. Quand le titre arrive, une onde de lumière jaillit une
+  // fois du centre : le moment où la recherche aboutit, marqué d'un éclat. Il
+  // partage l'horloge du titre (`--titre-retard`) — l'un n'existe pas sans
+  // l'autre.
+  const bloom = document.createElement('div');
+  bloom.className = 'intro-bloom';
+  bloom.setAttribute('aria-hidden', 'true');
+
   const titre = document.createElement('div');
   titre.className = 'intro-titre';
-  titre.innerHTML = '<span class="intro-nom">Job Cockpit</span>'
+  // Le nom est doublé dans un attribut : la couche de brillance (::after) le
+  // relit pour faire glisser un reflet dessus, sans le sélectionner deux fois.
+  titre.innerHTML = '<span class="intro-nom" data-nom="Job Cockpit">Job Cockpit</span>'
     + '<span class="intro-baseline">Le marché, filtré pour toi</span>';
 
   const passer = document.createElement('button');
@@ -239,7 +258,7 @@ export function jouerIntro({ forcer = false } = {}) {
   passer.type = 'button';
   passer.textContent = 'Passer';
 
-  ecran.append(scene, titre, passer);
+  ecran.append(fond, scene, bloom, titre, passer);
   document.body.appendChild(ecran);
 
   return new Promise((resoudre) => {

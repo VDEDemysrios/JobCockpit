@@ -1482,11 +1482,51 @@ html.page-libre,html.page-libre>body{height:auto;min-height:100%;overflow:visibl
    le navigateur tient l'horloge, et couper les animations suffit à tout
    éteindre.                                                                  */
 
-.intro{position:fixed;inset:0;z-index:9000;background:#080a0f;
+/* Le fond n'est plus un rectangle noir : une profondeur radiale, un cœur
+   légèrement bleuté, des bords assombris (vignette). L'écran a un CENTRE vers
+   lequel l'œil tombe — le radar, puis le nom. */
+.intro{position:fixed;inset:0;z-index:9000;
+  background:
+    radial-gradient(120% 120% at 50% 42%,#0c1220 0%,#080a12 45%,#040509 100%);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:var(--e8);overflow:hidden;cursor:pointer;user-select:none;}
-.intro-sortie{animation:introSortie .42s cubic-bezier(.4,0,1,1) forwards;}
-@keyframes introSortie{to{opacity:0;transform:scale(1.04);}}
+  gap:var(--e8);overflow:hidden;cursor:pointer;user-select:none;
+  animation:introEntree .5s ease;}
+@keyframes introEntree{from{opacity:0;}}
+/* La sortie EST le raccord avec l'application : l'écran monte d'un cran et se
+   dissout, le tableau de bord apparaît dessous à la même échelle. */
+.intro-sortie{animation:introSortie .5s cubic-bezier(.5,0,.2,1) forwards;}
+@keyframes introSortie{to{opacity:0;transform:scale(1.06);}}
+
+/* ── Le fond d'instrument : grille + ligne d'ignition ──────────────────────
+   L'écran s'allume avant le radar. Une grille fine se révèle, et une ligne de
+   lumière balaie l'écran de haut en bas — la mise sous tension du poste. */
+.intro-fond{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+.intro-grille{position:absolute;inset:-2px;opacity:0;
+  background:
+    linear-gradient(rgba(125,211,252,.05) 1px,transparent 1px) 0 0/100% 40px,
+    linear-gradient(90deg,rgba(125,211,252,.05) 1px,transparent 1px) 0 0/40px 100%;
+  mask:radial-gradient(circle at 50% 45%,#000 0%,transparent 72%);
+  -webkit-mask:radial-gradient(circle at 50% 45%,#000 0%,transparent 72%);
+  animation:introGrille 1s .1s ease-out forwards;}
+@keyframes introGrille{from{opacity:0;transform:scale(1.04);}to{opacity:1;transform:scale(1);}}
+.intro-scan{position:absolute;left:0;right:0;top:0;height:2px;
+  background:linear-gradient(90deg,transparent,rgba(56,189,248,.8),transparent);
+  box-shadow:0 0 26px 8px rgba(56,189,248,.35);opacity:0;
+  animation:introScan .62s .05s cubic-bezier(.5,0,.3,1) forwards;}
+@keyframes introScan{
+  0%{opacity:0;transform:translateY(0);}
+  12%{opacity:1;}
+  100%{opacity:0;transform:translateY(100vh);}}
+
+/* ── Le bloom de fin : une onde de lumière au moment du titre ──────────────*/
+.intro-bloom{position:absolute;left:50%;top:42%;width:40px;height:40px;
+  margin:-20px 0 0 -20px;border-radius:50%;z-index:1;pointer-events:none;
+  background:radial-gradient(circle,rgba(56,189,248,.5),rgba(56,189,248,.12) 40%,transparent 70%);
+  opacity:0;animation:introBloom 1.1s var(--titre-retard,2510ms) ease-out backwards;}
+@keyframes introBloom{
+  0%{opacity:0;transform:scale(.3);}
+  30%{opacity:.9;}
+  100%{opacity:0;transform:scale(26);}}
 
 /* Le cadran. Carré, pour que les cercles restent des cercles quelle que soit
    la fenêtre, et borné en vh pour ne pas déborder sur un écran bas. */
@@ -1577,15 +1617,33 @@ html.page-libre,html.page-libre>body{height:auto;min-height:100%;overflow:visibl
 /* Le titre attend que le faisceau soit à l'arrêt : son retard descend de
    `intro.js`, comme le reste de l'horloge. Pendant le balayage, il partageait
    l'écran avec ce qu'on est censé regarder. */
-.intro-titre{display:flex;flex-direction:column;align-items:center;gap:var(--e2);
-  text-align:center;
+.intro-titre{display:flex;flex-direction:column;align-items:center;gap:var(--e3);
+  text-align:center;z-index:2;
   animation:radarTitre .6s var(--titre-retard,2510ms) cubic-bezier(.2,.9,.3,1) backwards;}
 @keyframes radarTitre{from{opacity:0;transform:translateY(14px);}}
 
-.intro-nom{font-family:var(--font-titre);font-size:clamp(28px,5.2vw,54px);
-  font-weight:var(--w-bold);letter-spacing:-1px;color:#f1f5f9;line-height:1;}
-.intro-baseline{font-size:clamp(12px,1.5vw,15px);color:#7dd3fc;
-  letter-spacing:2.5px;text-transform:uppercase;}
+/* LE NOM S'ALLUME. Un remplissage clair et légèrement métallique, un halo
+   d'accent qui monte (ignition), et un reflet qui glisse une fois sur les
+   lettres — via une COPIE du texte (`data-nom`) clippée à la lueur mobile,
+   pour que le reflet suive exactement le lettrage et non un rectangle. */
+.intro-nom{position:relative;font-family:var(--font-titre);
+  font-size:clamp(30px,5.6vw,58px);font-weight:var(--w-bold);letter-spacing:-1.2px;
+  line-height:1;background:linear-gradient(180deg,#ffffff,#cfe2f5 62%,#a9c6e6);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:introNom 1.4s var(--titre-retard,2510ms) ease-out backwards;}
+@keyframes introNom{
+  0%{filter:drop-shadow(0 0 0 rgba(56,189,248,0));}
+  35%{filter:drop-shadow(0 0 22px rgba(56,189,248,.75));}
+  100%{filter:drop-shadow(0 0 12px rgba(56,189,248,.4));}}
+.intro-nom::after{content:attr(data-nom);position:absolute;left:0;top:0;
+  background:linear-gradient(105deg,transparent 42%,#fff 50%,transparent 58%);
+  background-size:260% 100%;background-position:260% 0;
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:introShine 1.2s calc(var(--titre-retard,2510ms) + 160ms) ease-out backwards;}
+@keyframes introShine{from{background-position:260% 0;}to{background-position:-60% 0;}}
+.intro-baseline{font-size:clamp(11px,1.5vw,14px);color:#7dd3fc;
+  letter-spacing:4px;text-transform:uppercase;text-indent:4px;
+  text-shadow:0 0 14px rgba(56,189,248,.4);}
 
 .intro-passer{position:absolute;right:var(--e5);bottom:var(--e5);z-index:6;
   background:transparent;border:1px solid rgba(241,245,249,.28);color:rgba(241,245,249,.7);
