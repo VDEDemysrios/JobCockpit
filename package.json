@@ -1,6 +1,6 @@
 {
   "name": "job-cockpit",
-  "version": "3.3.1",
+  "version": "3.4.0",
   "description": "Tableau de bord de recherche d'emploi avec collecte automatisée",
   "type": "module",
   "engines": {
