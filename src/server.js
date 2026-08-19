@@ -147,8 +147,19 @@ app.use((req, res, suite) => {
     // pour un défaut de l'API. Une image reste la ressource la moins
     // dangereuse qu'on puisse charger d'ailleurs, et ces trois hôtes ne
     // servent que ça.
+    // LES HÔTES D'IMAGES, PAR SERVICE — et le piège des AVATARS.
+    //
+    // `i.ytimg.com` couvrait les vignettes de VIDÉOS. Mais les avatars de
+    // CHAÎNE YouTube arrivent d'un autre hôte, `yt3.ggpht.com` (parfois
+    // `*.googleusercontent.com`) : bloqués, ils laissaient des ronds gris sur
+    // les pages de chaîne, sans erreur visible — le même piège que les
+    // pochettes Spotify en leur temps. On élargit donc par service, aux
+    // sous-domaines d'images. Une image reste la ressource la moins dangereuse
+    // qu'on charge d'ailleurs.
     "img-src 'self' data: https://*.scdn.co https://*.spotifycdn.com "
-      + 'https://static-cdn.jtvnw.net https://i.ytimg.com',
+      + 'https://static-cdn.jtvnw.net https://*.jtvnw.net '
+      + 'https://*.ytimg.com https://yt3.ggpht.com https://*.ggpht.com '
+      + 'https://*.googleusercontent.com',
     `connect-src 'self'${sdk ? OUVERTURES_LECTEUR.connect : ''}`,
     "font-src 'self'",
     ...(sdk ? [OUVERTURES_LECTEUR.media, OUVERTURES_LECTEUR.worker] : []),

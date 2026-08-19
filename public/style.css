@@ -274,6 +274,12 @@ html,body{height:100%;overflow:hidden;}
 .sb-theme button.active{background:rgba(255,255,255,.94);color:#191934;font-weight:var(--w-semi);}
 .sb-foot{font-size:10.5px;opacity:.45;margin-top:var(--e3);line-height:1.7;padding:0 var(--e2);}
 .sb-foot .kbd{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2);color:#fff;}
+/* La signature de l'auteur — discrète, mais présente : la paternité du site.
+   En bas de la barre, à peine visible, elle s'éclaire au survol. */
+.sb-signature{margin-top:var(--e3);padding:var(--e3) var(--e2) 0;font-size:10px;
+  letter-spacing:.3px;color:rgba(255,255,255,.26);transition:color .2s;
+  border-top:1px solid rgba(255,255,255,.06);}
+.sb-signature:hover{color:rgba(255,255,255,.6);}
 
 /* Aucune largeur maximale : sur un écran 2560, un cap à 1680 px laissait un
    quart de la surface vide. Ce sont les GRILLES qui occupent la place — elles
@@ -1652,6 +1658,12 @@ html.page-libre,html.page-libre>body{height:auto;min-height:100%;overflow:visibl
   opacity:0;animation:introPasser .3s .8s forwards;}
 .intro-passer:hover{border-color:#f1f5f9;color:#f1f5f9;}
 @keyframes introPasser{to{opacity:1;}}
+
+/* Le crédit d'auteur, gravé en bas de l'ouverture — discret, il apparaît avec
+   le titre. */
+.intro-credit{position:absolute;left:0;right:0;bottom:var(--e5);text-align:center;
+  font-size:11px;letter-spacing:1.5px;color:rgba(125,211,252,.4);z-index:2;
+  animation:radarTitre .6s calc(var(--titre-retard,2510ms) + 220ms) ease backwards;}
 
 /* ─────────────────────── MOBILE ─────────────────────── */
 

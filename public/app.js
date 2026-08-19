@@ -21,6 +21,17 @@ import { rendreCv } from './cv.js';
 import { animerCompteurs } from './anim.js';
 import { imprimerSuivi } from './impression.js';
 import { imprimerRapport } from './rapport.js';
+import { sonClic, sonNav, sonsActifs, reglerSons } from './sons.js';
+
+// LES SONS DE L'INTERFACE, sur les gestes qui comptent — la navigation et
+// l'action principale, pas le moindre clic (ce serait épuisant). Sur
+// `pointerdown` : le son colle au geste, et c'est aussi ce qui débloque
+// l'audio du navigateur. `sons.js` se tait tout seul si l'utilisateur les a
+// coupés dans les Options.
+document.addEventListener('pointerdown', (e) => {
+  if (e.target.closest('.nav button, [data-dock-page], .dock-onglets button')) sonNav();
+  else if (e.target.closest('.btn-primary')) sonClic();
+}, true);
 
 const dansNJours = (n) => {
   const d = new Date(Date.now() + n * 86400000);
@@ -1271,6 +1282,7 @@ function rendreOptions() {
   document.getElementById('optDensite').value = options.densite;
   document.getElementById('optAnim').checked = options.animations;
   document.getElementById('optIntro').checked = options.intro;
+  document.getElementById('optSons').checked = sonsActifs();
   document.getElementById('optRelance').value = options.relanceJours;
   document.getElementById('optMasquer').checked = options.masquerEcartees;
   document.getElementById('optTheme').value = document.documentElement.dataset.theme;
@@ -1358,6 +1370,14 @@ document.getElementById('optRelance').addEventListener('change', e => {
   options.relanceJours = v;
   appliquerOptions();
   toast(`Relance proposée ${v} jours après l'envoi`);
+});
+
+// Les sons gèrent leur propre réglage (localStorage, dans sons.js) : on relie
+// juste l'interrupteur, et on joue un aperçu quand on les rallume.
+document.getElementById('optSons').addEventListener('change', e => {
+  reglerSons(e.target.checked);
+  if (e.target.checked) sonNav();
+  toast(e.target.checked ? 'Sons activés' : 'Sons coupés');
 });
 
 document.getElementById('optTheme').addEventListener('change', e => appliquerTheme(e.target.value));

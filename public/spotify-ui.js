@@ -726,7 +726,19 @@ export function installerSpotify(toast) {
     try {
       const court = local.pret && await raccourci(action, options);
       if (!court) await API.spotifyCommande(action, options);
-      setTimeout(() => { gele = 0; if (!local.pret) rafraichirLecture(); }, 500);
+
+      // ALÉATOIRE ET RÉPÉTITION : ON RELIT TOUJOURS L'ÉTAT SERVEUR, MÊME AVEC LE
+      // LECTEUR INTÉGRÉ. Le SDK ne rapporte PAS de façon fiable un changement de
+      // shuffle/repeat fait par l'API REST (le seul chemin possible : le SDK
+      // n'expose aucune méthode pour ça) : son `player_state_changed` ne se
+      // déclenche pas, ou renvoie l'ancienne valeur. La commande partait donc
+      // bien (200), mais le bouton ne s'allumait jamais — « ça ne marche pas ».
+      // Le serveur, lui, lit `/me/player`, qui fait autorité.
+      const reglageQueLeSdkIgnore = action === 'aleatoire' || action === 'repetition';
+      setTimeout(() => {
+        gele = 0;
+        if (!local.pret || reglageQueLeSdkIgnore) rafraichirLecture();
+      }, 500);
     } catch (err) { gele = 0; signaler(err.message, 'erreur'); }
   };
 

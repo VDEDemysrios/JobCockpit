@@ -22,6 +22,8 @@
 // · muette si les animations sont coupées ou si le système demande moins de
 //   mouvement.
 
+import { sonIntro } from './sons.js';
+
 const CLE_SESSION = 'bp_intro_jouee';
 
 /**
@@ -253,13 +255,24 @@ export function jouerIntro({ forcer = false } = {}) {
   titre.innerHTML = '<span class="intro-nom" data-nom="Job Cockpit">Job Cockpit</span>'
     + '<span class="intro-baseline">Le marché, filtré pour toi</span>';
 
+  // La paternité, discrètement, sur l'écran d'ouverture — comme une gravure au
+  // bas d'un instrument.
+  const credit = document.createElement('div');
+  credit.className = 'intro-credit';
+  credit.textContent = 'par Benjamin Perrin';
+
   const passer = document.createElement('button');
   passer.className = 'intro-passer';
   passer.type = 'button';
   passer.textContent = 'Passer';
 
-  ecran.append(fond, scene, bloom, titre, passer);
+  ecran.append(fond, scene, bloom, titre, credit, passer);
   document.body.appendChild(ecran);
+
+  // Le carillon de mise en marche, au moment où le nom s'allume. Muet sur un
+  // tout premier chargement (le navigateur bloque le son avant un geste) ;
+  // il sonne quand on rejoue l'ouverture, ou dès la session suivante.
+  setTimeout(sonIntro, BALAYAGE.debut + BALAYAGE.duree + 150);
 
   return new Promise((resoudre) => {
     let fini = false;

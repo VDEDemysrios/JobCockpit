@@ -110,7 +110,12 @@ test('les hôtes d\'images des lecteurs sont autorisés', async () => {
   const s = await lancer();
   try {
     const img = directive(await politique(s.port), 'img-src');
-    for (const hote of ['https://*.scdn.co', 'https://static-cdn.jtvnw.net']) {
+    for (const hote of [
+      'https://*.scdn.co',            // pochettes Spotify
+      'https://static-cdn.jtvnw.net', // vignettes et jaquettes Twitch
+      'https://*.ytimg.com',          // vignettes de vidéos YouTube
+      'https://yt3.ggpht.com',        // AVATARS de chaîne YouTube — l'oubli qui laissait des ronds gris
+    ]) {
       assert.ok(img.includes(hote), `${hote} manque : les vignettes resteraient vides`);
     }
     assert.ok(img.includes("'self'") && img.includes('data:'));
