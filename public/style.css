@@ -261,17 +261,49 @@ html,body{height:100%;overflow:hidden;}
 .sbq-n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .sbq-p{font-size:10px;opacity:.75;font-variant-numeric:tabular-nums;}
 
-.sb-theme{display:grid;grid-template-columns:1fr 1fr;gap:3px;background:rgba(0,0,0,.24);
-  border-radius:var(--r2);padding:3px;margin-top:var(--e3);}
-/* Cinq thèmes dans une grille de deux : le premier prend la ligne entière
-   plutôt que de laisser un trou en bas. C'est aussi le thème par défaut — il
-   se trouve donc mis en avant, ce qui tombe bien. */
-.sb-theme button:first-child{grid-column:1 / -1;}
-.sb-theme button{border:none;background:transparent;color:rgba(255,255,255,.66);
-  font-size:11px;padding:6px 4px;border-radius:var(--r1);cursor:pointer;font-family:inherit;
-  font-weight:var(--w-medium);transition:background .15s,color .15s;white-space:nowrap;}
+/* ── LE SÉLECTEUR DE THÈME ──────────────────────────────────────────────
+
+   IL Y A QUATRE THÈMES, ET LE CODE EN SUPPOSAIT CINQ. La règle
+   `button:first-child{grid-column:1/-1}` avait été écrite pour cinq entrées —
+   une en bandeau, puis deux rangées de deux. Un thème a disparu depuis, et la
+   grille s'est retrouvée avec un bandeau, une rangée pleine, puis une tuile
+   SEULE à gauche et un trou à droite. C'est exactement ce qu'on voyait.
+
+   Quatre entrées veulent une grille de deux sur deux, sans exception. Et tant
+   qu'à les refaire : un sélecteur de thème qui n'affiche que des mots demande
+   de se souvenir de ce que « EnR » ou « Cockpit » veulent dire. Chaque tuile
+   porte donc SA PALETTE — le fond et l'accent du thème, en biais. On choisit
+   alors une couleur, ce qui est le geste réel, au lieu de lire une étiquette. */
+.sb-theme{display:grid;grid-template-columns:1fr 1fr;gap:4px;
+  background:rgba(0,0,0,.24);border-radius:var(--r2);padding:4px;margin-top:var(--e3);}
+.sb-theme button{display:flex;align-items:center;gap:7px;
+  border:1px solid transparent;background:transparent;color:rgba(255,255,255,.66);
+  font-size:11px;padding:6px 7px;border-radius:var(--r1);cursor:pointer;
+  font-family:inherit;font-weight:var(--w-medium);white-space:nowrap;
+  transition:background .15s,color .15s,border-color .15s;}
+
+/* La pastille : le fond du thème et son accent, coupés en diagonale. Deux
+   couleurs suffisent à le reconnaître — c'est le contraste entre les deux qui
+   distingue un thème clair d'un sombre, avant même de lire le nom. */
+.sb-theme button::before{content:"";width:15px;height:15px;flex:0 0 auto;
+  border-radius:4px;border:1px solid rgba(255,255,255,.28);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18);}
+.sb-theme button[data-t="vivid"]::before{background:linear-gradient(135deg,#fafafa 50%,#3355d1 50%);}
+.sb-theme button[data-t="enr"]::before{background:linear-gradient(135deg,#f8faf8 50%,#0f7a52 50%);}
+.sb-theme button[data-t="dark"]::before{background:linear-gradient(135deg,#0b0c0f 50%,#7d93f5 50%);}
+.sb-theme button[data-t="cockpit"]::before{background:linear-gradient(135deg,#080b10 50%,#f0a020 50%);}
+
 .sb-theme button:hover{background:rgba(255,255,255,.09);color:#fff;}
-.sb-theme button.active{background:rgba(255,255,255,.94);color:#191934;font-weight:var(--w-semi);}
+
+/* L'ACTIF NE PASSE PLUS EN BLANC PLEIN. La pastille blanche mangeait la
+   couleur du thème qu'elle est censée montrer, et sur une tuile isolée elle
+   ressemblait à un bouton égaré plutôt qu'à une sélection. Un fond discret et
+   un liseré disent « celui-ci » sans effacer ce qu'on regarde. */
+.sb-theme button.active{background:rgba(255,255,255,.14);color:#fff;
+  font-weight:var(--w-semi);border-color:rgba(255,255,255,.35);}
+.sb-theme button.active::before{box-shadow:inset 0 1px 0 rgba(255,255,255,.18),
+  0 0 0 2px rgba(255,255,255,.25);}
+
 .sb-foot{font-size:10.5px;opacity:.45;margin-top:var(--e3);line-height:1.7;padding:0 var(--e2);}
 .sb-foot .kbd{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2);color:#fff;}
 /* La signature de l'auteur — discrète, mais présente : la paternité du site.
@@ -2973,3 +3005,286 @@ select:focus,.search:focus,input:focus,textarea:focus{
 .sp-liste li,.tw-liste li{transition:background .15s ease;}
 .sp-liste li>button:first-child,.tw-liste li>button:first-child{transition:transform .13s ease;}
 .sp-liste li:hover>button:first-child{transform:translateX(2px);}
+
+/* ═══════════════════════ LE COMPAGNON A UNE TÊTE ═══════════════════════
+
+   LE DÉFAUT QUE ÇA CORRIGE. Le seul signe qu'il travaillait était trois points
+   gris dans une bulle. Sur un appel de cinq à quinze secondes, ça ne dit ni
+   qu'il a reçu, ni qu'il lit, ni qu'il écrit : on relit sa propre phrase en se
+   demandant si le bouton a marché.
+
+   C'EST LE CSS QUI PORTE LES ÉTATS, pas le JavaScript. Celui-ci ne pose qu'un
+   `data-etat` sur la racine — un seul point de vérité, rien à désynchroniser,
+   et l'ajout d'un état se lit d'un bloc au lieu de se chercher dans des
+   `classList.toggle` éparpillés.
+
+   RIEN N'ANIME `fill` NI UNE GÉOMÉTRIE, ET C'EST UNE CONTRAINTE, PAS UN STYLE.
+   Cette tête tourne des heures durant, au coin de l'œil : une animation qui
+   repeint transforme un tableau de bord en radiateur sans que rien ne le
+   signale — l'interface devient juste un peu molle, partout. Le test
+   `test/style.test.js` refuse toute boucle qui sorte de `transform`,
+   `opacity`, `box-shadow`. D'où les deux astuces d'ici :
+
+     · les voyants d'antenne sont DEUX cercles superposés, un contour et un
+       plein ; c'est l'OPACITÉ du plein qui clignote, jamais sa couleur ;
+     · la bouche ne change pas de largeur, elle se DILATE — `scaleX` sur un
+       trait donne exactement le même résultat à l'écran.                    */
+
+.rb{position:relative;width:var(--rb-taille,54px);flex:0 0 auto;line-height:0;
+  --rb-peau:var(--panel);
+  --rb-trait:var(--line-fort);
+  --rb-ecran:#0f1620;
+  --rb-lueur:var(--accent);}
+[data-theme="dark"] .rb,[data-theme="cockpit"] .rb{--rb-peau:var(--bg2);}
+.rb-svg{width:100%;height:auto;display:block;overflow:visible;}
+
+.rb-boitier,.rb-oreille{fill:var(--rb-peau);stroke:var(--rb-trait);stroke-width:2.5;}
+.rb-visiere{fill:var(--rb-ecran);}
+.rb-tige{stroke:var(--rb-trait);stroke-width:2.5;stroke-linecap:round;fill:none;}
+.rb-boule{fill:var(--rb-peau);stroke:var(--rb-trait);stroke-width:2.5;}
+.rb-plein{opacity:0;}
+.rb-plein-d{fill:var(--rb-lueur);}
+.rb-plein-g{fill:#ffd166;}
+.rb-iris{fill:var(--rb-lueur);}
+.rb-reflet{fill:#fff;opacity:.85;}
+.rb-bouche{fill:var(--rb-lueur);opacity:.9;transform-origin:60px 90px;}
+.rb-scan{fill:var(--rb-lueur);opacity:0;}
+.rb-eclairs path{stroke:#ffd166;stroke-width:2;stroke-linecap:round;fill:none;opacity:0;}
+.rb-z{fill:var(--muted);font-size:13px;font-weight:700;font-family:var(--font);opacity:0;}
+.rb-zzz{pointer-events:none;}
+
+/* La paupière est un TRAIT posé sur l'œil : fermer, c'est la montrer et
+   masquer l'iris. Deux formes, pas d'image intermédiaire — et le clignement
+   devient une simple bascule d'opacité. */
+.rb-paupiere{fill:var(--rb-lueur);opacity:0;}
+
+/* ── Le socle commun ───────────────────────────────────────────────────
+   Une respiration très lente. Sans elle, la tête est une icône ; avec, elle
+   est là. Deux pixels d'amplitude suffisent — au-delà, ça flotte. */
+.rb-tete,.rb-antennes{transform-origin:60px 64px;
+  animation:rbRespire 4.5s ease-in-out infinite;}
+@keyframes rbRespire{50%{transform:translateY(-2px);}}
+
+/* Le clignement, permanent sauf quand les yeux servent à autre chose. */
+.rb-paupiere{animation:rbFerme 6.2s infinite;}
+.rb-iris,.rb-reflet{animation:rbOuvre 6.2s infinite;}
+.rb-oeil-d .rb-paupiere,.rb-oeil-d .rb-iris,.rb-oeil-d .rb-reflet{animation-delay:.08s;}
+@keyframes rbFerme{0%,95%,100%{opacity:0;}96%,99%{opacity:1;}}
+@keyframes rbOuvre{0%,95%,100%{opacity:1;}96%,99%{opacity:0;}}
+
+/* Le voyant de l'antenne droite : lent au repos, il s'accélère au travail.
+   C'est le seul élément dont la VITESSE porte l'information. */
+.rb-plein-d{animation:rbVeille 3s ease-in-out infinite;}
+@keyframes rbVeille{0%,100%{opacity:0;}50%{opacity:1;}}
+
+/* ── ÉCOUTE ── il se tourne vers toi pendant que tu tapes. */
+.rb[data-etat="ecoute"] .rb-yeux{transform:translateX(2px) scale(1.06);
+  transform-origin:60px 60px;transition:transform .3s var(--ressort);}
+.rb[data-etat="ecoute"] .rb-plein-d{animation-duration:1.4s;}
+
+/* ── LIT ── les yeux balaient, et une bande traverse la visière.
+   Le balayage est ce qui distingue « il a reçu » de « il réfléchit » : sans
+   lui, lire et écrire se ressemblent trop. */
+.rb[data-etat="lit"] .rb-yeux{animation:rbBalaye 1.6s ease-in-out infinite;}
+@keyframes rbBalaye{0%,100%{transform:translateX(-5px);}50%{transform:translateX(5px);}}
+.rb[data-etat="lit"] .rb-scan{animation:rbScan 1.6s linear infinite;}
+@keyframes rbScan{0%{opacity:0;transform:translateY(0);}
+  15%{opacity:.22;}85%{opacity:.22;}100%{opacity:0;transform:translateY(32px);}}
+.rb[data-etat="lit"] .rb-plein-d{animation-duration:.8s;}
+
+/* ── ÉCRIT ── la bouche crépite, les antennes lâchent des étincelles.
+   C'est l'état le plus « occupé » : il doit se voir depuis l'autre bout de la
+   page, puisque c'est celui qui dure. */
+.rb[data-etat="ecrit"] .rb-bouche{animation:rbCrepite .42s steps(1) infinite;}
+@keyframes rbCrepite{0%{transform:scaleX(.4);}25%{transform:scaleX(1);}
+  50%{transform:scaleX(.62);}75%{transform:scaleX(1.3);}}
+.rb[data-etat="ecrit"] .rb-eclairs path{animation:rbEclair 1.1s steps(1) infinite;}
+@keyframes rbEclair{0%{opacity:0;}72%{opacity:0;}76%{opacity:.95;}
+  84%{opacity:.95;}88%{opacity:0;}100%{opacity:0;}}
+.rb[data-etat="ecrit"] .rb-plein-g{animation:rbChauffe 1.1s ease-in-out infinite;}
+@keyframes rbChauffe{0%,100%{opacity:0;}50%{opacity:1;}}
+.rb[data-etat="ecrit"] .rb-plein-d{animation-duration:.5s;}
+.rb[data-etat="ecrit"] .rb-tete{animation:rbRespire 1.6s ease-in-out infinite;}
+
+/* ── PARLE ── la bouche articule, plus ample qu'en écrivant.
+   La différence d'AMPLITUDE est volontaire : écrire crépite, parler articule. */
+.rb[data-etat="parle"] .rb-bouche{
+  animation:rbArticule .28s ease-in-out infinite alternate;}
+@keyframes rbArticule{0%{transform:scaleY(1);}100%{transform:scaleY(3.2);}}
+.rb[data-etat="parle"] .rb-plein-d{animation-duration:.6s;}
+
+/* ── DORT ── yeux clos, Zzz, et tout ralentit.
+   Le sommeil n'est pas qu'un décor : il dit « personne n'a rien dit depuis un
+   moment », ce qui est exactement ce qu'on veut savoir en revenant. */
+.rb[data-etat="dort"] .rb-paupiere{opacity:1;animation:none;}
+.rb[data-etat="dort"] .rb-iris,.rb[data-etat="dort"] .rb-reflet{opacity:0;animation:none;}
+.rb[data-etat="dort"] .rb-bouche{transform:scaleX(.5);opacity:.4;}
+.rb[data-etat="dort"] .rb-plein-d{animation:none;opacity:0;}
+.rb[data-etat="dort"] .rb-tete,.rb[data-etat="dort"] .rb-antennes{
+  animation:rbRonfle 5.5s ease-in-out infinite;}
+@keyframes rbRonfle{50%{transform:translateY(-3px) rotate(-2deg);}}
+.rb[data-etat="dort"] .rb-z{animation:rbZ 3.4s ease-out infinite;}
+.rb[data-etat="dort"] .rb-z2{animation-delay:.5s;}
+.rb[data-etat="dort"] .rb-z3{animation-delay:1s;}
+@keyframes rbZ{0%{opacity:0;transform:translate(0,4px) scale(.7);}
+  25%{opacity:.9;}70%{opacity:0;transform:translate(6px,-12px) scale(1.1);}
+  100%{opacity:0;}}
+
+/* ── LES TICS ── rares, courts, et jamais pendant qu'il travaille.
+   Posés une seconde par le JavaScript puis retirés : c'est ce qui permet de
+   les tirer au hasard sans multiplier les états. */
+.rb.tic-clin .rb-oeil-g .rb-paupiere{animation:rbClinFerme .5s;}
+.rb.tic-clin .rb-oeil-g .rb-iris,.rb.tic-clin .rb-oeil-g .rb-reflet{animation:rbClinOuvre .5s;}
+@keyframes rbClinFerme{0%,100%{opacity:0;}30%,70%{opacity:1;}}
+@keyframes rbClinOuvre{0%,100%{opacity:1;}30%,70%{opacity:0;}}
+
+.rb.tic-bipbop .rb-bouche{animation:rbBip .9s steps(1);}
+@keyframes rbBip{0%,100%{transform:scaleX(1);}20%{transform:scaleX(.4);}
+  40%{transform:scaleX(1.4);}60%{transform:scaleX(.5);}80%{transform:scaleX(1.15);}}
+.rb.tic-bipbop .rb-plein-d{animation:rbVeille .3s ease-in-out 3;}
+
+.rb.tic-etincelle .rb-eclairs path{animation:rbEclair .8s steps(1) 1;}
+.rb.tic-etincelle .rb-plein-g{animation:rbChauffe .8s ease-in-out 1;}
+
+.rb.tic-penche .rb-tete,.rb.tic-penche .rb-antennes{animation:rbPenche 1.2s ease-in-out;}
+@keyframes rbPenche{40%,60%{transform:rotate(-6deg);}}
+
+.rb.tic-regarde .rb-yeux{animation:rbRegarde 1.3s ease-in-out;}
+@keyframes rbRegarde{25%{transform:translateX(-5px);}70%{transform:translateX(5px);}}
+
+/* La bulle : deux ou trois mots au-dessus de la tête, pour dire ce qu'il fait
+   quand ce n'est pas évident. Elle ne s'affiche que si le JS lui donne un
+   texte — un libellé permanent redeviendrait du bruit. */
+.rb-bulle{position:absolute;left:50%;bottom:calc(100% - 2px);transform:translateX(-50%);
+  white-space:nowrap;font-size:10px;font-weight:var(--w-semi);line-height:1;
+  padding:3px 8px;border-radius:99px;background:var(--ink);color:var(--panel);
+  box-shadow:var(--sh3);animation:fadeUp .2s;pointer-events:none;z-index:2;}
+
+/* Le bouton de voix, à côté de la tête. */
+.rb-voix{width:26px;height:26px;border-radius:50%;border:1px solid var(--line-fort);
+  background:var(--panel);color:var(--muted);font-size:12px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;flex:0 0 auto;
+  transition:background .13s,color .13s,border-color .13s;}
+.rb-voix:hover{background:var(--bg2);color:var(--ink);}
+.rb-voix.allume{color:var(--g1);border-color:var(--g1);background:var(--g1b);}
+
+/* ═══════════════════════ LA CONVERSATION ═══════════════════════
+
+   CE QUI A CHANGÉ, ET POURQUOI. L'ancienne version était une liste de bulles
+   sans en-tête, sans horodatage, sans rien à faire d'un message une fois lu, et
+   dont le seul signe d'activité était trois points gris. Quatre manques, tous
+   du même ordre : on ne savait pas où l'on en était.
+
+   La colonne de gauche porte donc désormais un INTERLOCUTEUR — une tête, un
+   nom, une ligne d'état — et chaque message ce qu'on veut en faire.          */
+
+.ch-panneau{display:flex;flex-direction:column;position:relative;}
+.ch-panneau.ch-survol{outline:2px dashed var(--accent);outline-offset:-6px;
+  background:var(--accent-bg);}
+
+.ch-tete{display:flex;align-items:center;gap:var(--e3);margin-bottom:var(--e3);
+  padding-bottom:var(--e3);border-bottom:1px solid var(--line);}
+.ch-robot{--rb-taille:46px;}
+.ch-qui{flex:1;min-width:0;}
+.ch-nom{font-size:13px;font-weight:var(--w-semi);letter-spacing:-.1px;}
+/* La ligne d'état dit ce qu'il fait EN MOTS, en plus de ce que la tête montre.
+   Deux canaux pour la même information : l'un se lit du coin de l'œil, l'autre
+   se lit vraiment — et le second reste accessible aux lecteurs d'écran. */
+.ch-etat{font-size:11.5px;color:var(--muted);margin-top:1px;}
+
+.ch-fil{display:flex;flex-direction:column;gap:var(--e3);
+  min-height:240px;max-height:48vh;overflow-y:auto;padding-right:var(--e2);}
+.ch-accueil{font-size:13px;color:var(--muted);line-height:1.6;}
+.ch-accueil p{margin:0 0 var(--e2);}
+.ch-note{font-size:12px;color:var(--faint);line-height:1.55;}
+
+.ch-tour{display:flex;flex-direction:column;max-width:86%;}
+.ch-moi{align-self:flex-end;align-items:flex-end;}
+.ch-lui{align-self:flex-start;align-items:flex-start;}
+.ch-bulle{padding:var(--e2) var(--e3);border-radius:var(--r4);font-size:13.5px;
+  line-height:1.55;overflow-wrap:anywhere;}
+.ch-moi .ch-bulle{background:var(--accent-bg);border:1px solid var(--accent);
+  color:var(--accent-ink);border-bottom-right-radius:var(--r1);}
+.ch-lui .ch-bulle{background:var(--bg2);border:1px solid var(--line);
+  border-bottom-left-radius:var(--r1);}
+.ch-texte p:first-child{margin-top:0;}
+.ch-texte p:last-child{margin-bottom:0;}
+.ch-texte ul,.ch-texte ol{margin:var(--e2) 0;padding-left:var(--e5);}
+
+/* Les actions d'un message n'apparaissent qu'au survol : quarante boutons
+   « copier » en permanence transforment une conversation en tableau de bord. */
+.ch-sous{display:flex;align-items:center;gap:var(--e1);margin-top:2px;
+  opacity:0;transition:opacity .14s;}
+.ch-tour:hover .ch-sous,.ch-sous:focus-within{opacity:1;}
+.ch-heure{font-size:10px;color:var(--faint);font-variant-numeric:tabular-nums;
+  padding:0 var(--e1);}
+.ch-mini{font-family:inherit;font-size:11px;line-height:1;color:var(--faint);
+  background:transparent;border:0;padding:2px 5px;border-radius:var(--r1);cursor:pointer;}
+.ch-mini:hover{background:var(--bg2);color:var(--ink);}
+
+/* Le retour en bas ne s'affiche que si on est remonté. Permanent, il masque la
+   dernière ligne de la conversation — c'est-à-dire celle qu'on veut lire. */
+.ch-bas{position:absolute;right:var(--e5);bottom:96px;width:30px;height:30px;
+  border-radius:50%;border:1px solid var(--line-fort);background:var(--panel);
+  color:var(--muted);cursor:pointer;box-shadow:var(--sh3);z-index:2;
+  display:flex;align-items:center;justify-content:center;font-size:14px;}
+.ch-bas:hover{background:var(--bg2);color:var(--ink);}
+
+/* ── Les pièces jointes ────────────────────────────────────────────────
+   Une image se montre, un fichier se nomme. Afficher un PDF en vignette grise
+   ne dit rien ; son NOM dit tout — c'est ce qu'on relit pour savoir de quoi
+   on parlait. */
+.ch-pieces{display:flex;flex-wrap:wrap;gap:var(--e2);margin-bottom:var(--e2);}
+.ch-piece-img{max-width:220px;max-height:180px;border-radius:var(--r2);
+  border:1px solid var(--line);display:block;cursor:zoom-in;}
+.ch-piece{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r2);
+  padding:4px var(--e2);max-width:100%;}
+.ch-piece-ic{font-size:13px;line-height:1;flex:0 0 auto;}
+.ch-piece-nom{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ch-piece-poids{color:var(--faint);font-size:10.5px;flex:0 0 auto;}
+
+.ch-attente{display:flex;flex-wrap:wrap;gap:var(--e2);margin:var(--e3) 0 0;}
+.ch-jointe{position:relative;display:inline-flex;}
+.ch-jointe img{width:52px;height:52px;object-fit:cover;border-radius:var(--r2);
+  border:1px solid var(--line-fort);display:block;}
+.ch-jointe-fic{align-items:center;gap:6px;font-size:11.5px;padding:6px var(--e3) 6px var(--e2);
+  background:var(--bg2);border:1px solid var(--line-fort);border-radius:var(--r2);
+  max-width:220px;}
+.ch-jointe button{position:absolute;top:-6px;right:-6px;width:18px;height:18px;
+  border-radius:50%;border:1px solid var(--line-fort);background:var(--panel);
+  color:var(--ink);font-size:12px;line-height:1;cursor:pointer;padding:0;
+  display:flex;align-items:center;justify-content:center;box-shadow:var(--sh2);}
+.ch-jointe button:hover{background:var(--hot);color:#fff;border-color:var(--hot);}
+
+/* ── La barre de saisie ─────────────────────────────────────────────── */
+.ch-saisie{display:flex;gap:var(--e2);align-items:flex-end;margin-top:var(--e3);}
+.ch-saisie textarea{flex:1;font-family:inherit;font-size:13.5px;color:var(--ink);
+  background:var(--panel);border:1px solid var(--line-fort);border-radius:var(--r3);
+  padding:var(--e2) var(--e3);resize:none;line-height:1.5;max-height:200px;
+  overflow-y:auto;}
+.ch-trombone{width:34px;height:34px;flex:0 0 auto;border-radius:var(--r2);
+  border:1px solid var(--line-fort);background:var(--panel);font-size:15px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .13s,border-color .13s;}
+.ch-trombone:hover{background:var(--bg2);border-color:var(--accent);}
+
+@media(max-width:980px){.ch-fil{max-height:56vh;}.ch-tour{max-width:94%;}}
+
+/* ═══════════════════ SPOTIFY — deux retouches ═══════════════════ */
+
+/* Des boutons ÉTIQUETÉS plutôt que deux glyphes nus. « ▶ » et « ⤨ » côte à
+   côte au bord d'une barre ressemblaient à une décoration, au point qu'il
+   fallait une phrase en dessous pour expliquer lequel faisait quoi — le signe
+   qu'aucun des deux ne se lisait. */
+.btn-mini{font-size:11px;padding:3px 10px;}
+.sp-fil-actions{display:flex;gap:var(--e2);margin-left:auto;flex:0 0 auto;}
+
+/* La playlist qu'on ne peut pas ouvrir : un état, pas un paragraphe d'excuses.
+   Le titre dit ce qui se passe, la note pourquoi, et les boutons ce qu'on peut
+   quand même faire — dans cet ordre. */
+.sp-restreinte{text-align:center;padding:var(--e6) var(--e4);}
+.sp-restreinte-ic{font-size:30px;color:var(--faint);line-height:1;margin-bottom:var(--e2);}
+.sp-restreinte-t{font-size:13.5px;font-weight:var(--w-semi);margin-bottom:var(--e2);}
+.sp-restreinte .sp-note{max-width:34em;margin:0 auto var(--e4);}
+.sp-restreinte-actions{display:flex;gap:var(--e2);justify-content:center;flex-wrap:wrap;}

@@ -26,7 +26,7 @@ import { API } from './api.js';
 import { echapper } from './format.js';
 import {
   demarrerLecteurLocal, arreterLecteurLocal, appareilLocal,
-  volumeLocal, commandeLocale, positionLocale, resumeEtatSdk,
+  volumeLocal, commandeLocale, positionLocale, resumeEtatSdk, deverrouillerSon,
 } from './spotify-sdk.js';
 
 let etat = { configure: false, connecte: false, lecture: null, lecteur: null };
@@ -275,11 +275,12 @@ function rendreOuvert() {
       ${ouvert.pochette
     ? `<img class="sp-fil-pochette" src="${echapper(ouvert.pochette)}" alt="">` : ''}
       <span class="sp-fil-nom">${echapper(ouvert.nom || 'Contenu')}</span>
-      ${ouvert.contexte ? `<button class="sp-action" data-uri="${echapper(ouvert.contexte)}"
-        title="Tout lancer">▶</button>
-        <button class="sp-action" data-uri="${echapper(ouvert.contexte)}"
-        data-pistes="${ouvert.pistes.length}" data-melanger="1"
-        title="Lancer en aléatoire">⤨</button>` : ''}
+      ${ouvert.contexte ? `<div class="sp-fil-actions">
+        <button class="btn btn-primary btn-mini" data-uri="${echapper(ouvert.contexte)}"
+          >Lancer</button>
+        <button class="btn btn-mini" data-uri="${echapper(ouvert.contexte)}"
+          data-pistes="${ouvert.pistes.length}" data-melanger="1">Aléatoire</button>
+      </div>` : ''}
     </div>
     ${ouvert.pistes.length
     ? rendreListe(ouvert.pistes, { enfiler: true, contexte: ouvert.contexte })
@@ -299,12 +300,18 @@ function rendreOuvert() {
  * aurait l'air d'un chargement qui n'aboutit jamais.
  */
 function rendreRestreinte() {
-  return `<div class="sp-vide">
-    <p>Spotify n'ouvre pas le détail des playlists qui ne t'appartiennent pas —
-      c'est une limite de son API, pas de ton abonnement.</p>
-    <p class="sp-note"><strong>La lecture, elle, marche</strong> : le bouton ▶
-      ci-dessus la lance, et ⤨ la lance en aléatoire. Tes propres playlists
-      s'ouvrent normalement.</p>
+  return `<div class="sp-restreinte">
+    <div class="sp-restreinte-ic" aria-hidden="true">♪</div>
+    <div class="sp-restreinte-t">Cette playlist ne s'ouvre pas ici</div>
+    <p class="sp-note">Spotify réserve le détail des playlists à leur
+      propriétaire — c'est une limite de son API, pas de ton abonnement. Les
+      tiennes s'ouvrent normalement.</p>
+    <div class="sp-restreinte-actions">
+      <button class="btn btn-primary" data-uri="${echapper(ouvert.contexte ?? '')}"
+        >Lancer la playlist</button>
+      <button class="btn" data-uri="${echapper(ouvert.contexte ?? '')}"
+        data-pistes="0" data-melanger="1">En aléatoire</button>
+    </div>
   </div>`;
 }
 
@@ -723,6 +730,14 @@ export function installerSpotify(toast) {
    */
   const commander = async (action, options = {}) => {
     figer();
+    // LE SON SE DÉVERROUILLE AU PREMIER CLIC, ET PAS AVANT.
+    //
+    // Les navigateurs refusent qu'une page émette du son sans geste de
+    // l'utilisateur. Le lecteur intégré s'inscrit pourtant très bien sans ce
+    // déverrouillage : il apparaît dans la liste des appareils, il accepte
+    // les ordres, l'API répond — et rien ne sort. C'est ici, dans un
+    // gestionnaire de clic, que l'appel a le droit d'aboutir.
+    if (local.pret) await deverrouillerSon();
     try {
       const court = local.pret && await raccourci(action, options);
       if (!court) await API.spotifyCommande(action, options);
@@ -867,7 +882,21 @@ export function installerSpotify(toast) {
       return commander('repetition',
         { valeur: REPETITION[etat.lecture?.repetition ?? 'off'] ?? 'context' });
     }
-    if (['lire', 'pause', 'suivant', 'precedent'].includes(quoi)) return commander(quoi);
+    // LE RETOUR ARRIÈRE REVIENT D'ABORD AU DÉBUT DU MORCEAU.
+    //
+    // C'est le geste de tous les lecteurs depuis les platines CD : un appui
+    // recommence, deux appuis reculent. Sans ça, cliquer « précédent » sur le
+    // premier titre d'une playlist ne faisait RIEN — Spotify n'a pas de piste
+    // d'avant à donner, et le bouton paraissait cassé.
+    //
+    // Trois secondes est le seuil habituel : en deçà, on voulait vraiment la
+    // piste précédente ; au-delà, on veut réécouter celle-ci.
+    if (quoi === 'precedent') {
+      const l = etat.lecture;
+      const debut = (l?.position ?? 0) > 3000;
+      return commander(debut ? 'position' : 'precedent', debut ? { valeur: 0 } : {});
+    }
+    if (['lire', 'pause', 'suivant'].includes(quoi)) return commander(quoi);
   });
 
   // Tirer un curseur produit un `input` à chaque pixel : n'envoyer la commande

@@ -44,3 +44,7 @@ dist/
 docs/HANDOFF.md
 docs/REPRISE.md
 docs/superpowers/
+
+# Instantanés de la base pour aperçu visuel — données réelles, jamais publiées
+apercu-*.db
+apercu-*.db-*

@@ -30,30 +30,18 @@
 const CACHE_MS = 10 * 60 * 1000;
 const cache = new Map();
 
-// Entités nommées rencontrées dans les flux d'emploi français. La liste HTML
-// complète en compte plus de 2000 : les traiter toutes demanderait une
-// dépendance, pour un gain nul sur ce corpus.
-const ENTITES = {
-  nbsp: ' ', eacute: 'é', egrave: 'è', ecirc: 'ê', euml: 'ë',
-  agrave: 'à', acirc: 'â', ccedil: 'ç', ugrave: 'ù', ucirc: 'û', uuml: 'ü',
-  ocirc: 'ô', ouml: 'ö', icirc: 'î', iuml: 'ï', ntilde: 'ñ',
-  laquo: '«', raquo: '»', hellip: '…', rsquo: '’', lsquo: '‘',
-  ldquo: '“', rdquo: '”', mdash: '—', ndash: '–', deg: '°', euro: '€',
-};
+/**
+ * Le décodeur d'entités a DÉMÉNAGÉ dans `src/entites.js`.
+ *
+ * Il n'avait rien de propre aux flux : l'API de YouTube renvoie elle aussi
+ * ses titres encodés, et une seconde copie aurait fini par diverger.
+ *
+ * On l'IMPORTE et on le réexporte : une réexportation seule ne crée pas la
+ * liaison locale, et ce fichier s'en sert lui-même à six endroits.
+ */
+import { decoder } from '../entites.js';
 
-/** Décode les entités XML et HTML les plus courantes. */
-export function decoder(texte) {
-  return String(texte ?? '')
-    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
-    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"').replace(/&apos;|&#39;/g, "'")
-    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
-    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
-    .replace(/&([a-z]+);/gi, (tout, nom) => ENTITES[nom.toLowerCase()] ?? tout)
-    .replace(/&amp;/g, '&')   // en dernier, sinon « &amp;lt; » se décode deux fois
-    .trim();
-}
-
+export { decoder };
 /** Retire le balisage HTML d'une description de flux. */
 export function sansHtml(texte) {
   return decoder(texte)

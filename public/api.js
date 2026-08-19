@@ -75,10 +75,13 @@ export const API = {
   // Préparation d'entretien. L'application menait jusqu'à la candidature puis
   // s'arrêtait — or c'est l'entretien qui décide.
   // Discuter. L'historique part du navigateur : une conversation informelle
-  // n'a pas à laisser de trace dans la base.
-  // `image` (facultatif) : { mimeType, data } en base64 — une capture jointe
-  // au dernier message, que le compagnon sait regarder.
-  chat:              (messages, image) => appeler('/api/chat', { method: 'POST', body: { messages, image } }),
+  // n'a pas a laisser de trace dans la base.
+  //
+  // `pieces` : les fichiers joints a CE message. Le serveur y ajoute ceux des
+  // derniers tours — sans quoi une question posee au tour suivant recevait
+  // « je n'ai pas acces aux images ». Voir `src/pieces.js`.
+  chat:              (messages, pieces) =>
+    appeler('/api/chat', { method: 'POST', body: { messages, pieces } }),
 
   // Spotify, par le flux PKCE. Tout passe par LE SERVEUR : les jetons ne
   // descendent jamais dans la page, et la politique de sécurité reste close.

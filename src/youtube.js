@@ -27,6 +27,8 @@
 // consentement, aucun compte à lier, aucune donnée personnelle. La clé sert
 // uniquement à compter les appels.
 
+import { decoderEntites } from './entites.js';
+
 const BASE = 'https://www.googleapis.com/youtube/v3';
 
 /**
@@ -129,8 +131,8 @@ export async function chaine({ cle, id, combien = 24 }, recuperer = fetch) {
   const s = c.snippet ?? {};
   const fiche = {
     id,
-    nom: s.title ?? '',
-    description: s.description ?? '',
+    nom: decoderEntites(s.title),
+    description: decoderEntites(s.description),
     avatar: s.thumbnails?.medium?.url ?? s.thumbnails?.default?.url ?? null,
     abonnes: c.statistics?.hiddenSubscriberCount
       ? null
@@ -176,8 +178,8 @@ function resume(items, identifiant) {
     const s = v.snippet ?? {};
     return {
       id,
-      titre: s.title ?? '',
-      chaine: s.channelTitle ?? '',
+      titre: decoderEntites(s.title),
+      chaine: decoderEntites(s.channelTitle),
       // L'identifiant de la chaîne, pour pouvoir OUVRIR sa page depuis une
       // vignette. Le nom seul ne suffit pas : deux chaînes peuvent le
       // partager, et l'API veut l'identifiant, jamais le libellé.

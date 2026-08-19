@@ -128,10 +128,36 @@ export async function demarrerLecteurLocal({ surEtat, surErreur, nom = 'Job Cock
   });
 }
 
+
+/**
+ * DÉVERROUILLE LE SON, ET C'EST CE QUI MANQUAIT POUR JOUER SEUL.
+ *
+ * Les navigateurs refusent qu'une page émette du son sans qu'on ait cliqué
+ * dedans. Le SDK de Spotify s'inscrit très bien comme appareil sans ce
+ * déverrouillage — il apparaît dans la liste, il accepte les ordres, l'API
+ * répond 204 — mais **aucun son ne sort**. C'est la panne la plus déroutante
+ * de cette intégration : tout dit que ça marche, et on n'entend rien.
+ *
+ * `activateElement` existe pour ça : appelée DANS un gestionnaire de clic,
+ * elle lance un extrait muet qui déverrouille la balise audio pour de bon.
+ * Une seule fois par session suffit.
+ */
+let deverrouille = false;
+
+export async function deverrouillerSon() {
+  if (deverrouille || !lecteur?.activateElement) return deverrouille;
+  try {
+    await lecteur.activateElement();
+    deverrouille = true;
+  } catch { /* le geste n'était pas assez direct : on retentera au prochain clic */ }
+  return deverrouille;
+}
+
 export function arreterLecteurLocal() {
   lecteur?.disconnect();
   lecteur = null;
   appareil = null;
+  deverrouille = false;
 }
 
 export const appareilLocal = () => appareil;

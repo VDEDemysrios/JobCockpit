@@ -17,7 +17,8 @@ import {
   TYPES_NOTIONS, QUESTIONS_PAR_SEANCE,
 } from './entretien.js';
 import { demander, demanderAncre, estConfigure as geminiPret, extraireJson } from './gemini.js';
-import { promptChat, resumeEtat, validerImages } from './chat.js';
+import { promptChat, resumeEtat } from './chat.js';
+import { preparerPieces, piecesRecentes, decrirePieces } from './pieces.js';
 import {
   fabriquerDefi, urlAutorisation, echangerCode, rafraichir, estExpire,
   appeler as appelerSpotify, resumeLecture, corpsDeLecture, resumeAppareils,
@@ -1552,23 +1553,32 @@ export function creerRoutes({ db, collecter, sources, profil,
 
     const contexte = resumeEtat({ offres, candidatures, entretiens });
 
-    // Une image jointe au dernier message — une capture d'écran, en général.
-    // On la valide sommairement (type image, taille bornée) : un `data:` mal
-    // formé ou énorme ne doit pas partir chez Gemini ni saturer la mémoire.
-    const images = validerImages(req.body?.image);
+    // LES PIÈCES DU MESSAGE, ET CELLES DES TOURS RÉCENTS.
+    //
+    // Ne renvoyer que celles du tour courant était le défaut le plus visible
+    // du chat : on joignait une capture, on posait sa question au tour
+    // suivant, et le modèle répondait « je n'ai pas accès aux images ». Il
+    // disait vrai — on ne lui avait rien donné. `piecesRecentes` rouvre une
+    // fenêtre bornée sur les derniers tours ; voir `src/pieces.js`.
+    const jointes = Array.isArray(req.body?.pieces) ? req.body.pieces : [];
+    const rappelees = piecesRecentes(messages.slice(0, -1));
+    const { inline, textes, refus } = await preparerPieces([...rappelees, ...jointes]);
 
     let texte;
     try {
       texte = await demander(promptChat(messages, contexte, {
         candidat: (profil.candidat?.nom ?? '').split(' ')[0],
-        avecImage: images.length > 0,
-      }), images);
+        pieces: decrirePieces(inline, textes),
+        documents: textes,
+      }), inline);
     } catch (erreur) {
       return res.status(502).json({ ok: false, error: `Gemini : ${erreur.message}` });
     }
     noterAppel(db, CHAT);
 
-    res.json({ ok: true, reponse: String(texte).trim() });
+    res.json({ ok: true, reponse: String(texte).trim(),
+
+      refus: refus.length ? refus : undefined });
   });
 
   /**

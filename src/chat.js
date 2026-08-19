@@ -21,6 +21,8 @@
 // ait à le lui dire, jamais assez pour lui faire réciter la base.
 
 /** Longueur d'historique transmise. Au-delà, on paie des jetons pour du vieux. */
+const NL = '\n';
+
 export const TOURS_MAX = 24;
 
 /**
@@ -60,40 +62,46 @@ export function resumeEtat({ offres = [], candidatures = 0, entretiens = [] } = 
  * conversation, juste une suite de réponses.
  */
 /**
- * Valide l'image jointe à un message. Rend un tableau (0 ou 1 image) prêt pour
- * Gemini. Une image mal formée ou trop lourde n'est PAS renvoyée en erreur :
- * on la laisse tomber et la conversation continue en texte, plutôt que de
- * refuser le message tout entier.
+ * Le prompt du compagnon.
+ *
+ * @param {object} [o]
+ * @param {string} [o.candidat]   son prénom, pour qu'il ne parle pas à « LUI »
+ * @param {string} [o.pieces]     ce qu'il a sous les yeux, en clair : « une image »
+ * @param {Array}  [o.documents]  le texte extrait des documents joints
  */
-const TYPES_IMAGE = /^image\/(png|jpe?g|webp|gif)$/i;
-const MAX_BASE64 = 8_000_000; // ~6 Mo binaire : au-delà, on refuse d'envoyer.
-
-export function validerImages(image) {
-  if (!image || typeof image !== 'object') return [];
-  const { mimeType, data } = image;
-  if (typeof mimeType !== 'string' || !TYPES_IMAGE.test(mimeType)) return [];
-  if (typeof data !== 'string' || data.length === 0 || data.length > MAX_BASE64) return [];
-  // Une chaîne base64 n'a ni espace ni `data:` : on refuse ce qui n'en est pas.
-  if (/[^A-Za-z0-9+/=]/.test(data)) return [];
-  return [{ mimeType, data }];
-}
-
-export function promptChat(messages, contexte, { candidat, avecImage } = {}) {
+export function promptChat(messages, contexte, { candidat, pieces, documents } = {}) {
   const fil = (messages ?? []).slice(-TOURS_MAX)
     .map(m => (m.role === 'moi' ? `${candidat || 'LUI'} : ${m.texte}` : `TOI : ${m.texte}`))
     .join('\n\n');
-  const noteImage = avecImage
-    ? '\n\n# UNE IMAGE EST JOINTE\nRegarde-la et réponds à son sujet — c\'est souvent '
-      + 'une capture d\'écran (une offre, un mail, autre chose). Décris ce qui compte, '
-      + 'pas pixel par pixel.'
+  // CE QU'IL A SOUS LES YEUX. Sans cette annonce, le modele recoit bien les
+  // donnees mais ne sait pas qu'on lui parle d'ELLES : il decrit poliment une
+  // capture au lieu de repondre a la question posee dessus.
+  const notePieces = pieces
+    ? `
+
+# TU AS SOUS LES YEUX : ${pieces.toUpperCase()}
+Ce sont des pieces que ton interlocuteur t'a envoyees — souvent une capture
+d'ecran, une annonce, un document. Regarde-les et reponds a SON propos, pas
+en les decrivant ligne par ligne.
+
+Elles peuvent venir d'un tour PRECEDENT : s'il dit « et la date ? » sans rien
+joindre, c'est de la derniere piece qu'il parle. Ne reponds jamais que tu n'y
+as pas acces — tu les as.`
     : '';
 
+  // Le texte extrait des documents de bureau. Word et consorts ne sont pas
+  // lus nativement par le modèle : ce sont des archives ZIP. On les convertit
+  // côté serveur, et on le dit — la mise en page, elle, est perdue.
+  const noteDocuments = documents?.length
+    ? NL + NL + '# LE TEXTE DES DOCUMENTS JOINTS' + NL
+      + documents.map(d => '--- ' + d.nom + ' ---' + NL + d.contenu).join(NL + NL)
+    : '';
   return `Tu discutes avec ${candidat || 'quelqu\'un'}, qui cherche un emploi et
 utilise Job Cockpit — un tableau de bord qui collecte des offres, les classe,
 les analyse au regard de son CV et rédige des lettres.
 
 # CE QUE TU SAIS DE SA SITUATION
-${contexte || '(rien de particulier)'}${noteImage}
+${contexte || '(rien de particulier)'}${notePieces}${noteDocuments}
 
 # LE TON
 Tu es un interlocuteur, pas un assistant. Concrètement :
