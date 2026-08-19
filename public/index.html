@@ -387,12 +387,24 @@
         <h3><span data-ic="eclair" data-ic-taille="14"></span> Comportement</h3>
         <div class="opt-row">
           <div><div class="t">Relance automatique</div><div class="d">Nombre de jours après l'envoi avant de proposer une relance.</div></div>
-          <input type="number" class="opt-num" id="optRelance" aria-label="Jours avant la relance proposée" min="1" max="60" value="7">
+          <span class="num">
+            <button type="button" class="num-pas" data-pas="-1" data-cible="optRelance"
+              aria-label="Diminuer" tabindex="-1">−</button>
+            <input type="number" class="opt-num" id="optRelance" aria-label="Jours avant la relance proposée" min="1" max="60" value="7">
+            <button type="button" class="num-pas" data-pas="1" data-cible="optRelance"
+              aria-label="Augmenter" tabindex="-1">+</button>
+          </span>
         </div>
         <div class="opt-row">
           <div><div class="t">Objectif hebdomadaire</div><div class="d">Nombre de candidatures à envoyer par semaine. Affiché en haut de chaque écran.</div></div>
           <span class="opt-duo">
+            <span class="num">
+            <button type="button" class="num-pas" data-pas="-1" data-cible="goalInput"
+              aria-label="Diminuer" tabindex="-1">−</button>
             <input type="number" class="opt-num" id="goalInput" aria-label="Objectif de candidatures par semaine" min="1" max="50" value="5">
+            <button type="button" class="num-pas" data-pas="1" data-cible="goalInput"
+              aria-label="Augmenter" tabindex="-1">+</button>
+          </span>
             <button class="btn" id="goalSave">Enregistrer</button>
           </span>
         </div>

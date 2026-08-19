@@ -24,6 +24,8 @@
 // affiche est une information, pas une décoration.
 
 const CLE_VOIX = 'bp_robot_voix';
+const CLE_VOIX_NOM = 'bp_robot_voix_nom';
+const CLE_STYLE = 'bp_robot_voix_style';
 
 /** Les états, du plus calme au plus actif. */
 export const ETATS = ['dort', 'repos', 'ecoute', 'lit', 'ecrit', 'parle'];
@@ -199,6 +201,29 @@ function programmerTic() {
  * et Julie sont correctes ; ailleurs, ça peut sonner robotique — ce qui,
  * pour le coup, n'est pas hors sujet.
  */
+
+/**
+ * LE GRAIN DE LA VOIX — CE QU'ON PEUT VRAIMENT RÉGLER, ET CE QU'ON NE PEUT PAS.
+ *
+ * L'API du navigateur n'expose que trois molettes : la voix, le DÉBIT et la
+ * HAUTEUR. Pas de filtre, pas d'effet, aucun accès au signal — la sortie de
+ * `speechSynthesis` n'est pas capturable. On ne peut donc pas fabriquer une
+ * vraie voix de robot par traitement du son.
+ *
+ * Ce qu'on peut faire, et qui s'entend beaucoup : déplacer la hauteur et le
+ * débit. Une voix descendue et ralentie perd son côté criard ; descendue et
+ * APLATIE, elle prend un timbre mécanique. Trois réglages valent mieux qu'un
+ * curseur : personne ne veut chercher son demi-ton.
+ */
+export const STYLES = {
+  douce: { nom: 'Douce', debit: 0.9, hauteur: 1.1 },
+  neutre: { nom: 'Neutre', debit: 1.0, hauteur: 1.0 },
+  posee: { nom: 'Posée', debit: 0.82, hauteur: 0.9 },
+  robot: { nom: 'Robot', debit: 1.06, hauteur: 0.6 },
+};
+
+export const styleVoix = () => (STYLES[localStorage.getItem(CLE_STYLE)] ? localStorage.getItem(CLE_STYLE) : 'douce');
+export const poserStyleVoix = (cle) => { if (STYLES[cle]) localStorage.setItem(CLE_STYLE, cle); };
 export const voixActive = () => localStorage.getItem(CLE_VOIX) === '1';
 
 export function basculerVoix() {
@@ -219,17 +244,49 @@ export const voixDisponible = () => typeof window !== 'undefined'
  * laisse le navigateur choisir sa voix par défaut — anglaise sur la plupart
  * des installations, ce qui rend le français incompréhensible.
  */
+/**
+ * Les voix françaises installées.
+ *
+ * ELLES VIENNENT DU SYSTÈME, et il y en a rarement plus de trois. Les
+ * proposer AU CHOIX change beaucoup pour peu : entre Hortense, Julie et
+ * Paul, ce n'est pas la qualité qui varie, c'est à qui on a l'impression
+ * de parler.
+ */
+export function voixFrancaises() {
+  return (window.speechSynthesis?.getVoices() ?? [])
+    .filter(v => /^fr/i.test(v.lang))
+    .map(v => ({ nom: v.nom ?? v.name, lang: v.lang }));
+}
+
+export const voixPreferee = () => localStorage.getItem(CLE_VOIX_NOM) ?? '';
+
+export function poserVoix(nom) {
+  if (nom) localStorage.setItem(CLE_VOIX_NOM, nom);
+  else localStorage.removeItem(CLE_VOIX_NOM);
+}
+
+/**
+ * La voix à employer : celle qu'on a choisie, sinon la meilleure française.
+ *
+ * LE PIÈGE : `getVoices()` rend une liste VIDE au premier appel, tant que le
+ * navigateur n'a pas fini de charger ses voix. Interrogée trop tôt, elle
+ * laisse le navigateur prendre sa voix par défaut — anglaise sur la plupart
+ * des installations, ce qui rend le français incompréhensible.
+ */
 function choisirVoix() {
   const voix = window.speechSynthesis.getVoices() ?? [];
+  const voulue = voixPreferee();
+  if (voulue) {
+    const trouvee = voix.find(v => v.name === voulue);
+    if (trouvee) return trouvee;
+  }
   const fr = voix.filter(v => /^fr/i.test(v.lang));
   if (!fr.length) return null;
-  // Les voix « en ligne » de Microsoft (Natural) sonnent nettement mieux que
-  // les locales : on les préfère quand elles sont là.
+  // Les voix « Natural » de Microsoft sonnent nettement mieux que les locales.
   return fr.find(v => /natural|naturelle/i.test(v.name))
     ?? fr.find(v => /denise|hortense|julie|paul/i.test(v.name))
     ?? fr[0];
 }
-
 /**
  * Lit une réponse à voix haute, et anime la bouche pendant ce temps.
  *
@@ -248,8 +305,9 @@ export function dire(texte, { surFin } = {}) {
   taire();
   diction = new SpeechSynthesisUtterance(propre);
   diction.lang = 'fr-FR';
-  diction.rate = 1.03;
-  diction.pitch = 1.0;
+  const style = STYLES[styleVoix()] ?? STYLES.douce;
+  diction.rate = style.debit;
+  diction.pitch = style.hauteur;
 
   const voix = choisirVoix();
   if (voix) diction.voice = voix;

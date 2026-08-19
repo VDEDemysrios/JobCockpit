@@ -38,7 +38,8 @@ import { rendreTexte } from './entretien.js';
 import { ouvrirDock, jouerMedia } from './dock.js';
 import {
   installerRobot, poser, reveiller, dire, taire,
-  voixActive, basculerVoix, voixDisponible,
+  voixActive, basculerVoix, voixDisponible, voixFrancaises, voixPreferee, poserVoix,
+  STYLES, styleVoix, poserStyleVoix,
 } from './robot.js';
 
 const CLE_FIL = 'bp_chill_fil';
@@ -248,6 +249,44 @@ function rendreEnAttente() {
     : '';
 }
 
+/**
+ * LE BOUTON DE VOIX PORTE SON NOM.
+ *
+ * Il existait déjà : un rond de vingt-six pixels avec un émoji, coincé entre
+ * la ligne d'état et « Effacer ». Personne ne l'a trouvé — et une fonction
+ * qu'on ne trouve pas n'existe pas. Un libellé coûte quarante pixels de
+ * large et règle la question.
+ *
+ * Le choix de la voix n'apparaît QU'UNE FOIS la voix allumée : proposer de
+ * régler ce qui est éteint occupe la barre pour rien.
+ */
+function rendreVoix() {
+  if (!voixDisponible()) return '';
+  const actif = voixActive();
+  const voix = actif ? voixFrancaises() : [];
+
+  return `<div class="ch-voix">
+    <button class="ch-voix-b ${actif ? 'allume' : ''}" id="chVoix"
+      title="${actif ? 'Il lit ses réponses à voix haute' : 'Lui faire lire ses réponses à voix haute'}">
+      <span aria-hidden="true">${actif ? '🔊' : '🔈'}</span> Voix</button>
+    ${voix.length > 1 ? `<select id="chVoixNom" class="ch-voix-sel"
+      aria-label="Choisir la voix">
+      ${voix.map(v => `<option value="${echapper(v.nom)}"
+        ${v.nom === voixPreferee() ? 'selected' : ''}>${echapper(joliNom(v.nom))}</option>`).join('')}
+    </select>` : ''}
+    ${actif ? `<select id="chVoixStyle" class="ch-voix-sel" aria-label="Grain de la voix">
+      ${Object.entries(STYLES).map(([c, s]) => `<option value="${c}"
+        ${c === styleVoix() ? 'selected' : ''}>${echapper(s.nom)}</option>`).join('')}
+    </select>` : ''}
+  </div>`;
+}
+
+/** « Microsoft Hortense - French (France) » ne se lit pas dans un menu. */
+const joliNom = (nom) => String(nom)
+  .replace(/^Microsoft\s+/i, '')
+  .replace(/\s*-\s*French.*$/i, '')
+  .replace(/\s*\(.*\)$/, '')
+  .trim() || nom;
 export function rendreChill() {
   const zone = document.getElementById('chillZone');
   if (!zone) return;
@@ -261,10 +300,7 @@ export function rendreChill() {
             <div class="ch-nom">Ton compagnon</div>
             <div class="ch-etat" id="chEtat">Là, si tu veux parler.</div>
           </div>
-          ${voixDisponible()
-    ? `<button class="rb-voix ${voixActive() ? 'allume' : ''}" id="chVoix"
-        title="${voixActive() ? 'Couper la voix' : 'Lire les réponses à voix haute'}">🔊</button>`
-    : ''}
+          ${rendreVoix()}
           ${fil.length ? '<button class="chill-vider" data-chill="vider">Effacer</button>' : ''}
         </div>
 
@@ -366,7 +402,9 @@ export function installerChill(toast) {
     if (bVoix) {
       const actif = basculerVoix();
       bVoix.classList.toggle('allume', actif);
+      rendreChill();     // le choix de la voix apparaît ou disparaît avec elle
       toast(actif ? 'Il lira ses réponses à voix haute.' : 'Voix coupée.');
+      if (actif) dire('Voilà. Tu peux changer de voix juste à côté.');
       return;
     }
     if (e.target.closest('#chBas')) {
@@ -391,6 +429,18 @@ export function installerChill(toast) {
   });
 
   zone.addEventListener('change', (e) => {
+    if (e.target.id === 'chVoixStyle') {
+      poserStyleVoix(e.target.value);
+      taire();
+      dire('Et voilà, comme ça.');
+      return;
+    }
+    if (e.target.id === 'chVoixNom') {
+      poserVoix(e.target.value);
+      taire();
+      dire('Voilà, c\'est ma voix maintenant.');
+      return;
+    }
     if (e.target.id !== 'chillFichier') return;
     joindre(e.target.files ?? []);
     e.target.value = '';       // sans ça, redéposer le même fichier ne fait rien

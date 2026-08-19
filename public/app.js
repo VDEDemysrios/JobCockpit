@@ -1458,6 +1458,32 @@ document.getElementById('goalSave').addEventListener('click', async (e) => {
   if (r) rendreTout();
 });
 
+
+/**
+ * LE PAS DES CHAMPS NUMÉRIQUES.
+ *
+ * La flèche native d'un `input[type=number]` est dessinée par le
+ * navigateur, pas par nous : deux triangles gris dans une boîte pâle, qui
+ * ignorent le thème et jurent franchement sur les deux thèmes sombres. Elle
+ * mesure en plus une dizaine de pixels — on la rate une fois sur deux.
+ *
+ * On la masque et on la remplace par deux boutons lisibles. `stepUp` et
+ * `stepDown` respectent `min` et `max` tout seuls, et l'évènement `change`
+ * est REJOUÉ à la main : le navigateur ne l'émet que pour une saisie
+ * humaine, et sans lui le réglage ne serait jamais enregistré.
+ *
+ * `tabindex="-1"` sur les boutons : au clavier, les flèches haut et bas
+ * font déjà le travail dans le champ. Deux arrêts de tabulation de plus par
+ * réglage, pour un geste qui existe déjà, ralentiraient la navigation.
+ */
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-pas]');
+  if (!b) return;
+  const champ = document.getElementById(b.dataset.cible);
+  if (!champ) return;
+  if (Number(b.dataset.pas) > 0) champ.stepUp(); else champ.stepDown();
+  champ.dispatchEvent(new Event('change', { bubbles: true }));
+});
 // ------------------------------------------------------- palette de commandes
 
 const palette = document.getElementById('palette');

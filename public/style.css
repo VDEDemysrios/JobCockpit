@@ -3072,15 +3072,26 @@ select:focus,.search:focus,input:focus,textarea:focus{
 @keyframes rbFerme{0%,95%,100%{opacity:0;}96%,99%{opacity:1;}}
 @keyframes rbOuvre{0%,95%,100%{opacity:1;}96%,99%{opacity:0;}}
 
-/* Le voyant de l'antenne droite : lent au repos, il s'accélère au travail.
-   C'est le seul élément dont la VITESSE porte l'information. */
-.rb-plein-d{animation:rbVeille 3s ease-in-out infinite;}
+/* LES DEUX VOYANTS RESPIRENT, EN ALTERNANCE.
+
+   Le droit clignotait seul et le gauche ne s'allumait qu'en écrivant : à
+   l'usage, ça ne se lisait pas comme « deux signaux distincts » mais comme
+   une ampoule grillée. Une tête a deux antennes, on attend qu'elles fassent
+   la même chose.
+
+   Elles alternent donc, décalées d'une demi-période : l'ambre passe la main
+   au bleu et retour, ce qui donne un va-et-vient tranquille au repos. La
+   VITESSE reste ce qui porte l'information — elle double quand il lit,
+   quadruple quand il écrit. */
+.rb-plein-d,.rb-plein-g{animation:rbVeille 3s ease-in-out infinite;}
+.rb-plein-g{animation-delay:1.5s;}
 @keyframes rbVeille{0%,100%{opacity:0;}50%{opacity:1;}}
 
 /* ── ÉCOUTE ── il se tourne vers toi pendant que tu tapes. */
 .rb[data-etat="ecoute"] .rb-yeux{transform:translateX(2px) scale(1.06);
   transform-origin:60px 60px;transition:transform .3s var(--ressort);}
-.rb[data-etat="ecoute"] .rb-plein-d{animation-duration:1.4s;}
+.rb[data-etat="ecoute"] .rb-plein-d,
+.rb[data-etat="ecoute"] .rb-plein-g{animation-duration:1.4s;}
 
 /* ── LIT ── les yeux balaient, et une bande traverse la visière.
    Le balayage est ce qui distingue « il a reçu » de « il réfléchit » : sans
@@ -3090,7 +3101,8 @@ select:focus,.search:focus,input:focus,textarea:focus{
 .rb[data-etat="lit"] .rb-scan{animation:rbScan 1.6s linear infinite;}
 @keyframes rbScan{0%{opacity:0;transform:translateY(0);}
   15%{opacity:.22;}85%{opacity:.22;}100%{opacity:0;transform:translateY(32px);}}
-.rb[data-etat="lit"] .rb-plein-d{animation-duration:.8s;}
+.rb[data-etat="lit"] .rb-plein-d,
+.rb[data-etat="lit"] .rb-plein-g{animation-duration:.8s;}
 
 /* ── ÉCRIT ── la bouche crépite, les antennes lâchent des étincelles.
    C'est l'état le plus « occupé » : il doit se voir depuis l'autre bout de la
@@ -3101,7 +3113,8 @@ select:focus,.search:focus,input:focus,textarea:focus{
 .rb[data-etat="ecrit"] .rb-eclairs path{animation:rbEclair 1.1s steps(1) infinite;}
 @keyframes rbEclair{0%{opacity:0;}72%{opacity:0;}76%{opacity:.95;}
   84%{opacity:.95;}88%{opacity:0;}100%{opacity:0;}}
-.rb[data-etat="ecrit"] .rb-plein-g{animation:rbChauffe 1.1s ease-in-out infinite;}
+.rb[data-etat="ecrit"] .rb-plein-g{animation:rbChauffe 1.1s ease-in-out infinite;
+  animation-delay:0s;}
 @keyframes rbChauffe{0%,100%{opacity:0;}50%{opacity:1;}}
 .rb[data-etat="ecrit"] .rb-plein-d{animation-duration:.5s;}
 .rb[data-etat="ecrit"] .rb-tete{animation:rbRespire 1.6s ease-in-out infinite;}
@@ -3111,7 +3124,8 @@ select:focus,.search:focus,input:focus,textarea:focus{
 .rb[data-etat="parle"] .rb-bouche{
   animation:rbArticule .28s ease-in-out infinite alternate;}
 @keyframes rbArticule{0%{transform:scaleY(1);}100%{transform:scaleY(3.2);}}
-.rb[data-etat="parle"] .rb-plein-d{animation-duration:.6s;}
+.rb[data-etat="parle"] .rb-plein-d,
+.rb[data-etat="parle"] .rb-plein-g{animation-duration:.6s;}
 
 /* ── DORT ── yeux clos, Zzz, et tout ralentit.
    Le sommeil n'est pas qu'un décor : il dit « personne n'a rien dit depuis un
@@ -3119,7 +3133,8 @@ select:focus,.search:focus,input:focus,textarea:focus{
 .rb[data-etat="dort"] .rb-paupiere{opacity:1;animation:none;}
 .rb[data-etat="dort"] .rb-iris,.rb[data-etat="dort"] .rb-reflet{opacity:0;animation:none;}
 .rb[data-etat="dort"] .rb-bouche{transform:scaleX(.5);opacity:.4;}
-.rb[data-etat="dort"] .rb-plein-d{animation:none;opacity:0;}
+.rb[data-etat="dort"] .rb-plein-d,
+.rb[data-etat="dort"] .rb-plein-g{animation:none;opacity:0;}
 .rb[data-etat="dort"] .rb-tete,.rb[data-etat="dort"] .rb-antennes{
   animation:rbRonfle 5.5s ease-in-out infinite;}
 @keyframes rbRonfle{50%{transform:translateY(-3px) rotate(-2deg);}}
@@ -3288,3 +3303,50 @@ select:focus,.search:focus,input:focus,textarea:focus{
 .sp-restreinte-t{font-size:13.5px;font-weight:var(--w-semi);margin-bottom:var(--e2);}
 .sp-restreinte .sp-note{max-width:34em;margin:0 auto var(--e4);}
 .sp-restreinte-actions{display:flex;gap:var(--e2);justify-content:center;flex-wrap:wrap;}
+
+/* ── LE PAS DES CHAMPS NUMÉRIQUES ───────────────────────────────────────
+
+   La flèche native est dessinée par le NAVIGATEUR, pas par la feuille de
+   style : deux triangles gris dans une boîte pâle, qui ignorent le thème et
+   jurent franchement sur les deux thèmes sombres. Elle mesure en plus une
+   dizaine de pixels de large, ce qui la rend pénible à viser.
+
+   On la masque — `appearance:textfield` sur Firefox, le pseudo-élément
+   WebKit ailleurs, il faut les DEUX — et on la remplace par un pas visible
+   des deux côtés du champ. */
+.num{display:inline-flex;align-items:stretch;flex:0 0 auto;
+  border:1px solid var(--line-fort);border-radius:var(--r2);
+  background:var(--panel);overflow:hidden;
+  box-shadow:inset 0 1px 0 var(--lustre);}
+.num:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg);}
+
+.num .opt-num{width:52px;border:0;border-radius:0;background:transparent;
+  box-shadow:none;padding:5px 2px;text-align:center;
+  font-variant-numeric:tabular-nums;}
+.num .opt-num:focus{outline:none;box-shadow:none;border:0;}
+.num input[type=number]{appearance:textfield;-moz-appearance:textfield;}
+.num input[type=number]::-webkit-outer-spin-button,
+.num input[type=number]::-webkit-inner-spin-button{appearance:none;-webkit-appearance:none;margin:0;}
+
+.num-pas{width:26px;flex:0 0 auto;border:0;background:transparent;
+  color:var(--muted);font-family:inherit;font-size:14px;line-height:1;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .12s,color .12s;user-select:none;}
+.num-pas:hover{background:var(--bg2);color:var(--ink);}
+.num-pas:active{background:var(--accent-bg);color:var(--accent-ink);}
+
+/* Le bloc voix de l'en-tête : un bouton NOMMÉ, et ses réglages à côté quand
+   il est allumé. Le rond de vingt-six pixels avec un émoji, personne ne l'a
+   jamais trouvé — et une fonction qu'on ne trouve pas n'existe pas. */
+.ch-voix{display:flex;align-items:center;gap:4px;flex:0 0 auto;}
+.ch-voix-b{display:inline-flex;align-items:center;gap:5px;font-family:inherit;
+  font-size:11px;font-weight:var(--w-medium);color:var(--muted);
+  background:var(--panel);border:1px solid var(--line-fort);border-radius:99px;
+  padding:4px 10px;cursor:pointer;white-space:nowrap;
+  transition:background .13s,color .13s,border-color .13s;}
+.ch-voix-b:hover{background:var(--bg2);color:var(--ink);}
+.ch-voix-b.allume{color:var(--g1);border-color:var(--g1);background:var(--g1b);}
+.ch-voix-sel{font-family:inherit;font-size:10.5px;color:var(--ink);
+  background:var(--panel);border:1px solid var(--line-fort);border-radius:99px;
+  padding:3px 6px;max-width:96px;cursor:pointer;}
+@media(max-width:600px){.ch-voix-sel{display:none;}}
