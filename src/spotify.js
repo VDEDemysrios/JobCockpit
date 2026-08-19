@@ -27,10 +27,15 @@ const JETON = 'https://accounts.spotify.com/api/token';
 const API = 'https://api.spotify.com/v1';
 
 /**
- * Ce qu'on demande à Spotify. Le minimum nécessaire, et rien de plus : on ne
- * demande ni les adresses e-mail, ni la modification des playlists, ni le
- * suivi social. Une autorisation qu'on ne sait pas justifier ne se demande
- * pas.
+ * Ce qu'on demande à Spotify, et pourquoi chaque ligne y est.
+ *
+ * La règle reste « rien qu'on ne sache justifier », mais elle a été entamée
+ * deux fois, et les deux sont écrites en clair plus bas : trois portées que le
+ * SDK impose sans qu'on s'en serve, et deux qui ÉCRIVENT — l'ajout d'un
+ * morceau à une playlist, demandé explicitement.
+ *
+ * Ce qu'on ne demande toujours pas : le suivi social, la bibliothèque en
+ * écriture, l'envoi d'images, la suppression de quoi que ce soit.
  */
 export const PORTEES = [
   'user-read-playback-state',
@@ -54,7 +59,25 @@ export const PORTEES = [
   'streaming',
   'user-read-email',
   'user-read-private',
+
+  // LES DEUX DERNIÈRES ÉCRIVENT, et c'est une rupture assumée.
+  //
+  // Le projet ne demandait jusqu'ici QUE de la lecture, et un test le
+  // verrouillait : rien ne devait pouvoir modifier le compte de
+  // l'utilisateur. Ajouter un morceau à une playlist demande exactement
+  // ce qui était interdit.
+  //
+  // La règle change donc, mais elle ne disparaît pas : ces deux portées
+  // servent à UNE action, explicite, déclenchée par un clic — ajouter une
+  // piste à une playlist qu'on possède. Rien ne supprime, rien ne
+  // renomme, rien ne touche à la bibliothèque ni aux abonnements, et le
+  // test refuse toujours les portées correspondantes.
+  'playlist-modify-private',
+  'playlist-modify-public',
 ].join(' ');
+
+/** Ce qui écrit. Séparé pour que l'interface puisse le dire à l'utilisateur. */
+export const PORTEES_ECRITURE = ['playlist-modify-private', 'playlist-modify-public'];
 
 /** Ce que le lecteur intégré exige, et sans quoi il refuse de démarrer. */
 export const PORTEES_LECTEUR = ['streaming', 'user-read-email', 'user-read-private'];

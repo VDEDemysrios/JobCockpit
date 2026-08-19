@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto';
 import {
   fabriquerDefi, urlAutorisation, echangerCode, rafraichir, estExpire,
   appeler, resumeLecture, corpsDeLecture, resumeAppareils,
-  porteesManquantes, fusionnerPortees, PORTEES, PORTEES_LECTEUR,
+  porteesManquantes, fusionnerPortees, PORTEES, PORTEES_LECTEUR, PORTEES_ECRITURE,
   nombreDePistes, pisteDeLEntree, resumeFile,
 } from '../src/spotify.js';
 
@@ -52,23 +52,33 @@ test('l\'URL d\'autorisation ne porte que des valeurs publiques', () => {
  * voulu — ce test existe pour que personne ne les prenne un jour pour une
  * autorisation utile, et n'aille bâtir dessus.
  *
- * Ce qui reste interdit ne bouge pas : rien qui ÉCRIVE chez l'utilisateur.
+ * ET LA RÈGLE « RIEN QUI ÉCRIVE » A ÉTÉ ENTAMÉE, VOLONTAIREMENT. Ajouter un
+ * morceau à une playlist demande exactement ce que ce test interdisait. Deux
+ * portées ont donc été accordées — et deux seulement, pour UNE action
+ * déclenchée par un clic. Le reste de la liste noire est intact : rien ne
+ * supprime, rien ne renomme, rien ne touche à la bibliothèque.
  */
-test('les portées demandées restent minimales, et rien n\'écrit', () => {
+test('les portées écrivent le strict nécessaire, et rien d\'autre', () => {
+  // CE QUI RESTE INTERDIT. La liste s'est raccourcie, pas dissoute : ajouter
+  // un morceau à une playlist ne donne aucun droit de supprimer, de renommer,
+  // de toucher à la bibliothèque, aux abonnements ou aux images.
   for (const interdite of [
-    'playlist-modify-public', 'playlist-modify-private',
     'user-library-modify', 'ugc-image-upload', 'user-follow-modify',
   ]) {
     assert.ok(!PORTEES.includes(interdite),
-      `« ${interdite} » modifierait le compte : on ne le demande pas`);
+      `« ${interdite} » n\'est justifié par aucune fonction`);
   }
   assert.ok(PORTEES.includes('user-modify-playback-state'), 'piloter la lecture est le propos');
 
-  // Les trois du lecteur intégré, avec leur justification écrite au-dessus
-  // d'elles dans le code. Le test les épingle pour qu'un retrait du lecteur
+  // Les trois du lecteur intégré, épinglées pour qu'un retrait du lecteur
   // emporte aussi ces demandes.
-  for (const p of PORTEES_LECTEUR) {
-    assert.ok(PORTEES.includes(p), `le lecteur intégré exige « ${p} »`);
+  for (const x of PORTEES_LECTEUR) {
+    assert.ok(PORTEES.includes(x), `le lecteur intégré exige « ${x} »`);
+  }
+
+  // Et les deux qui ÉCRIVENT, demandées pour UNE action explicite.
+  for (const x of PORTEES_ECRITURE) {
+    assert.ok(PORTEES.includes(x), `l\'ajout à une playlist exige « ${x} »`);
   }
 });
 
@@ -389,4 +399,27 @@ test('une vraie file n\'est jamais escamotée', () => {
   assert.deepEqual(resumeFile(null), { boucle: false, pistes: [] });
   assert.deepEqual(resumeFile({ queue: [] }), { boucle: false, pistes: [] },
     'une file réellement vide n\'est pas une boucle');
+});
+
+/**
+ * UN COMPTE LIÉ AVANT L'AJOUT AUX PLAYLISTS NE PEUT PAS ÉCRIRE.
+ *
+ * Spotify refuse alors en 403, un code que l'interface traduit ailleurs par
+ * « il faut Premium » — ce qui enverrait chercher au mauvais endroit, et
+ * chez quelqu'un qui EST abonné. Il faut donc le détecter avant de proposer
+ * l'action.
+ */
+test('les portées d\'écriture manquantes sont détectées à part', () => {
+  const ancien = 'user-read-playback-state streaming user-read-email user-read-private';
+  assert.deepEqual(porteesManquantes(ancien, PORTEES_ECRITURE).sort(),
+    ['playlist-modify-private', 'playlist-modify-public']);
+
+  assert.deepEqual(porteesManquantes(PORTEES, PORTEES_ECRITURE), [],
+    'une autorisation neuve peut écrire');
+
+  // Les deux contrôles sont INDÉPENDANTS : un jeton peut savoir jouer sans
+  // savoir ranger, et l'interface doit pouvoir le dire séparément.
+  const sansEcriture = 'streaming user-read-email user-read-private';
+  assert.deepEqual(porteesManquantes(sansEcriture), [], 'le lecteur, lui, marche');
+  assert.equal(porteesManquantes(sansEcriture, PORTEES_ECRITURE).length, 2);
 });

@@ -168,6 +168,8 @@ function rendreScene(l) {
         <span class="sp-ou ${l.local ? 'ici' : ''}"
           title="${l.local ? 'Le son sort de cette fenêtre' : 'Le son sort d\'un autre appareil'}"
           >${l.local ? '● ici' : echapper(l.appareil || '—')}</span>
+        <button class="sp-cmd sp-petit" data-classer="${echapper(l.uri ?? '')}"
+          data-titre="${echapper(l.titre)}" title="Ajouter à une playlist">＋</button>
         <button class="sp-cmd sp-petit" data-sp="plein-ecran" title="Plein écran">⤢</button>
       </div>
     </div>
@@ -216,6 +218,17 @@ const ONGLETS = {
  */
 let ouvert = null;
 
+/**
+ * Le morceau qu'on est en train de CLASSER, s'il y en a un.
+ *
+ * UN PANNEAU PLUTÔT QU'UN MENU FLOTTANT. Un menu ancré au clic devrait
+ * suivre une fenêtre qu'on déplace, qu'on redimensionne et qu'on passe en
+ * plein écran ; il finirait à moitié hors du cadre un jour sur deux. Le
+ * panneau reprend la navigation qui existe déjà — on entre, on choisit, on
+ * revient — et ne peut pas déborder.
+ */
+let classe = null;
+
 /** Les paroles du morceau en cours, et l'uri pour laquelle on les a demandées. */
 let paroles = { pour: null, etat: 'vide', data: null };
 
@@ -251,8 +264,9 @@ function rendreListe(items, { melange = false, enfiler = false, ouvrable = false
       </span>
       ${i.duree ? `<span class="sp-temps">${duree(i.duree)}</span>` : ''}
     </button>
-    ${enfiler ? `<button class="sp-action" data-enfiler="${echapper(i.uri)}"
-      title="Mettre à la suite">＋</button>` : ''}
+    ${enfiler ? `<button class="sp-action" data-classer="${echapper(i.uri)}"
+      data-titre="${echapper(i.titre ?? i.nom ?? '')}"
+      title="Ajouter à une playlist, ou à la suite">＋</button>` : ''}
     ${ouvrable ? `<button class="sp-action" data-uri="${echapper(i.uri)}"
       title="Tout lancer">▶</button>` : ''}
     ${melange ? `<button class="sp-action" data-uri="${echapper(i.uri)}"
@@ -358,13 +372,57 @@ function rendreSection(titre, contenu, aide = '') {
     ${aide ? `<span class="sp-note">${echapper(aide)}</span>` : ''}</div>${contenu}`;
 }
 
+/**
+ * OÙ RANGER CE MORCEAU.
+ *
+ * Seules les playlists MODIFIABLES sont proposées. Spotify refuse en 403
+ * l'ajout sur celle d'un autre, et proposer une action pour se faire
+ * refuser ensuite est la pire des interfaces : on croit que l'application
+ * est cassée, alors qu'elle a demandé quelque chose d'impossible.
+ */
+function rendreClassement() {
+  const miennes = playlists.filter(p => p.modifiable);
+  const manque = etat.lecteur?.sansEcriture ?? [];
+
+  return `
+    <div class="sp-fil">
+      <button class="sp-retour" data-sp="fermer-classement">← Retour</button>
+      <span class="sp-fil-nom">Ajouter « ${echapper(classe.titre)} »</span>
+    </div>
+
+    ${manque.length ? `<div class="sp-alerte">
+      <p><strong>Ton autorisation date d'avant cette fonction.</strong>
+      Délie puis relie ton compte : Spotify redemandera l'accord, cette fois
+      avec le droit d'ajouter à tes playlists.</p>
+    </div>` : ''}
+
+    <ul class="sp-liste">
+      <li><button data-enfiler="${echapper(classe.uri)}">
+        <span class="sp-vignette sp-vignette-ic">⏭</span>
+        <span class="sp-l-infos"><span class="sp-l-titre">À la suite</span>
+        <span class="sp-l-artiste">joué après le morceau en cours</span></span>
+      </button></li>
+    </ul>
+
+    ${miennes.length ? `<div class="tw-titre">Mes playlists</div>
+      <ul class="sp-liste">${miennes.map(pl => `<li>
+        <button data-ranger="${echapper(pl.uri)}">
+          ${vignette(pl)}
+          <span class="sp-l-infos"><span class="sp-l-titre">${echapper(pl.nom)}</span>
+          <span class="sp-l-artiste">${pl.pistes} titres</span></span>
+        </button></li>`).join('')}</ul>`
+      : `<div class="sp-rien">Aucune playlist que tu puisses modifier.<br>
+        <span class="sp-note">Spotify n'autorise l'ajout que sur les tiennes.</span></div>`}`;
+}
 function rendreBibliotheque() {
   const barre = `<nav class="sp-onglets">${Object.entries(ONGLETS).map(([c, l]) => `
     <button data-sp-onglet="${c}" class="${onglet === c ? 'actif' : ''}">${l}</button>`)
     .join('')}</nav>`;
 
   let corps = '';
-  if (ouvert && onglet !== 'paroles') {
+  if (classe) {
+    corps = rendreClassement();
+  } else if (ouvert && onglet !== 'paroles') {
     corps = rendreOuvert();
   } else if (onglet === 'paroles') {
     corps = rendreParoles();
@@ -390,7 +448,8 @@ function rendreBibliotheque() {
       : '<div class="sp-rien">Chargement…</div>';
   } else if (onglet === 'file') {
     corps = file.length
-      ? rendreSection('Ce qui vient', rendreListe(file))
+      ? rendreSection('Ce qui vient', rendreListe(file, { enfiler: true }),
+        '＋ pour ranger dans une playlist')
       : `<div class="sp-rien">${fileEnBoucle
         ? 'Rien ne suit : ce morceau a été lancé seul, sans playlist ni album. '
           + 'Spotify répète alors le titre en cours au lieu d\'annoncer une suite '
@@ -792,11 +851,33 @@ export function installerSpotify(toast) {
     const parole = e.target.closest('.sp-parole');
     if (parole) return commander('position', { valeur: Number(parole.dataset.t) });
 
+    const classer = e.target.closest('[data-classer]');
+    if (classer) {
+      classe = { uri: classer.dataset.classer, titre: classer.dataset.titre };
+      // Les playlists sont nécessaires pour choisir : on les charge si on ne
+      // les a pas encore ouvertes une seule fois.
+      if (!playlists.length) charger('playlists');
+      rendreSpotify();
+      return;
+    }
+
+    const ranger = e.target.closest('[data-ranger]');
+    if (ranger && classe) {
+      try {
+        await API.spotifyAjouter(ranger.dataset.ranger, classe.uri);
+        signaler(`« ${classe.titre} » ajouté.`);
+        classe = null;
+        rendreSpotify();
+      } catch (err) { signaler(err.message, 'erreur'); }
+      return;
+    }
+
     const enfiler = e.target.closest('[data-enfiler]');
     if (enfiler) {
       try {
         await API.spotifyEnfiler(enfiler.dataset.enfiler);
         signaler('Mis à la suite.');
+        if (classe) { classe = null; rendreSpotify(); }
         if (onglet === 'file') charger('file');
       } catch (err) { signaler(err.message, 'erreur'); }
       return;
@@ -825,6 +906,7 @@ export function installerSpotify(toast) {
       // Changer d'onglet referme le contenu ouvert : y revenir plus tard, sur
       // une playlist dont on ne se souvient plus, désoriente plus que ça n'aide.
       if (onglet !== 'paroles') ouvert = null;
+      classe = null;
       rendreSpotify();
       if (onglet === 'playlists' && !playlists.length) charger('playlists');
       if (onglet === 'file') charger('file');
@@ -855,6 +937,7 @@ export function installerSpotify(toast) {
       playlists = []; appareils = []; file = []; recents = [];
       return rafraichirEtat(signaler);
     }
+    if (quoi === 'fermer-classement') { classe = null; return rendreSpotify(); }
     if (quoi === 'fermer-contenu') { ouvert = null; return rendreSpotify(); }
     if (quoi === 'activer-local') return activerLocal();
     if (quoi === 'desactiver-local') return desactiverLocal();

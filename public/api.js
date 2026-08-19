@@ -104,6 +104,10 @@ export const API = {
   spotifyAppareil:   (id)      => appeler('/api/spotify/appareil', { method: 'POST', body: { id } }),
   spotifyFile:       ()        => appeler('/api/spotify/file'),
   spotifyEnfiler:    (uri)     => appeler('/api/spotify/file', { method: 'POST', body: { uri } }),
+  // La seule route qui ÉCRIVE chez l'utilisateur : ajouter un morceau à
+  // une playlist qui lui appartient.
+  spotifyAjouter:    (playlist, uri) =>
+    appeler('/api/spotify/playlist', { method: 'POST', body: { playlist, uri } }),
   spotifyRecents:    ()        => appeler('/api/spotify/recents'),
   spotifyContenu:    (uri)     => appeler(`/api/spotify/contenu?uri=${encodeURIComponent(uri)}`),
   spotifyParoles:    (l)       => appeler('/api/spotify/paroles?' + new URLSearchParams({

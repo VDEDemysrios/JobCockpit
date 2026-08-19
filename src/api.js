@@ -22,7 +22,7 @@ import { preparerPieces, piecesRecentes, decrirePieces } from './pieces.js';
 import {
   fabriquerDefi, urlAutorisation, echangerCode, rafraichir, estExpire,
   appeler as appelerSpotify, resumeLecture, corpsDeLecture, resumeAppareils,
-  porteesManquantes, fusionnerPortees, nombreDePistes, pisteDeLEntree, resumeFile,
+  porteesManquantes, fusionnerPortees, PORTEES_ECRITURE, nombreDePistes, pisteDeLEntree, resumeFile,
 } from './spotify.js';
 import { chercherParoles, resumeParoles } from './paroles.js';
 import {
@@ -757,6 +757,9 @@ export function creerRoutes({ db, collecter, sources, profil,
     const lecteur = {
       actif: lecteurLocalActif(),
       manque: porteesManquantes(j.portees),
+      // Un compte lié avant l'ajout aux playlists n'a pas les portées
+      // d'écriture : le bouton doit le dire, pas échouer en 403.
+      sansEcriture: porteesManquantes(j.portees, PORTEES_ECRITURE),
     };
 
     try {
@@ -1146,16 +1149,75 @@ export function creerRoutes({ db, collecter, sources, profil,
   });
 
   /** Les playlists de l'utilisateur, pour lancer sans chercher. */
+  /**
+   * MON IDENTIFIANT SPOTIFY, retenu le temps de la session.
+   *
+   * Il sert à savoir quelles playlists on peut MODIFIER : Spotify accepte
+   * un ajout sur celles qu'on possède ou qui sont collaboratives, et refuse
+   * les autres en 403. Proposer d'y ajouter un titre pour se faire refuser
+   * ensuite est la pire des interfaces — on ne propose que ce qui marche.
+   */
+  let moiSpotify = null;
+  async function identifiant() {
+    if (moiSpotify) return moiSpotify;
+    moiSpotify = (await spotify('/me'))?.id ?? null;
+    return moiSpotify;
+  }
+
   routes.get('/spotify/playlists', async (req, res) => {
     try {
-      const d = await spotify('/me/playlists?limit=50');
+      const [moi, d] = await Promise.all([
+        identifiant().catch(() => null), spotify('/me/playlists?limit=50')]);
       res.json({ ok: true, playlists: (d?.items ?? []).filter(Boolean).map(p => ({
         uri: p.uri, nom: p.name, pistes: nombreDePistes(p),
         pochette: grandePochette(p.images),
+        modifiable: Boolean(moi && (p.owner?.id === moi || p.collaborative)),
       })) });
     } catch (e) { res.status(e.statut ?? 502).json({ ok: false, error: e.message }); }
   });
 
+  /**
+   * AJOUTE UN MORCEAU À UNE PLAYLIST. La seule route du projet qui ÉCRIVE
+   * chez l'utilisateur — voir les portées dans `src/spotify.js`.
+   *
+   * SUR `/items`, PAS `/tracks`. La LECTURE avait déjà été migrée ; l'ajout,
+   * lui, était resté sur l'ancien chemin — qui répond **403 Forbidden, sans
+   * message**. C'est le pire des codes pour un renommage : il envoie chercher
+   * du côté des autorisations. On a soupçonné une portée manquante, un compte
+   * non Premium, une playlist qui n'appartenait pas à l'utilisateur, puis le
+   * « mode développement » de Spotify — quatre fausses pistes.
+   *
+   * Ce qui a tranché : renommer la playlist (`PUT /playlists/{id}`) répondait
+   * 200 avec le MÊME jeton. Les droits étaient donc bons, et seule cette
+   * sous-ressource refusait.
+   *
+   * Elle refuse tout ce qui n'est pas une piste : le point d'accès accepte aussi
+   * les épisodes de podcast, et glisser un album entier par mégarde
+   * ajouterait quarante titres sans que rien ne le demande.
+   */
+  routes.post('/spotify/playlist', async (req, res) => {
+    const playlist = String(req.body?.playlist ?? '').replace(/^spotify:playlist:/, '');
+    const uri = String(req.body?.uri ?? '');
+    if (!/^[A-Za-z0-9]+$/.test(playlist)) {
+      return res.status(400).json({ ok: false, error: 'Playlist inconnue.' });
+    }
+    if (!uri.startsWith('spotify:track:')) {
+      return res.status(400).json({ ok: false, error: 'Seul un morceau s\'ajoute à une playlist.' });
+    }
+    try {
+      await spotify(`/playlists/${playlist}/items?uris=${encodeURIComponent(uri)}`,
+        { methode: 'POST' });
+      res.json({ ok: true });
+    } catch (e) {
+      // 403 ici ne veut pas dire « Premium » comme ailleurs : il veut dire
+      // « cette playlist n'est pas à toi ». Le message générique de
+      // `appeler()` enverrait chercher au mauvais endroit.
+      const message = e.statut === 403 || /Premium/.test(e.message)
+        ? 'Spotify refuse : cette playlist ne t\'appartient pas.'
+        : e.message;
+      res.status(e.statut ?? 502).json({ ok: false, error: message });
+    }
+  });
   // Le retour d'autorisation. Hors de `/api` : c'est Spotify qui envoie le
   // navigateur ici, pas notre code.
   routes.retourSpotify = async (req, res) => {

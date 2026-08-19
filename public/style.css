@@ -2494,8 +2494,17 @@ body.dock-glisse iframe{pointer-events:none;}
 .sp-liste button{display:flex;align-items:center;gap:var(--e3);text-align:left;
   font-family:inherit;background:transparent;border:0;padding:4px var(--e2);
   border-radius:var(--r2);cursor:pointer;color:var(--ink);}
+/* UNE ACTION TOTALEMENT INVISIBLE N'EXISTE PAS.
+
+   Ces boutons étaient à `opacity:0` jusqu'au survol de leur ligne, pour ne
+   pas encombrer vingt lignes de deux icônes chacune. L'intention tenait,
+   le résultat non : personne ne pouvait deviner qu'on peut ranger un
+   morceau dans une playlist, puisque rien ne l'indiquait jamais.
+
+   Un tiers d'opacité au repos suffit à les faire exister sans les faire
+   crier — on les voit du coin de l'œil, elles s'allument sous la souris. */
 .sp-action{flex:0 0 auto;color:var(--muted);font-size:14px;padding:4px 8px;
-  opacity:0;transition:opacity .13s,color .13s;}
+  opacity:.34;transition:opacity .13s,color .13s;}
 /* Les actions secondaires n'apparaissent qu'au survol de leur ligne : vingt
    lignes qui portent chacune deux icônes en permanence donnent une liste
    qu'on ne lit plus, on la déchiffre. */
