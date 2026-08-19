@@ -2913,3 +2913,51 @@ select:focus,.search:focus,input:focus,textarea:focus{
 /* (La ligne d'offre a DÉJÀ son liseré gauche — mais c'est la couleur de GROUPE,
    une information de priorité, pas une décoration : on n'y touche pas. Son
    survol l'élargit déjà, plus haut dans la feuille.) */
+
+/* ═══════════════ LECTEURS 3.1 — ERGONOMIE PREMIUM ═══════════════
+   Les panneaux Spotify/YouTube/Twitch du lecteur flottant : mêmes principes
+   que la refonte (profondeur, accent, mouvement au bon moment), appliqués à un
+   objet manipulé de près, souvent, du bout des doigts. On soigne surtout ce
+   qu'on SAISIT — les curseurs — et ce qu'on regarde entre deux gestes. */
+
+/* ── La fenêtre : un anneau d'accent la détache du bureau ──────────────────*/
+.dock{box-shadow:var(--sh4),0 0 0 1px color-mix(in srgb,var(--accent) 12%,transparent);}
+
+/* ── Le bandeau et les onglets ─────────────────────────────────────────────*/
+.dock-tete{background:linear-gradient(180deg,color-mix(in srgb,var(--ink) 4%,var(--panel)),var(--bg2));}
+.dock-onglets button{position:relative;transition:background .15s,color .15s;}
+.dock-onglets button.actif{color:var(--accent);box-shadow:none;background:transparent;}
+.dock-onglets button.actif::after{content:"";position:absolute;left:9px;right:9px;bottom:-2px;
+  height:2px;border-radius:2px;background:linear-gradient(90deg,var(--accent),var(--accent2));}
+
+/* ── Passer d'un lecteur à l'autre en fondu, pas d'un coup sec ──────────────
+   Les pages restent superposées (le son ne se coupe pas) ; une transition
+   d'opacité fait juste que Spotify → Twitch se croisent au lieu de sauter. */
+.dock-page{transition:opacity .22s ease;}
+
+/* ── LES CURSEURS : le geste le plus fréquent, et le plus fin ───────────────
+   Se placer dans un morceau, régler le volume. Le pouce n'apparaissait qu'au
+   survol (bien), mais restait petit et plat. Désormais il GROSSIT sous le
+   doigt, porte un halo qui le rend facile à viser, et la barre jouée brille
+   légèrement. On saisit mieux, et ça se sent. */
+.sp-curseur::-webkit-slider-runnable-track{
+  box-shadow:0 0 8px -1px rgba(255,255,255,.25) inset;}
+.sp-curseur::-webkit-slider-thumb{width:12px;height:12px;margin-top:-4px;
+  box-shadow:0 0 0 4px rgba(255,255,255,.14),0 1px 4px rgba(0,0,0,.45);
+  transition:opacity .15s,transform .13s ease;}
+.sp-curseur:hover::-webkit-slider-thumb,
+.sp-curseur:active::-webkit-slider-thumb{transform:scale(1.4);}
+.sp-scene:hover .sp-curseur::-webkit-slider-thumb{opacity:1;}
+.sp-curseur::-moz-range-thumb{width:12px;height:12px;
+  box-shadow:0 0 0 4px rgba(255,255,255,.14),0 1px 4px rgba(0,0,0,.45);transition:transform .13s;}
+.sp-curseur:hover::-moz-range-thumb,.sp-curseur:active::-moz-range-thumb{transform:scale(1.4);}
+
+/* ── Les commandes : le bouton central s'allume au survol ──────────────────*/
+.sp-grand{box-shadow:0 2px 14px rgba(0,0,0,.4);}
+.sp-grand:hover{box-shadow:0 4px 22px rgba(255,255,255,.28);}
+.sp-cmd:hover{box-shadow:0 0 14px -2px rgba(255,255,255,.4);}
+
+/* ── Les listes répondent au doigt, en douceur ─────────────────────────────*/
+.sp-liste li,.tw-liste li{transition:background .15s ease;}
+.sp-liste li>button:first-child,.tw-liste li>button:first-child{transition:transform .13s ease;}
+.sp-liste li:hover>button:first-child{transform:translateX(2px);}
