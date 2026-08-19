@@ -37,11 +37,21 @@ const RACINE = join(fileURLToPath(new URL('.', import.meta.url)), '..');
  * de quelqu'un.
  */
 async function lancerServeur() {
-  const port = 42000 + Math.floor(Math.random() * 8000);
+  // ON NE TIRE PLUS DE PORT AU HASARD, ON LAISSE LE SYSTÈME EN DONNER UN.
+  //
+  // Un tirage dans 42000-50000 évite bien le port de l'utilisateur, mais
+  // pas les plages que Windows RÉSERVE pour lui (Hyper-V, exclusions
+  // `netsh`). La chaîne d'intégration est tombée là-dessus : `listen
+  // EACCES: permission denied 127.0.0.1:49732`, sur un test qui passait
+  // partout ailleurs. Un échec de ce genre coûte cher — il fait chercher
+  // un défaut dans le code publié alors qu'il n'y en a pas.
+  //
+  // `PORT=0` demande au système un port libre, et il connaît les siens.
+  // On lit ensuite le port RÉELLEMENT ouvert dans le journal de démarrage.
   const dossier = mkdtempSync(join(tmpdir(), 'cockpit-demarrage-'));
 
   const serveur = spawn(process.execPath, [join(RACINE, 'src/server.js')], {
-    env: { ...process.env, PORT: String(port), DB_PATH: join(dossier, 'test.db'), COLLECTE_AUTO: '' },
+    env: { ...process.env, PORT: '0', DB_PATH: join(dossier, 'test.db'), COLLECTE_AUTO: '' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
@@ -66,17 +76,24 @@ async function lancerServeur() {
   // On interroge jusqu'à obtenir une réponse : attendre une durée fixe donne
   // soit un test lent, soit un test qui échoue sur une machine chargée.
   const limite = Date.now() + 20000;
+  let port = 0;
   while (Date.now() < limite) {
     if (serveur.exitCode !== null) {
       await arreter();
-      assert.fail(`Le serveur s'est arrêté au démarrage (code ${serveur.exitCode}) :\n\n${journal}`);
+      assert.fail(`Le serveur s'est arrêté (code ${serveur.exitCode}) :\n\n${journal}`);
     }
-    try {
-      const r = await fetch(`http://127.0.0.1:${port}/`, { redirect: 'manual' });
+    // Le port apparaît dans le journal dès que l'écoute est ouverte.
+    if (!port) {
+      const vu = journal.match(/Écoute\s+:\s+\S+?:(\d+)/);
+      if (vu) port = Number(vu[1]);
+    }
+    if (port) {
+      try {
+        const r = await fetch(`http://127.0.0.1:${port}/`, { redirect: 'manual' });
       return { port, serveur, journal: () => journal, arreter, premiereReponse: r };
-    } catch {
-      await new Promise(r => setTimeout(r, 150));
+      } catch { /* pas encore prêt */ }
     }
+    await new Promise(r => setTimeout(r, 120));
   }
   await arreter();
   assert.fail(`Le serveur n'a pas répondu en 20 s :\n\n${journal}`);

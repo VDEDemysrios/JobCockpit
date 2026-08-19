@@ -264,9 +264,14 @@ const planificateur = demarrerPlanificateur({
 // lui, était injoignable sans que rien ne l'explique.
 const serveur = app.listen(PORT, HOTE, () => {
   console.log('\n🚀 Job Cockpit démarré');
-  console.log(`   Écoute       : ${HOTE}:${PORT}`);
+  // LE PORT ANNONCÉ EST CELUI QU'ON A OBTENU, pas celui qu'on a demandé.
+  // Les deux diffèrent dès que `PORT=0` — la façon normale de demander au
+  // système un port libre. Annoncer « 0 » n'aide personne, et empêche
+  // d'automatiser quoi que ce soit autour du démarrage.
+  const ouvert = serveur.address()?.port ?? PORT;
+  console.log(`   Écoute       : ${HOTE}:${ouvert}`);
   console.log(`   Mot de passe : ${auth.actif ? 'exigé' : 'aucun (accès local uniquement)'}`);
-  if (!publique) console.log(`   Ouvre ton navigateur sur : http://localhost:${PORT}`);
+  if (!publique) console.log(`   Ouvre ton navigateur sur : http://localhost:${ouvert}`);
   console.log('');
 });
 
