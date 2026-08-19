@@ -59,17 +59,41 @@ export function resumeEtat({ offres = [], candidatures = 0, entretiens = [] } = 
  * ce qui a été dit trois messages plus tôt — sans quoi ce n'est plus une
  * conversation, juste une suite de réponses.
  */
-export function promptChat(messages, contexte, { candidat } = {}) {
+/**
+ * Valide l'image jointe à un message. Rend un tableau (0 ou 1 image) prêt pour
+ * Gemini. Une image mal formée ou trop lourde n'est PAS renvoyée en erreur :
+ * on la laisse tomber et la conversation continue en texte, plutôt que de
+ * refuser le message tout entier.
+ */
+const TYPES_IMAGE = /^image\/(png|jpe?g|webp|gif)$/i;
+const MAX_BASE64 = 8_000_000; // ~6 Mo binaire : au-delà, on refuse d'envoyer.
+
+export function validerImages(image) {
+  if (!image || typeof image !== 'object') return [];
+  const { mimeType, data } = image;
+  if (typeof mimeType !== 'string' || !TYPES_IMAGE.test(mimeType)) return [];
+  if (typeof data !== 'string' || data.length === 0 || data.length > MAX_BASE64) return [];
+  // Une chaîne base64 n'a ni espace ni `data:` : on refuse ce qui n'en est pas.
+  if (/[^A-Za-z0-9+/=]/.test(data)) return [];
+  return [{ mimeType, data }];
+}
+
+export function promptChat(messages, contexte, { candidat, avecImage } = {}) {
   const fil = (messages ?? []).slice(-TOURS_MAX)
     .map(m => (m.role === 'moi' ? `${candidat || 'LUI'} : ${m.texte}` : `TOI : ${m.texte}`))
     .join('\n\n');
+  const noteImage = avecImage
+    ? '\n\n# UNE IMAGE EST JOINTE\nRegarde-la et réponds à son sujet — c\'est souvent '
+      + 'une capture d\'écran (une offre, un mail, autre chose). Décris ce qui compte, '
+      + 'pas pixel par pixel.'
+    : '';
 
   return `Tu discutes avec ${candidat || 'quelqu\'un'}, qui cherche un emploi et
 utilise Job Cockpit — un tableau de bord qui collecte des offres, les classe,
 les analyse au regard de son CV et rédige des lettres.
 
 # CE QUE TU SAIS DE SA SITUATION
-${contexte || '(rien de particulier)'}
+${contexte || '(rien de particulier)'}${noteImage}
 
 # LE TON
 Tu es un interlocuteur, pas un assistant. Concrètement :

@@ -162,10 +162,21 @@ export function estConfigure() {
 /**
  * Envoie un prompt et renvoie le texte brut de la réponse.
  * Essaie chaque modèle de la chaîne de repli, une reprise par modèle.
+ * @param {string} prompt
+ * @param {Array<{mimeType:string, data:string}>} [images] images en base64,
+ *   pour les modèles qui savent voir (le compagnon Chill qui reçoit une capture).
  * @returns {Promise<string|null>} null si tous les modèles ont échoué
  */
-export async function demander(prompt) {
+export async function demander(prompt, images = []) {
   const genai = obtenirClient();
+
+  // Sans image, on passe le prompt tel quel — c'est le cas de tout le reste du
+  // projet. Avec image(s), on bascule sur la forme « parts » multimodale : le
+  // texte, puis chaque image en `inlineData`. C'est ce que Gemini attend pour
+  // regarder une capture d'écran.
+  const contenu = images.length
+    ? [{ parts: [{ text: prompt }, ...images.map(i => ({ inlineData: { mimeType: i.mimeType, data: i.data } }))] }]
+    : prompt;
 
   for (const modele of MODELES) {
     for (let tentative = 1; tentative <= 2; tentative++) {
@@ -173,7 +184,7 @@ export async function demander(prompt) {
         await limiteur.attendre();
         const reponse = await genai.models.generateContent({
           model: modele,
-          contents: prompt,
+          contents: contenu,
         });
         return reponse.text;
       } catch (erreur) {

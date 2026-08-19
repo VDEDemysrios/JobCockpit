@@ -17,7 +17,7 @@ import {
   TYPES_NOTIONS, QUESTIONS_PAR_SEANCE,
 } from './entretien.js';
 import { demander, demanderAncre, estConfigure as geminiPret, extraireJson } from './gemini.js';
-import { promptChat, resumeEtat } from './chat.js';
+import { promptChat, resumeEtat, validerImages } from './chat.js';
 import {
   fabriquerDefi, urlAutorisation, echangerCode, rafraichir, estExpire,
   appeler as appelerSpotify, resumeLecture, corpsDeLecture, resumeAppareils,
@@ -1552,11 +1552,17 @@ export function creerRoutes({ db, collecter, sources, profil,
 
     const contexte = resumeEtat({ offres, candidatures, entretiens });
 
+    // Une image jointe au dernier message — une capture d'écran, en général.
+    // On la valide sommairement (type image, taille bornée) : un `data:` mal
+    // formé ou énorme ne doit pas partir chez Gemini ni saturer la mémoire.
+    const images = validerImages(req.body?.image);
+
     let texte;
     try {
       texte = await demander(promptChat(messages, contexte, {
         candidat: (profil.candidat?.nom ?? '').split(' ')[0],
-      }));
+        avecImage: images.length > 0,
+      }), images);
     } catch (erreur) {
       return res.status(502).json({ ok: false, error: `Gemini : ${erreur.message}` });
     }

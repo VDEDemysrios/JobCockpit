@@ -2100,6 +2100,24 @@ html.page-libre,html.page-libre>body{height:auto;min-height:100%;overflow:visibl
 .chill-saisie textarea{flex:1;font-family:inherit;font-size:13.5px;color:var(--ink);
   background:var(--panel);border:1px solid var(--line-fort);border-radius:var(--r3);
   padding:var(--e2) var(--e3);resize:vertical;max-height:200px;line-height:1.5;}
+.chill-saisie-boutons{display:flex;flex-direction:column;gap:5px;flex:0 0 auto;}
+.chill-joindre{white-space:nowrap;}
+
+/* COLLER OU JOINDRE UNE IMAGE.
+   Une capture d'écran d'offre, de mail — le compagnon sait la regarder.
+   L'aperçu se pose au-dessus de la barre de saisie, retirable d'un clic. */
+.chill-apercu:empty{display:none;}
+.chill-apercu{margin-top:var(--e2);}
+.chill-apercu-vignette{position:relative;display:inline-block;}
+.chill-apercu-vignette img{max-height:96px;max-width:180px;border-radius:var(--r2);
+  border:1px solid var(--bord);display:block;}
+.chill-apercu-x{position:absolute;top:-7px;right:-7px;width:22px;height:22px;
+  border-radius:50%;border:0;background:var(--hot,#c0392b);color:#fff;font-size:14px;
+  line-height:1;cursor:pointer;box-shadow:var(--sh1);}
+/* L'image ENVOYÉE, dans le fil : elle rend la bulle un peu plus large. */
+.chill-image{display:block;max-width:100%;max-height:260px;border-radius:var(--r2);
+  margin-bottom:5px;}
+.chill-tour:has(.chill-image){max-width:92%;}
 
 .chill-lien{display:flex;gap:var(--e2);margin-bottom:var(--e3);}
 .chill-lien input{flex:1;min-width:0;font-family:inherit;font-size:12.5px;

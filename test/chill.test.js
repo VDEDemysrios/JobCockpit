@@ -5,7 +5,7 @@
 // vue où l'on ne se fait pas houspiller en énième rappel à l'ordre.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { promptChat, resumeEtat, TOURS_MAX } from '../src/chat.js';
+import { promptChat, resumeEtat, TOURS_MAX, validerImages } from '../src/chat.js';
 
 /**
  * LE COMPAGNON N'EST PAS LE JURY D'ENTRETIEN.
@@ -67,4 +67,41 @@ test('l\'historique transmis est borné', () => {
 /** Une conversation qui commence ne doit pas ressembler à une erreur. */
 test('une conversation vide est annoncée comme telle', () => {
   assert.match(promptChat([], '', {}), /elle commence/);
+});
+
+// ─────────────────────────── L'image jointe ───────────────────────────
+//
+// On peut enfin coller une capture (offre, mail) dans le chat. La validation
+// vit côté serveur : une image mal formée ne doit ni partir chez Gemini ni
+// saturer la mémoire — mais elle ne doit pas non plus faire échouer le
+// message, on la laisse tomber et la conversation continue en texte.
+
+test('une image bien formée est acceptée', () => {
+  const im = validerImages({ mimeType: 'image/png', data: 'iVBORw0KGgoAAAANS' });
+  assert.equal(im.length, 1);
+  assert.equal(im[0].mimeType, 'image/png');
+});
+
+test('ce qui n\'est pas une image propre est écarté, sans lever', () => {
+  assert.deepEqual(validerImages(null), []);
+  assert.deepEqual(validerImages('pas un objet'), []);
+  assert.deepEqual(validerImages({ mimeType: 'application/pdf', data: 'abc' }), [],
+    'un PDF n\'est pas une image');
+  assert.deepEqual(validerImages({ mimeType: 'image/png', data: '' }), [], 'donnée vide');
+  assert.deepEqual(validerImages({ mimeType: 'image/png', data: 'a b!' }), [],
+    'du base64 avec espace ou caractère interdit est refusé');
+  assert.deepEqual(validerImages({ mimeType: 'image/png', data: 'x'.repeat(9_000_000) }), [],
+    'trop lourde : au-delà de la borne, on refuse d\'envoyer');
+});
+
+/**
+ * QUAND UNE IMAGE EST JOINTE, LE MODÈLE DOIT LE SAVOIR — sinon il reçoit des
+ * pixels sans consigne de les regarder, et répond parfois comme s'il n'y avait
+ * rien.
+ */
+test('le prompt signale la présence d\'une image', () => {
+  const avec = promptChat([{ role: 'moi', texte: 'regarde' }], '', { avecImage: true });
+  const sans = promptChat([{ role: 'moi', texte: 'salut' }], '', { avecImage: false });
+  assert.match(avec, /UNE IMAGE EST JOINTE/);
+  assert.ok(!/UNE IMAGE EST JOINTE/.test(sans));
 });

@@ -21,6 +21,46 @@ import { ouvrirDock, jouerMedia } from './dock.js';
 const CLE_FIL = 'bp_chill_fil';
 
 /**
+ * L'image jointe au prochain message, s'il y en a une. Elle vit ici, pas dans
+ * le fil : on ne la range dans le message qu'à l'envoi.
+ */
+let imageEnAttente = null;   // { apercu (dataURL), mimeType, data (base64) }
+
+/**
+ * RÉDUIRE L'IMAGE AVANT DE L'ENVOYER, et pourquoi.
+ *
+ * Une capture d'écran fait souvent 2 à 5 Mo. L'envoyer telle quelle, c'est
+ * payer des jetons pour des pixels que le modèle n'a pas besoin de lire, et
+ * gonfler le `localStorage` où vit la conversation. On la ramène à 1280 px de
+ * côté maximum, en JPEG — largement assez pour lire une offre ou un mail.
+ *
+ * Rend `{ apercu, mimeType, data }` : l'aperçu (dataURL) pour l'afficher, et
+ * la base64 nue (sans préfixe `data:`) pour l'API.
+ */
+function reduireImage(fichier, cote = 1280) {
+  return new Promise((resolve, reject) => {
+    const lecteur = new FileReader();
+    lecteur.onerror = () => reject(new Error('Image illisible.'));
+    lecteur.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Image illisible.'));
+      img.onload = () => {
+        const ratio = Math.min(1, cote / Math.max(img.width, img.height));
+        const l = Math.round(img.width * ratio);
+        const h = Math.round(img.height * ratio);
+        const c = document.createElement('canvas');
+        c.width = l; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, l, h);
+        const apercu = c.toDataURL('image/jpeg', 0.82);
+        resolve({ apercu, mimeType: 'image/jpeg', data: apercu.split(',')[1] });
+      };
+      img.src = lecteur.result;
+    };
+    lecteur.readAsDataURL(fichier);
+  });
+}
+
+/**
  * La conversation vit dans le NAVIGATEUR, pas dans la base.
  *
  * Une discussion informelle n'a pas à laisser de trace : ce qu'on dit un soir
@@ -30,7 +70,18 @@ function lireFil() {
   try { return JSON.parse(localStorage.getItem(CLE_FIL) ?? '[]'); } catch { return []; }
 }
 function ecrireFil(fil) {
-  localStorage.setItem(CLE_FIL, JSON.stringify(fil.slice(-60)));
+  const recent = fil.slice(-60);
+  try {
+    localStorage.setItem(CLE_FIL, JSON.stringify(recent));
+  } catch {
+    // Quota dépassé — presque toujours à cause des images. On garde le TEXTE
+    // (le fil de la conversation), on ne largue que les images des messages,
+    // en commençant par les plus anciens. Perdre une vignette vaut mieux que
+    // perdre la conversation, ou de la voir refuser d'enregistrer.
+    const sansImages = recent.map(m => ({ ...m, image: null }));
+    try { localStorage.setItem(CLE_FIL, JSON.stringify(sansImages)); }
+    catch { localStorage.setItem(CLE_FIL, JSON.stringify(sansImages.slice(-20))); }
+  }
 }
 
 function rendreFil(fil) {
@@ -42,7 +93,9 @@ function rendreFil(fil) {
   }
   return fil.map(m => `
     <div class="chill-tour chill-${m.role}">
-      <div class="chill-texte">${echapper(m.texte).replace(/\n/g, '<br>')}</div>
+      <div class="chill-texte">
+        ${m.image ? `<img class="chill-image" src="${echapper(m.image)}" alt="image envoyée">` : ''}
+        ${m.texte ? echapper(m.texte).replace(/\n/g, '<br>') : ''}</div>
     </div>`).join('');
 }
 
@@ -57,9 +110,16 @@ export function rendreChill() {
         <h3><span data-ic="plume" data-ic-taille="14"></span> Discuter
           ${fil.length ? '<button class="chill-vider" data-chill="vider">Effacer</button>' : ''}</h3>
         <div class="chill-fil" id="chillFil">${rendreFil(fil)}</div>
+        <div class="chill-apercu" id="chillApercu"></div>
         <form class="chill-saisie" id="chillForm">
-          <textarea id="chillMsg" rows="2" placeholder="Écris… (Ctrl+Entrée pour envoyer)"></textarea>
-          <button class="btn btn-primary" type="submit">Envoyer</button>
+          <textarea id="chillMsg" rows="2"
+            placeholder="Écris, ou colle une capture (Ctrl+V) — Ctrl+Entrée pour envoyer"></textarea>
+          <div class="chill-saisie-boutons">
+            <button class="btn chill-joindre" type="button" data-chill="joindre"
+              title="Joindre une image"><span data-ic="carte" data-ic-taille="14"></span> Image</button>
+            <button class="btn btn-primary" type="submit">Envoyer</button>
+          </div>
+          <input type="file" id="chillFichier" accept="image/*" hidden>
         </form>
       </div>
 
@@ -85,6 +145,30 @@ export function rendreChill() {
 
   const f = document.getElementById('chillFil');
   if (f) f.scrollTop = f.scrollHeight;
+  rendreApercu();
+}
+
+/** L'aperçu de l'image en attente, au-dessus de la barre de saisie. */
+function rendreApercu() {
+  const zone = document.getElementById('chillApercu');
+  if (!zone) return;
+  zone.innerHTML = imageEnAttente
+    ? `<div class="chill-apercu-vignette">
+        <img src="${echapper(imageEnAttente.apercu)}" alt="aperçu">
+        <button class="chill-apercu-x" data-chill="retirer-image" title="Retirer">×</button>
+      </div>`
+    : '';
+}
+
+/** Prend un fichier image, le réduit, le met en attente et l'affiche. */
+async function joindreFichier(fichier, signaler) {
+  if (!fichier || !fichier.type.startsWith('image/')) return;
+  try {
+    imageEnAttente = await reduireImage(fichier);
+    rendreApercu();
+  } catch (e) {
+    signaler?.(e.message, 'erreur');
+  }
 }
 
 /** Branche la vue. Un seul écouteur : le contenu est reconstruit à chaque tour. */
@@ -100,9 +184,35 @@ export function installerChill(toast) {
       localStorage.removeItem(CLE_FIL);
       rendreChill();
     }
+    if (b.dataset.chill === 'joindre') {
+      document.getElementById('chillFichier')?.click();
+    }
+    if (b.dataset.chill === 'retirer-image') {
+      imageEnAttente = null;
+      rendreApercu();
+    }
     if (['lecteur', 'spotify', 'twitch'].includes(b.dataset.chill)) {
       ouvrirDock(b.dataset.chill);
     }
+  });
+
+  // Le bouton « Image » ouvre le sélecteur de fichier.
+  zone.addEventListener('change', (e) => {
+    if (e.target.id !== 'chillFichier') return;
+    joindreFichier(e.target.files?.[0], toast);
+    e.target.value = '';   // pour pouvoir re-choisir le même fichier ensuite
+  });
+
+  // COLLER UNE CAPTURE. Un `<textarea>` ne peut pas contenir d'image : sans ce
+  // gardien, Ctrl+V d'une capture ne faisait RIEN, ce qui ressemblait à un
+  // collage cassé. On intercepte l'image et on la joint ; le collage de TEXTE,
+  // lui, suit son cours normal (on ne l'empêche pas).
+  zone.addEventListener('paste', (e) => {
+    if (e.target.id !== 'chillMsg') return;
+    const item = [...(e.clipboardData?.items ?? [])].find(i => i.type.startsWith('image/'));
+    if (!item) return;               // pas d'image : c'est du texte, on laisse faire
+    e.preventDefault();
+    joindreFichier(item.getAsFile(), toast);
   });
 
   zone.addEventListener('submit', async (e) => {
@@ -117,10 +227,14 @@ export function installerChill(toast) {
     if (e.target.id !== 'chillForm') return;
     const champ = document.getElementById('chillMsg');
     const texte = champ?.value.trim();
-    if (!texte) return;
+    // Une image seule est un message valide : on n'exige pas de texte avec.
+    if (!texte && !imageEnAttente) return;
+
+    const image = imageEnAttente;
+    imageEnAttente = null;
 
     const fil = lireFil();
-    fil.push({ role: 'moi', texte });
+    fil.push({ role: 'moi', texte, image: image?.apercu ?? null });
     ecrireFil(fil);
     rendreChill();
 
@@ -134,7 +248,11 @@ export function installerChill(toast) {
     }
 
     try {
-      const r = await API.chat(fil.map(m => ({ role: m.role, texte: m.texte })));
+      // L'image ne part qu'avec CE message ; l'historique reste en texte, sinon
+      // chaque tour renverrait toutes les images déjà vues — coûteux et inutile.
+      const r = await API.chat(
+        fil.map(m => ({ role: m.role, texte: m.texte })),
+        image ? { mimeType: image.mimeType, data: image.data } : undefined);
       const suite = lireFil();
       suite.push({ role: 'lui', texte: r.reponse });
       ecrireFil(suite);
