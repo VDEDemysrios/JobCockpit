@@ -14,7 +14,7 @@ import { validerVilles, decrireVille, DEPARTEMENTS, VILLES_MAX } from './villes.
 import { verifierOffres, aVerifier } from './liens.js';
 import {
   promptQuestion, promptDebrief, promptFiche, promptNotions,
-  TYPES_NOTIONS, QUESTIONS_PAR_SEANCE,
+  TYPES_NOTIONS, QUESTIONS_PAR_SEANCE, couper,
 } from './entretien.js';
 import { demander, demanderAncre, estConfigure as geminiPret, extraireJson } from './gemini.js';
 import { promptChat, resumeEtat } from './chat.js';
@@ -1772,6 +1772,25 @@ export function creerRoutes({ db, collecter, sources, profil,
     const reponse = String(req.body?.reponse ?? '').trim();
     if (reponse) e.echanges.push({ role: 'candidat', texte: reponse.slice(0, 4000) });
 
+    // LA SÉANCE S'ARRÊTE QUAND LA DERNIÈRE QUESTION A ÉTÉ RÉPONDUE, pas
+    // quand elle a été posée.
+    //
+    // Le compteur ne regardait que les questions POSÉES. Arrivé à 8/8, le
+    // jury venait d'en poser une — et l'interface retirait le champ de
+    // saisie. On restait devant une question sans pouvoir y répondre, sans
+    // rien qui dise si la séance était finie ou si l'on devait écrire
+    // quelque part. Une séance de huit questions n'en comptait donc que
+    // sept de réellement travaillées.
+    //
+    // Ici, on enregistre la réponse et on s'arrête : demander une neuvième
+    // question serait la poser pour rien, et ça coûterait un appel Gemini.
+    const dejaPosees = e.echanges.filter(x => x.role === 'jury').length;
+    if (dejaPosees >= QUESTIONS_PAR_SEANCE) {
+      ecrireEntretien(req.params.id, e);
+      return res.json({ ok: true, echanges: e.echanges,
+        posees: dejaPosees, terminee: true });
+    }
+
     let question;
     try {
       question = await demander(promptQuestion(o.offre, o.analyse, cv(), e.echanges));
@@ -1887,15 +1906,18 @@ export function creerRoutes({ db, collecter, sources, profil,
     const nouvelles = liste
       .filter(c => c?.terme && c?.definition)
       .map(c => ({
-        terme: String(c.terme).slice(0, 300),
-        definition: String(c.definition).slice(0, 900),
+        // 400 pour le recto : une « mise en situation » fait deux ou trois
+        // phrases, c'est ce que le prompt demande. À 120 — la limite
+        // d'origine — elles arrivaient toutes coupées en plein mot.
+        terme: couper(c.terme, 400),
+        definition: couper(c.definition, 900),
         // La phrase à ressortir telle quelle en séance. C'est elle qu'on
         // révise en dernier, dans le train.
-        memo: String(c.memo ?? '').slice(0, 300),
+        memo: couper(c.memo, 300),
         // Ce que les candidats confondent : c'est souvent ce qui départage.
-        piege: String(c.piege ?? '').slice(0, 400),
-        pourquoi: String(c.pourquoi ?? '').slice(0, 400),
-        source: String(c.source ?? '').slice(0, 200),
+        piege: couper(c.piege, 400),
+        pourquoi: couper(c.pourquoi, 400),
+        source: couper(c.source, 200),
         sur: c.sur !== false,
         su: false,
         type,
@@ -1925,6 +1947,24 @@ export function creerRoutes({ db, collecter, sources, profil,
   });
 
   /** Repartir de zéro, en gardant la fiche : elle ne dépend pas de la séance. */
+  /**
+   * SUPPRIME UNE CARTE.
+   *
+   * Il manquait un moyen d'en retirer une. « À revoir » et « Je sais »
+   * jugent la révision ; rien ne permettait d'écarter une carte fausse, en
+   * double, ou abîmée — et les rectos tronqués à 120 caractères par une
+   * ancienne limite ne pouvaient être que subis, puisque fabriquer de
+   * nouvelles cartes AJOUTE au lot au lieu de le remplacer.
+   */
+  routes.delete('/entretien/:id/notions/:index', (req, res) => {
+    const e = lireEntretien(req.params.id);
+    const i = Number(req.params.index);
+    if (!e.notions[i]) return res.status(404).json({ ok: false, error: 'Carte introuvable.' });
+    e.notions.splice(i, 1);
+    ecrireEntretien(req.params.id, e);
+    res.json({ ok: true, restantes: e.notions.length });
+  });
+
   routes.delete('/entretien/:id', (req, res) => {
     const e = lireEntretien(req.params.id);
     // La fiche et les cartes SURVIVENT : elles décrivent le poste, pas la

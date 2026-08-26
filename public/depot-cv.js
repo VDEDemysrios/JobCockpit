@@ -11,10 +11,25 @@
 // glisser un mot d'une carte à l'autre déclenchait un « dépose ton CV ici »
 // en plein écran, ce qui est absurde et donne l'impression que l'application
 // ne comprend rien à ce qu'on fait.
+//
+// IL FAUT AUSSI UN BOUTON, ET CE N'EST PAS UNE COMMODITÉ
+// -----------------------------------------------------
+// Le glisser-déposer était le SEUL moyen d'installer un CV, et rien à l'écran
+// ne l'annonçait : la visite guidée le disait une fois, et la visite ne passe
+// qu'une fois. Qui la refusait — ou la voyait s'interrompre — se retrouvait
+// devant une vue « Mon CV » vide qui conseillait une commande de terminal,
+// laquelle n'existe pas dans l'exécutable distribué. Le CV devenait
+// littéralement impossible à installer, alors que c'est la pièce dont
+// dépendent l'analyse des offres et toutes les lettres.
+//
+// D'où `[data-choisir-cv]` : n'importe quel bouton portant cet attribut ouvre
+// le sélecteur de fichiers. L'écoute est DÉLÉGUÉE au document, parce que les
+// vues sont reconstruites à chaque rendu — un écouteur posé sur le bouton
+// partirait avec lui au premier rafraîchissement.
 
 import { API } from './api.js';
 
-const EXTENSIONS = ['.docx', '.txt'];
+export const EXTENSIONS = ['.docx', '.txt'];
 
 /** L'utilisateur fait-il glisser un FICHIER, et non du texte ou un élément ? */
 function transporteUnFichier(evenement) {
@@ -37,6 +52,28 @@ export function installerDepotCv(toast, apresDepot) {
       <div class="depot-sous">Word (.docx) ou texte (.txt)</div>
     </div>`;
   document.body.appendChild(voile);
+
+  // Le sélecteur de fichiers, créé UNE fois et gardé caché : `accept` fait
+  // que l'explorateur ne propose d'emblée que ce qu'on sait lire.
+  const choix = document.createElement('input');
+  choix.type = 'file';
+  choix.accept = EXTENSIONS.join(',');
+  choix.hidden = true;
+  choix.addEventListener('change', async () => {
+    const fichier = choix.files?.[0];
+    // Le champ est vidé AVANT l'envoi : sans ça, rechoisir le même fichier
+    // après l'avoir corrigé ne déclenche aucun `change`, et l'application a
+    // l'air de refuser de le reprendre.
+    choix.value = '';
+    if (fichier) await envoyer(fichier, toast, apresDepot);
+  });
+  document.body.appendChild(choix);
+
+  document.addEventListener('click', (evenement) => {
+    if (!evenement.target.closest?.('[data-choisir-cv]')) return;
+    evenement.preventDefault();
+    choix.click();
+  });
 
   // `dragenter`/`dragleave` se déclenchent aussi en passant d'un élément
   // enfant à un autre : le voile clignoterait à chaque survol. On compte donc
@@ -72,7 +109,10 @@ export function installerDepotCv(toast, apresDepot) {
     if (fichier) await envoyer(fichier, toast, apresDepot);
   });
 
-  return { envoyer: (f) => envoyer(f, toast, apresDepot) };
+  return {
+    envoyer: (f) => envoyer(f, toast, apresDepot),
+    choisir: () => choix.click(),
+  };
 }
 
 /** Envoie le fichier et rend compte, en clair, de ce qui s'est passé. */

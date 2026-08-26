@@ -31,6 +31,34 @@
 // certain, soit explicitement marqué « à vérifier », avec la source où aller
 // voir.
 
+/**
+ * COUPE UN TEXTE SANS QUE ÇA SE VOIE COMME UNE PANNE.
+ *
+ * Les cartes portaient une limite de 120 caractères, tranchée AU CARACTÈRE.
+ * Sur les « mises en situation », dont le prompt demande deux ou trois
+ * phrases, ça donnait des rectos coupés en plein mot :
+ *
+ *     « …le délai de transmission de 2 mois touche à sa fin ce soir min »
+ *     « …contraire au Plan Local d'Urbanisme (PLU) intercommunal da »
+ *
+ * Deux fautes distinctes, et la seconde survit à la première : une limite
+ * trop basse pour ce qu'on demande au modèle, ET une coupe brutale. Élargir
+ * la limite ne suffit pas — il y aura toujours une carte qui la dépasse, et
+ * elle sera aussi laide. On coupe donc au dernier ESPACE, et on pose des
+ * points de suspension : le lecteur voit que c'est tronqué au lieu de
+ * croire à un texte corrompu.
+ */
+export function couper(texte, maximum) {
+  const t = String(texte ?? '').trim();
+  if (t.length <= maximum) return t;
+
+  const brut = t.slice(0, maximum - 1);
+  const espace = brut.lastIndexOf(' ');
+  // Un mot unique plus long que la limite n'a pas d'espace où couper : on
+  // tranche alors au caractère, faute de mieux.
+  const propre = espace > maximum * 0.6 ? brut.slice(0, espace) : brut;
+  return `${propre.replace(/[\s,;:.–—-]+$/, '')}…`;
+}
 /** Combien d'échanges avant de proposer le débriefing. */
 export const QUESTIONS_PAR_SEANCE = 8;
 

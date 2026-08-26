@@ -1048,7 +1048,10 @@ ul.mini li{margin-bottom:5px;}
    choses. `pointer-events:none` est indispensable — un voile qui intercepte
    le pointeur empêcherait l'évènement `drop` d'atteindre la fenêtre, et le
    dépôt ne marcherait tout simplement jamais. */
-.depot-voile{position:fixed;inset:0;z-index:8500;display:none;
+/* 8900 : AU-DESSUS DE LA VISITE GUIDÉE (8800), et c'est délibéré. L'étape du
+   CV invite à déposer un fichier ; le « Dépose ton CV » qui répond à ce geste
+   se retrouvait sous le voile de la visite, assombri de deux tiers. */
+.depot-voile{position:fixed;inset:0;z-index:8900;display:none;
   align-items:center;justify-content:center;pointer-events:none;
   background:color-mix(in srgb,var(--bg) 82%,transparent);
   backdrop-filter:blur(2px);}
@@ -1299,6 +1302,19 @@ html.page-libre,html.page-libre>body{height:auto;min-height:100%;overflow:visibl
   .cv-doc{flex-wrap:wrap;}
   .cv-doc .btn{width:100%;justify-content:center;}
 }
+/* L'APPEL À DÉPOSER UN CV. Un bouton, et le glisser-déposer nommé à côté :
+   le second est plus rapide une fois qu'on le connaît, mais on ne le connaît
+   que si quelque chose l'écrit. */
+.cv-appel{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;
+  gap:var(--e3);margin-top:var(--e5);}
+.cv-ou{font-size:12.5px;color:var(--muted);}
+.cv-formats{font-size:12px;color:var(--faint);margin-top:var(--e3);line-height:1.6;}
+
+/* La ligne de commande n'est plus l'instruction principale : elle ne vaut que
+   depuis les sources, et l'exécutable distribué n'a ni npm ni dossier de
+   projet. Elle reste, repliée, pour qui travaille dessus. */
+.cv-terminal{margin-top:var(--e5);font-size:12px;color:var(--faint);}
+.cv-terminal summary{cursor:pointer;}
 .cv-cmd{display:inline-block;margin-top:var(--e4);font-family:var(--mono);font-size:12.5px;
   background:var(--bg2);border:1px solid var(--line-fort);border-radius:var(--r2);
   padding:9px var(--e4);color:var(--ink);}
@@ -1422,7 +1438,17 @@ html.page-libre,html.page-libre>body{height:auto;min-height:100%;overflow:visibl
 
 /* ─────────────────────── SURCOUCHES ─────────────────────── */
 
-#toastZone{position:fixed;bottom:var(--e6);right:var(--e6);z-index:100;display:flex;
+/* LES MESSAGES PASSENT AU-DESSUS DE TOUT, Y COMPRIS DES SURCOUCHES.
+
+   Ils étaient à 100, sous la visite guidée (8800) et sous l'ouverture (9000).
+   La visite dit « lâche ton CV n'importe où dans la fenêtre » : on le lâchait,
+   et « CV enregistré » comme « ce fichier n'est pas un .docx » s'affichaient
+   derrière son voile sombre. Le geste semblait sans effet — au moment précis
+   où l'application demandait de le faire.
+
+   Un message est la SEULE trace qu'une action a abouti : rien ne doit jamais
+   passer devant lui. */
+#toastZone{position:fixed;bottom:var(--e6);right:var(--e6);z-index:9500;display:flex;
   flex-direction:column;gap:var(--e2);align-items:flex-end;pointer-events:none;}
 .toast{background:var(--ink);color:var(--bg);padding:var(--e3) var(--e4);border-radius:var(--r3);
   box-shadow:var(--sh4);font-size:13px;font-weight:var(--w-medium);animation:toastIn .25s;
@@ -1990,9 +2016,14 @@ html.page-libre,html.page-libre>body{height:auto;min-height:100%;overflow:visibl
    rassurer sans jamais formuler de réponse — or c'est formuler qui prépare.
    La question suivante n'arrive donc qu'une fois la précédente répondue.   */
 
-#entretien .ent-tete,#entretien .ent-fil,#entretien .ent-saisie,
-#entretien .ent-pied,#entretien .ent-doc,#entretien .ent-avert{
-  max-width:min(820px,92vw);margin-left:auto;margin-right:auto;}
+/* UNE SEULE COLONNE, CENTRÉE. Une ligne de texte qui court sur 2 000 pixels
+   ne se lit pas : l'œil perd le début de la suivante. La largeur de lecture
+   vaut pour les documents ; la barre d'onglets et le panneau la suivent pour
+   que tout soit aligné sur le même axe. */
+#entretien .ent-tete,#entretien .ent-onglets,#entretien .ent-panneau{
+  max-width:min(880px,94vw);margin-left:auto;margin-right:auto;}
+#entretien .ent-fil,#entretien .ent-saisie,#entretien .ent-pied,
+#entretien .ent-doc,#entretien .ent-avert{max-width:100%;}
 
 /* LE DÉFAUT QUI METTAIT L'ENTRETIEN EN HUIT COLONNES.
 
@@ -2034,9 +2065,20 @@ html.page-libre,html.page-libre>body{height:auto;min-height:100%;overflow:visibl
 .ent-candidat .ent-qui{color:var(--accent-ink);}
 
 .ent-saisie{display:flex;gap:var(--e3);align-items:flex-end;margin-top:var(--e5);}
+/* PAS DE POIGNÉE DE REDIMENSIONNEMENT, et ce n'est pas une perte.
+
+   `resize:vertical` fait dessiner au navigateur son petit triangle en bas
+   à droite. Il ignore le thème — un carré clair sur un champ sombre — et il
+   ne sert à rien ici : le champ grandit DÉJÀ tout seul à mesure qu'on écrit,
+   jusqu'à 340 px. La poignée ne proposait donc que de défaire ce que le
+   champ fait mieux.
+
+   Deux lignes au repos plutôt qu'une : une réponse d'entretien n'est jamais
+   d'un mot, et un champ haut d'une ligne à côté d'un gros bouton donne
+   l'impression qu'on attend une réponse brève. */
 .ent-saisie textarea{flex:1;font-family:inherit;font-size:13.5px;color:var(--ink);
   background:var(--panel);border:1px solid var(--line-fort);border-radius:var(--r3);
-  padding:var(--e3);resize:vertical;line-height:1.55;}
+  padding:var(--e3);resize:none;line-height:1.55;min-height:4.2em;}
 .ent-attente{font-size:13px;color:var(--muted);padding:var(--e4);text-align:center;}
 
 .ent-pied{display:flex;gap:var(--e3);margin-top:var(--e5);flex-wrap:wrap;}
@@ -3364,3 +3406,35 @@ select:focus,.search:focus,input:focus,textarea:focus{
    une liste de deux cents titres ressemble à un champ de mines ; incolore, on
    ne distingue pas l'action qui enlève de celle qui ajoute. */
 .sp-oter:hover{color:var(--hot);}
+
+/* La fin de séance se DIT. Auparavant le champ de saisie disparaissait, sans
+   un mot : on restait devant la dernière question sans savoir s'il fallait
+   encore répondre ou demander le débriefing. */
+.ent-finie{margin-top:var(--e5);padding:var(--e4);border-radius:var(--r3);
+  background:var(--g1b);border:1px solid var(--g1);color:var(--ink-2);
+  font-size:13px;line-height:1.55;text-align:center;}
+.ent-finie strong{color:var(--g1);}
+
+/* ── LES ONGLETS DE LA SURCOUCHE D'ENTRETIEN ───────────────────────────
+   Cinq choses qu'on ne consulte jamais en même temps — on répond, OU on
+   révise, OU on relit le débriefing. Empilées, elles faisaient une page de
+   plusieurs milliers de pixels où l'on cherchait le débriefing à l'aveugle. */
+.ent-onglets{display:flex;gap:2px;margin:var(--e4) auto var(--e5);
+  background:var(--bg2);border-radius:var(--r2);padding:3px;}
+.ent-onglets button{flex:1;display:inline-flex;align-items:center;
+  justify-content:center;gap:5px;font-family:inherit;font-size:12px;
+  font-weight:var(--w-medium);color:var(--muted);background:transparent;
+  border:0;border-radius:var(--r1);padding:6px 8px;cursor:pointer;
+  white-space:nowrap;transition:background .13s,color .13s;}
+.ent-onglets button:hover{color:var(--ink);}
+.ent-onglets button.actif{background:var(--panel);color:var(--accent);
+  box-shadow:var(--sh2);font-weight:var(--w-semi);}
+.ent-onglets .ent-n{margin-left:0;}
+
+/* Un onglet vide porte SON bouton : l'endroit où l'on va chercher la chose
+   est celui où on la fabrique. Avant, « Fiche de révision » se trouvait en
+   bas d'une page de cartes. */
+.ent-vide-onglet{text-align:center;padding:var(--e10) var(--e5);
+  color:var(--muted);font-size:13px;line-height:1.6;}
+.ent-vide-onglet p{max-width:44em;margin:0 auto var(--e5);}
+.ent-panneau .ent-doc{margin-top:0;}

@@ -352,7 +352,11 @@ function grandirChamp() {
   const c = document.getElementById('chillMsg');
   if (!c) return;
   c.style.height = 'auto';
-  c.style.height = `${Math.min(c.scrollHeight, 200)}px`;
+  // Les bordures ne sont pas dans `scrollHeight`, mais elles SONT dans la
+  // hauteur imposée : sans elles, la dernière ligne est rognée de deux
+  // pixels — voir le commentaire détaillé dans `entretien.js`.
+  const bordures = c.offsetHeight - c.clientHeight;
+  c.style.height = `${Math.min(c.scrollHeight + bordures, 200)}px`;
 }
 
 const annoncer = (t) => {

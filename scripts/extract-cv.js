@@ -1,11 +1,20 @@
-// Extrait le texte du CV (.docx) vers profile/cv.txt.
-// À lancer UNE FOIS au premier démarrage, puis à chaque mise à jour du CV.
-// Le CV et son extraction sont gitignorés : ce sont des données personnelles.
+// Extrait le texte du CV vers profile/cv.txt, en ligne de commande.
+//
+// CE SCRIPT NE SAIT PLUS LIRE UN CV : IL APPELLE `src/cv.js`.
+// -----------------------------------------------------------
+// Il portait sa propre extraction, en double de celle du téléversement. Les
+// deux ont divergé, exactement comme `src/cv.js` l'annonçait : cette
+// copie-ci ignorait le .txt, ne vérifiait pas qu'un fichier nommé `.docx` en
+// était vraiment un, et écrivait `cv.txt` AVANT le document — ce qui faisait
+// déclarer périmée, dans l'application, une extraction qui venait de se faire.
+//
+// Le dépôt par glisser ou par le bouton, dans l'application, reste la voie
+// normale. Celle-ci sert quand on travaille depuis les sources.
 //
 // Usage : npm run extract-cv -- "C:/chemin/vers/CV_Camille_Durand.docx"
-import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import mammoth from 'mammoth';
+import { readFileSync, existsSync } from 'node:fs';
+import { resolve, basename } from 'node:path';
+import { enregistrerCv } from '../src/cv.js';
 
 const cheminSource = process.argv[2];
 
@@ -18,22 +27,12 @@ if (!existsSync(cheminSource)) {
   process.exit(1);
 }
 
-const dossierProfil = resolve('profile');
-if (!existsSync(dossierProfil)) mkdirSync(dossierProfil, { recursive: true });
-
-const { value: texte } = await mammoth.extractRawText({ buffer: readFileSync(cheminSource) });
-
-// Compresse les lignes vides multiples pour un prompt plus lisible.
-const propre = texte.replace(/\n{3,}/g, '\n\n').trim();
-
-if (propre.length < 200) {
-  console.error(`⚠ Texte extrait très court (${propre.length} caractères). Le fichier est-il bien un CV ?`);
+try {
+  const { caracteres, chemin } = await enregistrerCv(
+    readFileSync(cheminSource), basename(cheminSource), resolve('.'));
+  console.log(`✓ CV extrait : ${caracteres} caractères → profile/cv.txt`);
+  console.log(`✓ Copie du fichier source → ${chemin}`);
+} catch (erreur) {
+  console.error(`⚠ ${erreur.message}`);
   process.exit(1);
 }
-
-writeFileSync(resolve('profile/cv.txt'), propre, 'utf8');
-// On garde une copie du .docx d'origine (gitignorée) pour pouvoir réextraire.
-copyFileSync(cheminSource, resolve('profile/cv-source.docx'));
-
-console.log(`✓ CV extrait : ${propre.length} caractères → profile/cv.txt`);
-console.log(`✓ Copie du fichier source → profile/cv-source.docx`);

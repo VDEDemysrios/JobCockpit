@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   promptQuestion, promptDebrief, promptFiche, promptNotions,
-  TYPES_NOTIONS, QUESTIONS_PAR_SEANCE,
+  TYPES_NOTIONS, QUESTIONS_PAR_SEANCE, couper,
 } from '../src/entretien.js';
 
 const OFFRE = {
@@ -130,4 +130,53 @@ test('la séance a une longueur annoncée', () => {
   assert.ok(QUESTIONS_PAR_SEANCE >= 5 && QUESTIONS_PAR_SEANCE <= 15);
   assert.match(promptQuestion(OFFRE, ANALYSE, 'CV', []),
     new RegExp(`sur ${QUESTIONS_PAR_SEANCE}`));
+});
+
+/**
+ * LES RECTOS ARRIVAIENT COUPÉS EN PLEIN MOT.
+ *
+ * Une limite de 120 caractères, tranchée AU CARACTÈRE, sur des « mises en
+ * situation » dont le prompt demande deux ou trois phrases :
+ *
+ *     « …le délai de transmission de 2 mois touche à sa fin ce soir min »
+ *     « …contraire au Plan Local d'Urbanisme (PLU) intercommunal da »
+ *
+ * Deux fautes, et la seconde survit à la première : élargir la limite ne
+ * suffit pas, il y aura toujours une carte qui la dépasse et elle sera aussi
+ * laide. Rien ne le signale — le texte a juste l'air corrompu.
+ */
+test('une coupe se voit comme une coupe, pas comme un texte cassé', () => {
+  const long = 'Un dossier de permis de construire arrive en préfecture : le délai '
+    + 'de transmission de deux mois touche à sa fin ce soir minuit. Que faites-vous ?';
+
+  const r = couper(long, 120);
+  assert.ok(r.length <= 120, `${r.length} caractères, la limite est 120`);
+  assert.ok(r.endsWith('…'), 'une troncature doit se voir');
+  assert.ok(!/\s…$/.test(r), 'pas d\'espace avant les points de suspension');
+
+  // LE POINT CENTRAL : on ne coupe pas au milieu d'un mot.
+  const dernier = r.slice(0, -1).trim().split(' ').at(-1);
+  assert.ok(long.split(/[\s.,;:]+/).includes(dernier),
+    `« ${dernier} » n'est pas un mot entier du texte d'origine`);
+});
+
+test('ce qui tient dans la limite n\'est pas touché', () => {
+  assert.equal(couper('Court', 120), 'Court');
+  assert.equal(couper('  des espaces autour  ', 120), 'des espaces autour');
+  assert.equal(couper('', 120), '');
+  assert.equal(couper(null, 120), '');
+  assert.equal(couper(undefined, 120), '');
+});
+
+/** La ponctuation de fin ferait « mot,… », qui se lit comme une faute. */
+test('la ponctuation qui précède la coupe est retirée', () => {
+  const r = couper('Une phrase qui se termine par une virgule pile ici, et la suite', 52);
+  assert.ok(!/[,;:.\s]…$/.test(r), `« ${r.slice(-6)} » garde une ponctuation avant la coupe`);
+});
+
+/** Un mot unique plus long que la limite n'a pas d'espace où couper. */
+test('un mot interminable est tranché plutôt que rendu entier', () => {
+  const r = couper('Motsuperlongsansaucunespacequidepasselalimite', 30);
+  assert.ok(r.length <= 30);
+  assert.ok(r.endsWith('…'));
 });

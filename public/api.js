@@ -157,6 +157,10 @@ export const API = {
   // Cartes à réviser : chaque appel en AJOUTE dix sans reprendre les
   // précédentes, pour réviser sur plusieurs jours.
   entretienNotions:  (id, type) => appeler(`/api/entretien/${id}/notions`, { method: 'POST', body: { type } }),
+  // Écarter une carte fausse, en double, ou abîmée. Fabriquer de nouvelles
+  // cartes AJOUTE au lot : sans suppression, une mauvaise carte reste.
+  entretienOterNotion:(id, i) =>
+    appeler(`/api/entretien/${id}/notions/${i}`, { method: 'DELETE' }),
   entretienNotionSue:(id, i, su) =>
     appeler(`/api/entretien/${id}/notions/${i}`, { method: 'PATCH', body: { su } }),
 

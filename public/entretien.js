@@ -180,6 +180,8 @@ function rendreNotions(notions, types = {}) {
             <div class="ent-juger">
               <button class="btn" data-juger="${i}" data-su="0">À revoir</button>
               <button class="btn" data-juger="${i}" data-su="1">Je sais</button>
+              <button class="btn btn-discret ent-oter" data-oter="${i}"
+                title="Écarter cette carte">Supprimer</button>
             </div>
           </div>
         </div>`).join('') || '<p class="ent-vide">Aucune carte de ce type pour l\'instant.</p>'}
@@ -212,26 +214,55 @@ function rendreLiens(liens) {
   </div>`;
 }
 
-function rendreFil(etat) {
+/**
+ * LA SURCOUCHE EST CLOISONNÉE EN ONGLETS.
+ *
+ * Tout vivait à la suite : la séance, puis les cartes, puis les sources, puis
+ * le débriefing, puis la fiche. Sur un dossier travaillé, ça faisait une page
+ * de plusieurs milliers de pixels où l'on cherchait le débriefing en faisant
+ * défiler à l'aveugle, et où l'on retombait sur les cartes en voulant relire
+ * une question.
+ *
+ * Ce sont pourtant CINQ CHOSES DISTINCTES, qu'on ne consulte jamais en même
+ * temps : on répond, OU on révise, OU on relit le débriefing. Un onglet
+ * chacune, et chacun garde sa place — l'onglet actif est retenu d'un rendu à
+ * l'autre, sinon répondre à une question renverrait à la séance depuis la
+ * fiche qu'on était en train de lire.
+ */
+const ONGLETS_ENT = {
+  seance: 'Séance',
+  cartes: 'Cartes',
+  debrief: 'Débriefing',
+  fiche: 'Fiche',
+  sources: 'Sources',
+};
+
+/** L'onglet ouvert. Module, pas paramètre : il survit aux rendus. */
+let ongletEnt = 'seance';
+
+function rendreBarreEnt(etat, posees) {
+  const compte = {
+    seance: `${posees}/${etat.questionsParSeance}`,
+    cartes: (etat.notions ?? []).length || '',
+    debrief: etat.debrief ? '●' : '',
+    fiche: etat.fiche ? '●' : '',
+    sources: (etat.liens ?? []).length || '',
+  };
+  return `<nav class="ent-onglets">${Object.entries(ONGLETS_ENT).map(([c, l]) => `
+    <button data-ent-onglet="${c}" class="${ongletEnt === c ? 'actif' : ''}">
+      ${l}${compte[c] ? `<span class="ent-n">${compte[c]}</span>` : ''}
+    </button>`).join('')}</nav>`;
+}
+
+/** La séance : le fil, la saisie, et de quoi recommencer. */
+function rendreSeance(etat, posees, finie) {
   const fil = etat.echanges.map(e => `
     <div class="ent-tour ent-${e.role}">
       <div class="ent-qui">${e.role === 'jury' ? 'Le jury' : 'Toi'}</div>
       <div class="ent-texte">${echapper(e.texte).replace(/\n/g, '<br>')}</div>
     </div>`).join('');
 
-  const posees = etat.echanges.filter(e => e.role === 'jury').length;
-  const finie = posees >= etat.questionsParSeance;
-
   return `
-    <div class="ent-tete">
-      <div>
-        <h2>Entretien blanc</h2>
-        <div class="ent-poste">${echapper(etat.titre ?? '')}</div>
-      </div>
-      <div class="ent-compte">${posees} / ${etat.questionsParSeance}</div>
-      <button class="btn" data-ent="fermer">Fermer</button>
-    </div>
-
     ${etat.analysePresente ? '' : `<p class="ent-avert">Cette offre n'a pas
       encore d'analyse : le jury ne connaît pas tes points faibles et restera
       en surface. Lance l'analyse d'abord, la séance vaudra bien plus.</p>`}
@@ -240,27 +271,89 @@ function rendreFil(etat) {
       ouvrir la séance. Réponds comme tu le ferais à l'oral : à voix haute si
       tu peux, puis écris. C'est de formuler qui prépare, pas de lire.</p>`}</div>
 
-    ${finie ? '' : `
+    ${finie ? `<div class="ent-finie"><strong>Séance terminée</strong> —
+      ${posees} questions, autant de réponses. Le débriefing dira ce qui a tenu
+      et ce qui s'est effondré.</div>` : `
       <form class="ent-saisie" id="entForm">
         <textarea id="entReponse" rows="4" placeholder="${posees
-          ? 'Ta réponse…' : 'Prêt ? Envoie pour que le jury commence.'}"></textarea>
+    ? 'Ta réponse…' : 'Prêt ? Envoie pour que le jury commence.'}"></textarea>
         <button class="btn btn-primary" type="submit">${posees ? 'Répondre' : 'Commencer'}</button>
       </form>`}
 
     <div class="ent-pied">
-      <button class="btn" data-ent="debrief">Débriefer maintenant</button>
-      <button class="btn" data-ent="fiche">Fiche de révision</button>
-      <button class="btn btn-discret" data-ent="reset">Recommencer</button>
+      <button class="btn btn-discret" data-ent="reset">Recommencer la séance</button>
+    </div>`;
+}
+
+/**
+ * Un document — débriefing ou fiche — ou de quoi le demander.
+ *
+ * L'ONGLET VIDE PORTE SON BOUTON. Avant, les deux actions vivaient sous la
+ * séance : on cherchait « Fiche de révision » en bas d'une page de cartes.
+ * Ici, l'endroit où l'on va chercher la chose est celui où on la fabrique.
+ */
+function rendreDocument({ contenu, action, titre, quoi, aide }) {
+  if (contenu) {
+    return `<div class="ent-doc">
+      <div class="ent-doc-titre">${echapper(titre)}
+        <button class="chill-vider" data-ent="${action}">Refaire</button></div>
+      ${rendreTexte(contenu)}
+    </div>`;
+  }
+  return `<div class="ent-vide-onglet">
+    <p>${echapper(aide)}</p>
+    <button class="btn btn-primary" data-ent="${action}">${echapper(quoi)}</button>
+  </div>`;
+}
+
+function rendreFil(etat) {
+  const posees = etat.echanges.filter(e => e.role === 'jury').length;
+  // Le champ disparaît quand la séance est FINIE — c'est-à-dire quand la
+  // dernière question a reçu sa réponse. Se fier au seul nombre de questions
+  // posées retirait le champ pendant qu'une question attendait : on restait
+  // devant elle sans pouvoir répondre, et sans savoir s'il fallait demander
+  // le débriefing.
+  const attendReponse = etat.echanges.at(-1)?.role === 'jury';
+  const finie = posees >= etat.questionsParSeance && !attendReponse;
+
+  const panneaux = {
+    seance: () => rendreSeance(etat, posees, finie),
+    cartes: () => rendreNotions(etat.notions ?? [], etat.typesNotions ?? {}),
+    sources: () => (etat.liens?.length
+      ? rendreLiens(etat.liens)
+      : `<div class="ent-vide-onglet"><p>Les pages que le modèle a réellement
+          ouvertes pour fabriquer les cartes apparaîtront ici. Va y vérifier ce
+          que tu comptes citer.</p></div>`),
+    debrief: () => rendreDocument({
+      contenu: etat.debrief, action: 'debrief', titre: 'Débriefing',
+      quoi: 'Débriefer maintenant',
+      aide: 'Ce qui a tenu, ce qui s\'est effondré, et quoi réviser d\'ici '
+        + 'l\'entretien. Honnête, donc parfois désagréable — c\'est le seul '
+        + 'moment où une critique ne coûte rien.',
+    }),
+    fiche: () => rendreDocument({
+      contenu: etat.fiche, action: 'fiche', titre: 'Fiche de révision',
+      quoi: 'Rédiger la fiche',
+      aide: 'Ce qu\'il faut savoir avant d\'entrer, et que ton CV ne t\'apprend '
+        + 'pas : le métier au quotidien, l\'employeur, les notions à maîtriser, '
+        + 'et les questions à poser au jury.',
+    }),
+  };
+
+  return `
+    <div class="ent-tete">
+      <div>
+        <h2>Entretien blanc</h2>
+        <div class="ent-poste">${echapper(etat.titre ?? '')}</div>
+      </div>
+      <button class="btn" data-ent="fermer">Fermer</button>
     </div>
 
-    ${rendreNotions(etat.notions ?? [], etat.typesNotions ?? {})}
-    ${rendreLiens(etat.liens)}
+    ${rendreBarreEnt(etat, posees)}
 
-    ${etat.debrief ? `<div class="ent-doc"><div class="ent-doc-titre">Débriefing</div>
-      ${rendreTexte(etat.debrief)}</div>` : ''}
-    ${etat.fiche ? `<div class="ent-doc"><div class="ent-doc-titre">Fiche de révision</div>
-      ${rendreTexte(etat.fiche)}</div>` : ''}`;
+    <div class="ent-panneau">${(panneaux[ongletEnt] ?? panneaux.seance)()}</div>`;
 }
+
 
 function afficher(etat) {
   boite().innerHTML = rendreFil(etat);
@@ -279,9 +372,23 @@ function afficher(etat) {
     });
     // Le champ grandit avec la réponse : une réponse d'entretien fait dix
     // lignes, et se relire dans une fenêtre de quatre est pénible.
+    /**
+     * LA HAUTEUR DOIT COMPTER LES BORDURES.
+     *
+     * `box-sizing:border-box` est posé sur tout le projet : une hauteur
+     * explicite y INCLUT donc les bordures. Or `scrollHeight` ne les compte
+     * pas — il s'arrête au rembourrage. Poser `height = scrollHeight` retire
+     * ainsi deux pixels au contenu, et la dernière ligne se retrouve rognée
+     * par le bas : les jambages des « p » et des « ç » disparaissent, ce qui
+     * se voit sans qu'on sache dire pourquoi.
+     *
+     * `offsetHeight - clientHeight` vaut exactement l'épaisseur des deux
+     * bordures, quelle que soit la feuille de style.
+     */
     const grandir = () => {
       champ.style.height = 'auto';
-      champ.style.height = Math.min(champ.scrollHeight, 340) + 'px';
+      const bordures = champ.offsetHeight - champ.clientHeight;
+      champ.style.height = Math.min(champ.scrollHeight + bordures, 340) + 'px';
     };
     champ.addEventListener('input', grandir);
     grandir();
@@ -481,6 +588,26 @@ export function installerEntretien(toast) {
   b.addEventListener('click', async (e) => {
     // Le jugement d'une carte, avant tout le reste : il est DANS une carte,
     // dont le clic sert par ailleurs à la retourner.
+    // Écarter une carte. AVANT le jugement et le retournement : le bouton
+    // est DANS la carte, dont le clic sert par ailleurs à la retourner.
+    const tab = e.target.closest('[data-ent-onglet]');
+    if (tab && offreEnCours) {
+      ongletEnt = tab.dataset.entOnglet;
+      afficher(await API.entretien(offreEnCours.id));
+      return;
+    }
+
+    const oter = e.target.closest('[data-oter]');
+    if (oter && offreEnCours) {
+      e.stopPropagation();
+      if (!confirm('Supprimer cette carte ?')) return;
+      try {
+        await API.entretienOterNotion(offreEnCours.id, Number(oter.dataset.oter));
+        afficher(await API.entretien(offreEnCours.id));
+      } catch (err) { toast(err.message, 'erreur'); }
+      return;
+    }
+
     const juge = e.target.closest('[data-juger]');
     if (juge && offreEnCours) {
       e.stopPropagation();
@@ -516,6 +643,7 @@ export function installerEntretien(toast) {
     if (quoi === 'fermer') return fermerSurcouche(boite());
 
     if (quoi === 'debrief') {
+      ongletEnt = 'debrief';
       bouton.disabled = true;
       try {
         await API.entretienDebrief(offreEnCours.id);
@@ -524,9 +652,14 @@ export function installerEntretien(toast) {
       } catch (err) { toast(err.message, 'erreur'); bouton.disabled = false; }
     }
 
-    if (quoi === 'fiche') { bouton.disabled = true; await demanderFiche(toast, bouton); }
+    if (quoi === 'fiche') {
+      ongletEnt = 'fiche';
+      bouton.disabled = true;
+      await demanderFiche(toast, bouton);
+    }
 
     if (quoi === 'notions') {
+      ongletEnt = 'cartes';
       bouton.disabled = true;
       const avant = bouton.textContent;
       bouton.textContent = 'Fabrication des cartes…';

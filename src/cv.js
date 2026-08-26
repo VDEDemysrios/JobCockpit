@@ -92,9 +92,22 @@ export async function enregistrerCv(octets, nom, racine) {
   const dossier = join(racine, 'profile');
   if (!existsSync(dossier)) mkdirSync(dossier, { recursive: true });
 
-  writeFileSync(join(dossier, 'cv.txt'), texte, 'utf8');
+  // L'ORDRE DES DEUX ÉCRITURES EST SIGNIFIANT, ET IL ÉTAIT INVERSÉ.
+  //
+  // La vue « Mon CV » compare les dates : si le document est plus récent que
+  // le texte, l'extraction est en retard sur lui et elle le dit. Or on écrivait
+  // `cv.txt` EN PREMIER — le document, posé juste après, était donc toujours le
+  // plus récent. Résultat : à peine déposé, un CV s'annonçait périmé, avec un
+  // bandeau affirmant que les analyses et les lettres travaillaient sur une
+  // version dépassée. C'était faux, et c'était la première chose qu'on lisait
+  // après avoir installé son CV.
+  //
+  // Le texte est DÉRIVÉ du document : il doit donc s'écrire après lui. Et si
+  // la seconde écriture échoue, l'état obtenu — un document plus récent que son
+  // extraction — est exactement ce que le bandeau est fait pour signaler.
   const original = join(dossier, extensionDe(nom) === '.txt' ? 'cv-source.txt' : 'cv-source.docx');
   writeFileSync(original, octets);
+  writeFileSync(join(dossier, 'cv.txt'), texte, 'utf8');
 
   return { caracteres: texte.length, chemin: original };
 }

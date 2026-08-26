@@ -10,7 +10,8 @@
 // TROIS RÈGLES, LES MÊMES QUE POUR L'OUVERTURE
 // --------------------------------------------
 // · une seule fois, à la première visite — ensuite elle se rappelle par la
-//   palette ou par les Options ;
+//   palette ou par les Options. « Faite » veut dire ARRIVÉE À SON TERME, ou
+//   refusée pour de bon : voir `terminer()` ;
 // · interruptible à tout instant, par Échap, par le bouton, par un clic
 //   dehors. Une visite qu'on ne peut pas quitter est une prise en otage ;
 // · muette si les animations sont coupées ou si le système demande moins de
@@ -56,11 +57,16 @@ const ETAPES = [
       + 'affichés aussi — c\'est le contraste qui rend un « fonce » crédible.',
   },
   {
-    vue: 'cv', cible: '#view-cv',
-    titre: 'Ton CV, déposé d\'un glisser',
-    texte: 'Lâche ton CV Word n\'importe où dans la fenêtre : il est lu et comparé '
-      + 'à tes mots-clés. C\'est lui qui part en pièce jointe, tel quel, et c\'est '
-      + 'sur lui que reposent l\'analyse et les lettres.',
+    // ON DÉSIGNE LE BOUTON, PAS LA VUE ENTIÈRE. Le projecteur découpe le
+    // rectangle de sa cible : sur `#view-cv`, il couvrait tout l'écran — donc
+    // plus d'ombre, donc plus rien de désigné, et une bulle posée au milieu du
+    // vide, à l'étape consacrée au geste le plus important de l'application.
+    vue: 'cv', cible: '#view-cv [data-choisir-cv]',
+    titre: 'Ton CV, par ce bouton ou d\'un glisser',
+    texte: 'Ce bouton ouvre ton explorateur — ou lâche ton CV Word n\'importe '
+      + 'où dans la fenêtre, ça marche partout. Il est lu et comparé à tes '
+      + 'mots-clés. C\'est lui qui part en pièce jointe, tel quel, et c\'est sur '
+      + 'lui que reposent l\'analyse et les lettres.',
   },
   {
     vue: 'offers', cible: '#grid .card',
@@ -104,8 +110,6 @@ export function lancerTutoriel({ allerA, forcer = false } = {}) {
     || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   if (!forcer && (dejaVue() || sobre)) return Promise.resolve();
 
-  try { localStorage.setItem(CLE_VUE, '1'); } catch { /* navigation privée */ }
-
   const voile = document.createElement('div');
   voile.className = 'tuto';
   voile.innerHTML = `
@@ -130,9 +134,21 @@ export function lancerTutoriel({ allerA, forcer = false } = {}) {
   return new Promise((resoudre) => {
     let fini = false;
 
+    /**
+     * LA MARQUE « DÉJÀ VUE » SE POSE ICI, ET C'EST UNE CORRECTION.
+     *
+     * Elle était écrite au LANCEMENT, avant la première bulle. Fermer la
+     * fenêtre pendant l'ouverture animée, recharger, ou cliquer à côté sans
+     * avoir rien lu suffisait donc à consommer la visite pour toujours. Or
+     * elle était le seul endroit qui disait comment installer un CV : on se
+     * retrouvait sans CV et sans moyen d'en mettre un. Le bouton
+     * `data-choisir-cv` bouche ce trou de son côté ; ici on corrige la cause —
+     * une visite interrompue n'a pas été faite.
+     */
     const terminer = () => {
       if (fini) return;
       fini = true;
+      try { localStorage.setItem(CLE_VUE, '1'); } catch { /* navigation privée */ }
       document.removeEventListener('keydown', auClavier, true);
       voile.remove();
       resoudre();
@@ -169,9 +185,23 @@ export function lancerTutoriel({ allerA, forcer = false } = {}) {
       voile.querySelector('[data-tuto="suivant"]').textContent =
         index === ETAPES.length - 1 ? 'Terminer' : 'Suivant';
 
-      // Le rendu de la vue peut être asynchrone : on mesure à l'image
-      // suivante, sinon la cible est encore à sa position d'avant.
-      requestAnimationFrame(() => placer(document.querySelector(etape.cible)));
+      // LE PLACEMENT ATTEND LA FIN DE L'ENTRÉE DE LA VUE.
+      //
+      // Mesurer à l'image suivante ne suffit pas : changer de vue la fait
+      // GLISSER de vingt pixels, et à la première image elle est encore en
+      // route. Le projecteur se posait donc vingt pixels sous sa cible, sur du
+      // vide — bien visible à l'étape du CV, où le halo encadrait le blanc
+      // sous le bouton au lieu du bouton.
+      const poser = () => placer(document.querySelector(etape.cible));
+      requestAnimationFrame(poser);
+
+      const vue = etape.vue ? document.getElementById('view-' + etape.vue) : null;
+      const enCours = vue?.getAnimations?.() ?? [];
+      if (enCours.length) {
+        Promise.all(enCours.map(a => a.finished.catch(() => {}))).then(() => {
+          if (!fini && ETAPES[index] === etape) poser();
+        });
+      }
     }
 
     /** Découpe le projecteur sur la cible et pose la bulle à côté. */

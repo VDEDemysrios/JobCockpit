@@ -19,6 +19,19 @@
 // se décide : la couverture des mots-clés. Chaque motif « positif » du scoring
 // valorise une offre parce qu'elle mentionne une compétence — si le CV ne la
 // porte pas, le classement récompense quelque chose d'invérifiable.
+//
+// C'EST AUSSI LA PORTE D'ENTRÉE DU CV, ET ELLE ÉTAIT MURÉE
+// --------------------------------------------------------
+// Sans CV, cette vue affichait pour tout secours `npm run extract-cv`. Une
+// commande de terminal, dans un dossier de projet — deux choses qui n'existent
+// pas quand on a lancé `JobCockpit.exe`. Le seul geste qui marchait vraiment,
+// le glisser-déposer, n'était écrit nulle part ici : il n'était annoncé que
+// par la visite guidée, qui ne passe qu'une fois et qu'on peut refuser.
+//
+// Chaque endroit qui réclame un CV porte donc désormais un bouton
+// `data-choisir-cv` — `depot-cv.js` l'écoute et ouvre le sélecteur de
+// fichiers. La commande reste mentionnée, en dernier et repliée, pour qui
+// travaille depuis les sources.
 
 import { echapper, dateLisible, ilYA, pluriel } from './format.js';
 import { anneau } from './charts.js';
@@ -36,9 +49,19 @@ export function rendreCv(cv) {
         <div style="font-size:16px;font-weight:600;margin-bottom:8px">Aucun CV n'a encore été extrait.</div>
         <div style="color:var(--muted);font-size:13.5px;line-height:1.7">
           Sans lui, les offres sont collectées et classées, mais ni analysées ni
-          accompagnées d'une lettre.<br>Lance cette commande dans le terminal :
+          accompagnées d'une lettre.
         </div>
-        <code class="cv-cmd">npm run extract-cv -- "C:/chemin/vers/CV.docx"</code>
+        <div class="cv-appel">
+          <button type="button" class="btn btn-primary" data-choisir-cv>
+            ${icone('parchemin', 15)} Choisir mon CV…</button>
+          <span class="cv-ou">ou lâche ton fichier n'importe où dans la fenêtre</span>
+        </div>
+        <div class="cv-formats">Word (.docx) ou texte (.txt). Le PDF n'est pas lisible :
+          dans Word, « Enregistrer sous » → .docx.</div>
+        <details class="cv-terminal">
+          <summary>Depuis les sources, en ligne de commande</summary>
+          <code class="cv-cmd">npm run extract-cv -- "C:/chemin/vers/CV.docx"</code>
+        </details>
       </div></div>`;
     return;
   }
@@ -55,8 +78,8 @@ export function rendreCv(cv) {
   const alerte = cv.perimee
     ? `<div class="veille-banner stale" style="margin-bottom:var(--e4)">
         <span class="grow">⚠️ <strong>Ton document a été modifié après la dernière extraction.</strong>
-        Les analyses et les lettres travaillent donc sur une version périmée. Relance
-        <code>npm run extract-cv</code> pour la mettre à jour.</span></div>`
+        Les analyses et les lettres travaillent donc sur une version périmée.</span>
+        <button type="button" class="btn btn-mini" data-choisir-cv>Mettre à jour</button></div>`
     : '';
 
   zone.innerHTML = alerte + `
@@ -73,14 +96,20 @@ export function rendreCv(cv) {
                 ? ` · modifié ${ilYA(cv.fichier.modifieLe)}` : ''}</span>
             </div>
             <a class="btn btn-primary" href="/api/cv/fichier">${icone('document', 14)} Ouvrir</a>
+            <button type="button" class="btn" data-choisir-cv>Remplacer…</button>
           </div>
           <p class="note-panel">C'est ce fichier, tel quel, que reçoit l'employeur : le bouton
             <strong>Dossier complet</strong> d'une lettre le joint automatiquement. Sa mise en page
             est la tienne — le programme ne la réécrit jamais.</p>
         ` : `
           <p class="note-panel">Le texte du CV est bien extrait, mais le document d'origine est
-            introuvable. Relance <code>npm run extract-cv</code> en lui donnant le chemin de ton
-            .docx pour pouvoir le joindre à tes candidatures.</p>
+            introuvable — or c'est lui qui part en pièce jointe. Il manque donc à tes
+            candidatures.</p>
+          <div class="cv-appel">
+            <button type="button" class="btn btn-primary" data-choisir-cv>
+              ${icone('parchemin', 15)} Redéposer mon CV…</button>
+            <span class="cv-ou">ou lâche-le n'importe où dans la fenêtre</span>
+          </div>
         `}
         <div class="cv-fiche">
           ${ligne('Candidat', cv.candidat?.nom || '—')}
