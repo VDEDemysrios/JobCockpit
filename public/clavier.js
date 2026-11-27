@@ -141,6 +141,12 @@ export function installerClavier(ctx) {
         e.preventDefault();
         ctx.focus?.basculer();
         break;
+      // Le tri éclair : une offre à la fois. Une fois ouvert, c'est une
+      // surcouche — ses propres touches (flèches, U) lui appartiennent.
+      case 'z':
+        e.preventDefault();
+        ctx.ouvrirTri?.();
+        break;
       // Le lecteur flottant. Ouvre, puis réduit et déplie — c'est le geste
       // qu'on répète le plus : ranger le son sans l'arrêter.
       case 'm':

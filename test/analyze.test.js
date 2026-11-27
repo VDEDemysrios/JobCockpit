@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { construirePrompt, validerAnalyse, analyserOffre } from '../src/analyze.js';
+import { construirePrompt, validerAnalyse, analyserOffre, raisonDuRefus } from '../src/analyze.js';
 
 const OFFRE = {
   titre: 'Chef de projet agrivoltaïque',
@@ -38,9 +38,28 @@ test('validerAnalyse rejette une analyse sans verdict', () => {
 
 test('validerAnalyse rejette null et les types incorrects', () => {
   assert.equal(validerAnalyse(null), null);
-  assert.equal(validerAnalyse({ verdict: 'Oui', exige: 'pas un tableau' }), null);
+  assert.equal(validerAnalyse({ verdict: 'Oui', exige: 42 }), null);
+  assert.equal(validerAnalyse({ verdict: 'Oui', exige: { a: 1 } }), null);
   assert.equal(validerAnalyse('une chaîne'), null);
   assert.equal(validerAnalyse([1, 2, 3]), null);
+});
+
+// 4.1 — une phrase à la place d'une liste d'une phrase ne jette plus les onze
+// autres champs (ni l'appel compté dans le quota).
+test('validerAnalyse accepte une phrase seule là où une liste est attendue', () => {
+  const r = validerAnalyse({ verdict: 'Oui.', exige: ['Bac+5'], compensable: ' Aucun point bloquant. ', decoratif: '' });
+  assert.deepEqual(r.compensable, ['Aucun point bloquant.']);
+  assert.deepEqual(r.decoratif, []);
+  assert.deepEqual(r.exige, ['Bac+5']);
+});
+
+test('raisonDuRefus distingue une réponse coupée, un verdict absent et un champ mal typé', () => {
+  assert.equal(raisonDuRefus('', null), 'réponse vide');
+  assert.match(raisonDuRefus('{"exige": ["Bac+5", "Angl', null), /coupée après \d+ caractères/);
+  assert.match(raisonDuRefus('{"exige": [,]}', null), /JSON invalide/);
+  assert.equal(raisonDuRefus('{"exige":[]}', { exige: [] }), 'verdict absent');
+  assert.equal(raisonDuRefus('…', { verdict: 'Oui.', souhaite: 3 }), 'champ « souhaite » mal typé');
+  assert.equal(raisonDuRefus('[1]', [1]), 'un tableau au lieu d\'un objet');
 });
 
 test('validerAnalyse complète les champs facultatifs absents', () => {

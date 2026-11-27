@@ -5,6 +5,7 @@ import {
   GM, STATUSES, STATUS_COL, STATUS_PROG, STATUS_BG, KWCOLOR,
   MOIS, MOIS_COURT, SOURCE_LABEL,
   todayISO, joursDepuis, ageOffre, dateLisible, dateCourte, echapper, pluriel,
+  salaireCourt, contratLisible, enLigne,
 } from './format.js';
 import { icone } from './icons.js';
 import { offresDuJour, envoyeesAujourdhui } from './selection.js';
@@ -126,7 +127,7 @@ export function actionsDuJour(offres) {
     actions.push({
       rang: 0, classe: 'urgent', icone: icone('cloche', 13), offre: o, groupe: 'Urgent',
       titre: o.titre,
-      sous: `${o.entreprise} · relance prévue ${retard === 0 ? "aujourd'hui" : `il y a ${retard} j`}`,
+      sous: enLigne(o.entreprise, `relance prévue ${retard === 0 ? "aujourd'hui" : `il y a ${retard} j`}`),
       quoi: 'Relancer',
     });
   });
@@ -139,7 +140,7 @@ export function actionsDuJour(offres) {
       actions.push({
         rang: 1, classe: 'chaud', icone: icone('poignee', 13), offre: o, groupe: 'Urgent',
         titre: o.titre,
-        sous: `${o.entreprise} · entretien décroché — note la date pour qu'elle compte`,
+        sous: enLigne(o.entreprise, 'entretien décroché — note la date pour qu\'elle compte'),
         quoi: 'Préparer',
       });
     });
@@ -153,7 +154,9 @@ export function actionsDuJour(offres) {
       actions.push({
         rang: 2, classe: 'ok', icone: icone('cible', 13), offre: o, groupe: 'Prioritaires à traiter',
         titre: o.titre,
-        sous: `${o.entreprise} · ${o.ville}${age !== null ? ` · publiée il y a ${age} j` : ''}`,
+        // `enLigne` saute les vides : une offre sans employeur ni ville
+        // s'écrivait « · · publiée il y a 13 j ».
+        sous: enLigne(o.entreprise, o.ville, age !== null ? `publiée il y a ${age} j` : ''),
         quoi: o.aLettre ? 'Postuler' : 'Rédiger la lettre',
       });
     });
@@ -163,7 +166,7 @@ export function actionsDuJour(offres) {
     .filter(o => o.groupe === 2 && o.suivi.status === 'À postuler')
     .forEach(o => actions.push({
       rang: 3, classe: '', icone: icone('loupe', 13), offre: o, groupe: 'À étudier',
-      titre: o.titre, sous: `${o.entreprise} · ${o.ville}`, quoi: 'Étudier',
+      titre: o.titre, sous: enLigne(o.entreprise, o.ville), quoi: 'Étudier',
     }));
 
   // 5. Offres à vérifier : décider si elles méritent une candidature.
@@ -171,7 +174,7 @@ export function actionsDuJour(offres) {
     .filter(o => o.groupe === 0 && o.suivi.status === 'À postuler')
     .forEach(o => actions.push({
       rang: 4, classe: '', icone: icone('info', 13), offre: o, groupe: 'À vérifier',
-      titre: o.titre, sous: `${o.entreprise} · analyse incomplète`, quoi: 'Vérifier',
+      titre: o.titre, sous: enLigne(o.entreprise, 'analyse incomplète'), quoi: 'Vérifier',
     }));
 
   return actions.sort((a, b) => a.rang - b.rang);
@@ -217,8 +220,8 @@ export function rendreTroisDuJour(offres, actions) {
       <div class="dj-rang">${i + 1}</div>
       <div class="dj-corps">
         <div class="dj-titre">${echapper(offre.titre)}</div>
-        <div class="dj-meta">${echapper(offre.entreprise || 'entreprise non précisée')}
-          · ${echapper(offre.ville ?? '')}${age ? ' · publiée ' + age : ''}</div>
+        <div class="dj-meta">${echapper(enLigne(offre.entreprise || 'entreprise non précisée',
+          offre.ville, contratLisible(offre.contrat), salaireCourt(offre.salaireSource), age ? 'publiée ' + age : ''))}</div>
         ${(() => {
           // L'ATOUT EN PREMIER, PAS LE SCORE.
           // Un score de 18 ne dit rien à celui qui doute de coller ; « quatre
@@ -516,7 +519,8 @@ export function rendreCarte(offre, actions) {
   // sans quitter l'application ni rouvrir le site d'origine.
   if (offre.extrait) {
     detail += `<div class="sec"><div class="lbl deco">EXTRAIT DE L'ANNONCE
-      ${offre.salaireSource ? `<span style="margin-left:auto;color:var(--g1)">${echapper(offre.salaireSource)}</span>` : ''}</div>
+      ${offre.salaireSource ? `<span style="margin-left:auto;color:var(--g1);text-transform:none;letter-spacing:0"
+        title="${echapper(offre.salaireSource)}">${echapper(salaireCourt(offre.salaireSource) || offre.salaireSource)}</span>` : ''}</div>
       <div class="extrait">${echapper(offre.extrait)}</div></div>`;
   }
 
@@ -613,8 +617,15 @@ export function rendreCarte(offre, actions) {
         ? `<a href="${echapper(offre.lien)}" target="_blank" rel="noopener"
              title="Ouvrir l'annonce d'origine">${echapper(offre.titre)}<span class="ext" aria-hidden="true">${icone('fleche', 11)}</span></a>`
         : echapper(offre.titre)}</div>
-      <div class="pmeta">${[offre.entreprise, offre.ville, offre.dateOffre ? 'offre du ' + dateLisible(offre.dateOffre) : '']
-        .filter(Boolean).map(echapper).join(' · ')}</div>
+      <div class="pmeta">${[offre.entreprise, offre.ville, contratLisible(offre.contrat),
+        offre.dateOffre ? 'offre du ' + dateLisible(offre.dateOffre) : '']
+        .filter(Boolean).map(echapper).join(' · ')}${
+        // LE SALAIRE SORT DU FOND DE LA CARTE. Il n'était écrit qu'à côté de
+        // l'extrait, une fois la carte dépliée — alors que c'est un critère
+        // pour décider de la déplier.
+        salaireCourt(offre.salaireSource)
+          ? ` <span class="pm-sal" title="${echapper('Salaire annoncé : ' + offre.salaireSource)}">${echapper(salaireCourt(offre.salaireSource))}</span>`
+          : ''}</div>
       ${verdictReplie(offre)}
       <div class="cardprog"><span style="width:${prog}%;background:${STATUS_COL[s.status]}"></span></div>
     </div>
@@ -870,7 +881,7 @@ function contenuCarte(o) {
     ? `<span class="kscore" title="Score par mots-clés">${icone('eclair', 10)}${o.score}</span>` : '';
   return `<span class="kpoignee" aria-hidden="true"></span>
     <div class="kt">${echapper(o.titre)}</div>
-    <div class="km">${echapper(o.entreprise || 'Entreprise non précisée')} · ${echapper(o.ville ?? '')}</div>
+    <div class="km">${echapper(enLigne(o.entreprise || 'Entreprise non précisée', o.ville))}</div>
     <div class="kb">
       ${o.suivi.pinned ? `<span class="kpin" title="Épinglée">${icone('etoile', 11)}</span>` : ''}
       ${o.aLettre ? `<span title="Lettre rédigée">${icone('plume', 11)}</span>` : ''}
@@ -1469,59 +1480,205 @@ async function validerDepot(carte, origine, annule) {
 }
 
 // ------------------------------------------------------------------- AGENDA
+//
+// CE QUI NE MARCHAIT PAS (4.1)
+// ----------------------------
+// · Le calendrier prenait tout l'écran pour ne presque rien dire : des cases
+//   de 130 px de haut, vides, et quatre points rouges entassés sur un jour.
+//   Pour savoir DE QUOI il s'agissait, il fallait survoler la case ou
+//   descendre sous le calendrier — la liste était hors de vue.
+// · Il ne montrait que les relances et les entretiens. Les candidatures
+//   envoyées, qui sont pourtant ce qui rythme une recherche, n'y figuraient
+//   pas : un mois où l'on avait postulé six fois avait l'air d'un mois vide.
+// · Une relance en retard ne se traitait pas d'ici. Il fallait ouvrir
+//   l'offre, trouver le champ de date, le changer. Quatre relances, c'était
+//   quatre allers-retours.
+// · Sur téléphone, la grille débordait : le dimanche sortait de l'écran.
+//
+// CE QUI LE REMPLACE
+// ------------------
+// Le mois et la liste sont CÔTE À CÔTE. Chaque case nomme ce qu'elle porte
+// (deux étiquettes, puis « +n »), les envois y figurent en discret, et un clic
+// sur un jour filtre la liste sur ce jour. Chaque relance se règle sur place :
+// « Fait » la note comme relancée, « Reporter » la repousse de trois jours —
+// et les deux s'annulent d'un clic.
 
-export function rendreAgenda(offres, surClic) {
-  const aujourdhui = todayISO();
-  const items = offres
-    .filter(o => o.suivi.relance && o.suivi.status !== 'Refus' && o.suivi.status !== 'Entretien')
-    .map(o => ({ offre: o, date: o.suivi.relance }))
-    .sort((a, b) => a.date.localeCompare(b.date));
-
-  // Le calendrier montre AUSSI les entretiens : c'est la seule échéance qu'on
-  // ne peut pas décaler, et une grille de mois qui ne la portait pas laissait
-  // croire à une semaine libre.
-  agenda.relances = items;
-  agenda.entretiens = offres
-    .filter(o => o.suivi.entretien && o.suivi.status !== 'Refus')
-    .map(o => ({ offre: o, date: o.suivi.entretien, entretien: true }));
-  agenda.surClic = surClic;
-  rendreMois();
-
-  const zone = document.getElementById('agenda');
-  zone.innerHTML = '';
-  document.getElementById('agendaEmpty').style.display = items.length ? 'none' : 'block';
-  document.getElementById('agendaSub').textContent = items.length
-    ? `${pluriel(items.length, 'relance')} planifiée${items.length > 1 ? 's' : ''} · ${items.filter(i => i.date < aujourdhui).length} en retard`
-    : '';
-
-  items.forEach((it, i) => {
-    const d = new Date(it.date + 'T12:00:00');
-    const enRetard = it.date < aujourdhui;
-    const bientot = !enRetard && joursDepuis(it.date) >= -2;
-
-    const el = document.createElement('div');
-    el.className = 'agenda-item' + (enRetard ? ' overdue' : bientot ? ' soon' : '');
-    el.style.animationDelay = (i * 0.04) + 's';
-    el.innerHTML = `
-      <div class="agenda-date"><div class="ad-d">${d.getDate()}</div><div class="ad-m">${MOIS_COURT[d.getMonth()]}</div></div>
-      <div class="agenda-body"><div class="ab-t">${echapper(it.offre.titre)}</div><div class="ab-s">${echapper(it.offre.entreprise)} · ${echapper(it.offre.ville)}</div></div>
-      <span class="agenda-tag" style="background:${enRetard ? 'var(--hotb)' : 'var(--g2b)'};color:${enRetard ? 'var(--hot)' : 'var(--g2)'}">${enRetard ? `${icone('horloge', 12)} En retard` : `${icone('calendrier', 12)} À venir`}</span>
-      ${it.offre.lien ? `<a class="link" href="${echapper(it.offre.lien)}" target="_blank" rel="noopener">Voir <span class="ext" aria-hidden="true">${icone('fleche', 11)}</span></a>` : ''}`;
-    el.addEventListener('click', e => {
-      if (e.target.closest('a')) return;
-      surClic?.(it.offre);
-    });
-    zone.appendChild(el);
-  });
-}
-
-/** État du calendrier : le mois affiché, et ce qu'il faut y poser. */
-const agenda = { decalage: 0, relances: [], entretiens: [], surClic: null, branche: false };
+/** État du calendrier : le mois affiché, le jour choisi, et ce qu'il faut y poser. */
+const agenda = { decalage: 0, jour: null, items: [], actions: {}, branche: false };
 
 const isoLocal = (d) => {
   const p = (v) => String(v).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 };
+
+/**
+ * Tout ce qui est daté dans le suivi : relances, entretiens, envois.
+ *
+ * Pure, exportée pour les tests. `retard` ne vaut que pour une relance : un
+ * entretien passé est passé, un envoi est un fait.
+ *
+ * @param {object[]} offres
+ * @param {string} [aujourdhui]  AAAA-MM-JJ
+ * @returns {{offre: object, date: string, type: 'entretien'|'relance'|'envoi', retard: boolean}[]}
+ */
+export function echeances(offres, aujourdhui = todayISO()) {
+  const rang = { entretien: 0, relance: 1, envoi: 2 };
+  const items = [];
+  for (const o of offres) {
+    const s = o.suivi ?? {};
+    if (s.entretien && s.status !== 'Refus') items.push({ offre: o, date: s.entretien, type: 'entretien', retard: false });
+    if (s.relance && s.status !== 'Refus' && s.status !== 'Entretien') {
+      items.push({ offre: o, date: s.relance, type: 'relance', retard: s.relance < aujourdhui });
+    }
+    if (s.sent && s.status !== 'À postuler') items.push({ offre: o, date: s.sent, type: 'envoi', retard: false });
+  }
+  return items.sort((a, b) => a.date.localeCompare(b.date) || rang[a.type] - rang[b.type]);
+}
+
+/**
+ * Range les échéances À TRAITER en sections lisibles : ce qui est en retard,
+ * ce qui tombe aujourd'hui, dans les sept jours, puis plus tard.
+ *
+ * Les envois n'y sont pas (ce sont des faits, pas des choses à faire), ni les
+ * entretiens passés. Pure, exportée pour les tests.
+ *
+ * @returns {{titre: string, cle: string, items: object[]}[]}  sections non vides
+ */
+export function sectionsAgenda(items, aujourdhui = todayISO()) {
+  const dans7 = isoLocal(new Date(new Date(aujourdhui + 'T12:00:00').getTime() + 7 * 86400000));
+  const sections = [
+    { cle: 'retard', titre: 'En retard', items: [] },
+    { cle: 'jour', titre: "Aujourd'hui", items: [] },
+    { cle: 'semaine', titre: 'Dans les 7 jours', items: [] },
+    { cle: 'apres', titre: 'Plus tard', items: [] },
+  ];
+  for (const it of items) {
+    if (it.type === 'envoi') continue;
+    if (it.type === 'entretien' && it.date < aujourdhui) continue;
+    const i = it.date < aujourdhui ? 0 : it.date === aujourdhui ? 1 : it.date <= dans7 ? 2 : 3;
+    sections[i].items.push(it);
+  }
+  return sections.filter(s => s.items.length);
+}
+
+/**
+ * @param {object[]} offres
+ * @param {Function|{ouvrir: Function, faite?: Function, reporter?: Function}} actions
+ *        une fonction seule vaut `{ ouvrir }` (l'ancienne signature)
+ */
+export function rendreAgenda(offres, actions) {
+  agenda.actions = typeof actions === 'function' ? { ouvrir: actions } : (actions ?? {});
+  agenda.items = echeances(offres);
+  // Le jour choisi a pu se vider (relance reportée) : on revient à tout.
+  if (agenda.jour && !agenda.items.some(i => i.date === agenda.jour)) agenda.jour = null;
+  rendreMois();
+  rendreListeAgenda();
+}
+
+/** La liste à droite du mois : tout ce qui reste à traiter, ou le jour choisi. */
+function rendreListeAgenda() {
+  const aujourdhui = todayISO();
+  const zone = document.getElementById('agenda');
+  const tete = document.getElementById('agendaTete');
+  if (!zone) return;
+
+  const aTraiter = agenda.items.filter(i => i.type !== 'envoi');
+  const relances = aTraiter.filter(i => i.type === 'relance');
+  const entretiens = aTraiter.filter(i => i.type === 'entretien' && i.date >= aujourdhui);
+  const enRetard = relances.filter(i => i.retard).length;
+  document.getElementById('agendaSub').textContent = enLigne(
+    relances.length ? `${pluriel(relances.length, 'relance')} planifiée${relances.length > 1 ? 's' : ''}` : '',
+    enRetard ? `${enRetard} en retard` : '',
+    entretiens.length ? `${pluriel(entretiens.length, 'entretien')} à venir` : '',
+  ) || 'Rien de planifié pour l\'instant.';
+
+  let sections;
+  if (agenda.jour) {
+    const duJour = agenda.items.filter(i => i.date === agenda.jour);
+    sections = [{ cle: 'choisi', titre: '', items: duJour }];
+    if (tete) {
+      tete.hidden = false;
+      tete.innerHTML = `<b>${echapper(jourLisible(agenda.jour))}</b>
+        <span>${pluriel(duJour.length, 'élément')}</span>
+        <button type="button" class="btn btn-discret" data-agenda="tout">Tout voir</button>`;
+    }
+  } else {
+    sections = sectionsAgenda(agenda.items, aujourdhui);
+    if (tete) { tete.hidden = true; tete.innerHTML = ''; }
+  }
+
+  const vide = document.getElementById('agendaEmpty');
+  const rien = sections.every(s => !s.items.length);
+  if (vide) vide.style.display = rien ? 'block' : 'none';
+
+  zone.innerHTML = '';
+  let n = 0;
+  for (const section of sections) {
+    if (section.titre) {
+      const t = document.createElement('div');
+      t.className = 'agenda-section ' + section.cle;
+      t.innerHTML = `${echapper(section.titre)} <b>${section.items.length}</b>`;
+      zone.appendChild(t);
+    }
+    for (const it of section.items) zone.appendChild(ligneAgenda(it, aujourdhui, n++));
+  }
+}
+
+/** « jeudi 18 novembre » — avec l'année si ce n'est pas la nôtre. */
+function jourLisible(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  const jours = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+  const annee = d.getFullYear() === new Date().getFullYear() ? '' : ' ' + d.getFullYear();
+  return `${jours[d.getDay()]} ${d.getDate()} ${MOIS[d.getMonth()]}${annee}`;
+}
+
+/** Dans combien de jours (négatif = passé), à midi des deux côtés. */
+function joursJusqua(iso, aujourdhui) {
+  return Math.round((new Date(iso + 'T12:00:00') - new Date(aujourdhui + 'T12:00:00')) / 86400000);
+}
+
+function ligneAgenda(it, aujourdhui, i) {
+  const d = new Date(it.date + 'T12:00:00');
+  const j = joursJusqua(it.date, aujourdhui);
+  const quand = j === 0 ? "aujourd'hui" : j === 1 ? 'demain' : j === -1 ? 'hier'
+    : j < 0 ? `il y a ${-j} j` : `dans ${j} j`;
+  const libelle = { relance: 'Relance', entretien: 'Entretien', envoi: 'Candidature envoyée' }[it.type];
+  const ic = { relance: 'cloche', entretien: 'poignee', envoi: 'envoi' }[it.type];
+  const classe = it.type === 'entretien' ? ' entretien' : it.type === 'envoi' ? ' envoi'
+    : it.retard ? ' overdue' : j <= 2 ? ' soon' : '';
+
+  const el = document.createElement('div');
+  el.className = 'agenda-item' + classe;
+  el.style.animationDelay = Math.min(i * 0.03, 0.3) + 's';
+  el.tabIndex = 0;
+  el.setAttribute('role', 'button');
+  el.setAttribute('aria-label', `${libelle} ${quand} : ${it.offre.titre}`);
+  el.innerHTML = `
+    <div class="agenda-date"><div class="ad-d">${d.getDate()}</div><div class="ad-m">${MOIS_COURT[d.getMonth()]}</div></div>
+    <div class="agenda-body">
+      <div class="ab-k">${icone(ic, 12)} ${libelle} · <span>${quand}</span></div>
+      <div class="ab-t">${echapper(it.offre.titre)}</div>
+      <div class="ab-s">${echapper(enLigne(it.offre.entreprise, it.offre.ville))}</div>
+    </div>
+    ${it.type === 'relance' && (agenda.actions.faite || agenda.actions.reporter) ? `<div class="agenda-gestes">
+      ${agenda.actions.faite ? `<button type="button" class="btn btn-primary" data-agenda="faite"
+        title="Noter la relance comme faite : le statut passe à « Relancé »">${icone('coche', 13)} Fait</button>` : ''}
+      ${agenda.actions.reporter ? `<button type="button" class="btn btn-discret" data-agenda="reporter"
+        title="Repousser cette relance de trois jours">+3 j</button>` : ''}
+    </div>` : ''}`;
+
+  el.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-agenda]');
+    if (!b) { agenda.actions.ouvrir?.(it.offre); return; }
+    b.disabled = true;
+    if (b.dataset.agenda === 'faite') await agenda.actions.faite?.(it.offre);
+    if (b.dataset.agenda === 'reporter') await agenda.actions.reporter?.(it.offre);
+  });
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.target === el) { e.preventDefault(); agenda.actions.ouvrir?.(it.offre); }
+  });
+  return el;
+}
 
 /**
  * Les 42 cases (six semaines, lundi en tête) d'une grille de mois.
@@ -1554,14 +1711,16 @@ export function joursDuMois(annee, mois) {
 }
 
 /**
- * Calendrier du mois, avec une pastille par relance et par entretien.
- * Une liste chronologique dit « quoi » ; une grille de mois dit « quand »,
- * et fait voir d'un coup les semaines chargées.
+ * Le mois, avec dans chaque case ce qu'elle porte — NOMMÉ.
  *
- * Le mois se PARCOURT (précédent / suivant / aujourd'hui) : planifier une
- * relance à cinq semaines la rendait invisible, la grille ne montrant que le
- * mois courant. Chaque jour chargé porte un aperçu au survol — et au focus,
- * pour le clavier et le doigt — qui nomme les offres ; un clic les ouvre.
+ * Une pastille disait « il y a quelque chose » ; il fallait survoler pour
+ * savoir quoi. Chaque case porte maintenant jusqu'à deux étiquettes (l'employeur,
+ * à défaut le poste), colorées par nature, puis « +n ». La sixième semaine
+ * n'est dessinée que si le mois en a besoin : cinq rangées sur six étaient
+ * suivies d'une rangée entière de jours du mois suivant.
+ *
+ * Le mois se PARCOURT (précédent / suivant / aujourd'hui), et un clic sur un
+ * jour chargé filtre la liste d'à côté sur ce jour.
  */
 function rendreMois(sens = 0) {
   const zone = document.getElementById('moisCalendrier');
@@ -1574,34 +1733,35 @@ function rendreMois(sens = 0) {
   const annee = cible.getFullYear(), mois = cible.getMonth();
 
   const parJour = {};
-  for (const it of [...agenda.entretiens, ...agenda.relances]) (parJour[it.date] ??= []).push(it);
+  for (const it of agenda.items) (parJour[it.date] ??= []).push(it);
 
   const entetes = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
     .map(j => `<div class="mois-tete">${j}</div>`).join('');
 
-  const cases = joursDuMois(annee, mois).map(({ iso, jour, hors }) => {
+  let jours = joursDuMois(annee, mois);
+  if (jours.slice(35).every(j => j.hors)) jours = jours.slice(0, 35);
+
+  const cases = jours.map(({ iso, jour, hors }) => {
     const charges = parJour[iso] ?? [];
     const classes = ['mjour', hors && 'hors', iso === aujourdhui && 'today', charges.length && 'charge',
-      charges.some(c => c.entretien) && 'avec-entretien'].filter(Boolean).join(' ');
+      iso === agenda.jour && 'choisi',
+      charges.some(c => c.type === 'entretien') && 'avec-entretien'].filter(Boolean).join(' ');
     if (!charges.length) {
-      return `<div class="${classes}"><span class="mn">${jour}</span><span class="mp"></span></div>`;
+      return `<div class="${classes}"><span class="mn">${jour}</span></div>`;
     }
-    const lignes = charges.slice(0, 5).map(c => {
-      const type = c.entretien ? 'ent' : c.date < aujourdhui ? 'retard' : '';
-      return `<li data-offre="${echapper(String(c.offre.id))}" class="${type}">
-        <i></i><span><b>${echapper(c.offre.titre)}</b>
-        <small>${c.entretien ? 'Entretien' : 'Relance'} · ${echapper(c.offre.entreprise || '')}</small></span></li>`;
+    const etiquettes = charges.slice(0, 2).map(c => {
+      const nature = c.type === 'entretien' ? 'ent' : c.type === 'envoi' ? 'envoi' : c.retard ? 'retard' : 'rel';
+      const nom = c.offre.entreprise || c.offre.titre;
+      const quoi = { entretien: 'Entretien', relance: c.retard ? 'Relance en retard' : 'Relance', envoi: 'Candidature envoyée' }[c.type];
+      return `<span class="mev ${nature}" data-offre="${echapper(String(c.offre.id))}"
+        title="${echapper(`${quoi} — ${c.offre.titre}${c.offre.entreprise ? ' · ' + c.offre.entreprise : ''}`)}"><i></i><b>${echapper(nom)}</b></span>`;
     }).join('');
-    const plus = charges.length > 5 ? `<li class="mja-plus">+ ${charges.length - 5} autre(s)</li>` : '';
-    return `<div class="${classes}" tabindex="0" data-jour="${iso}"
-        aria-label="${echapper(`${dateLisible(iso + 'T12:00:00')} : ${pluriel(charges.length, 'échéance')}`)}">
+    const plus = charges.length > 2 ? `<span class="mev-plus">+${charges.length - 2}</span>` : '';
+    return `<div class="${classes}" tabindex="0" role="button" data-jour="${iso}"
+        aria-pressed="${iso === agenda.jour}"
+        aria-label="${echapper(`${jourLisible(iso)} : ${pluriel(charges.length, 'élément')}`)}">
       <span class="mn">${jour}</span>
-      <span class="mp">${charges.slice(0, 4).map(c =>
-        `<i class="${c.entretien ? 'ent' : c.date < aujourdhui ? 'retard' : ''}"></i>`).join('')}</span>
-      <div class="mjour-apercu" role="tooltip">
-        <div class="mja-t">${echapper(dateLisible(iso + 'T12:00:00'))}</div>
-        <ul>${lignes}${plus}</ul>
-      </div>
+      <span class="mevs">${etiquettes}${plus}</span>
     </div>`;
   }).join('');
 
@@ -1644,23 +1804,35 @@ function brancherMois(zone) {
     titre.querySelector(`[data-mois="${pas === 0 ? 1 : pas}"]`)?.focus();
   });
 
-  const ouvrir = (cible) => {
-    const ligne = cible.closest('[data-offre]');
-    const jour = cible.closest('[data-jour]');
-    const id = ligne?.dataset.offre ?? jour?.querySelector('[data-offre]')?.dataset.offre;
-    if (!id) return;
-    const tout = [...agenda.entretiens, ...agenda.relances];
-    const trouve = tout.find(x => String(x.offre.id) === id);
-    if (trouve) agenda.surClic?.(trouve.offre);
+  /** Choisit un jour (ou le relâche s'il l'était déjà) et filtre la liste. */
+  const choisir = (iso) => {
+    agenda.jour = agenda.jour === iso ? null : iso;
+    rendreMois();
+    rendreListeAgenda();
+    zone.querySelector(`[data-jour="${iso}"]`)?.focus({ preventScroll: true });
   };
+
   zone.addEventListener('click', e => {
-    // Un clic sur le jour lui-même n'ouvre que s'il ne porte qu'une offre ;
-    // sinon il montre l'aperçu (le focus suffit), où l'on choisit.
-    if (e.target.closest('[data-offre]')) { ouvrir(e.target); return; }
+    // Une étiquette ouvre SON offre ; le reste de la case choisit le jour.
+    const etiquette = e.target.closest('.mev[data-offre]');
+    if (etiquette) {
+      const trouve = agenda.items.find(x => String(x.offre.id) === etiquette.dataset.offre);
+      if (trouve) agenda.actions.ouvrir?.(trouve.offre);
+      return;
+    }
     const jour = e.target.closest('[data-jour]');
-    if (jour && jour.querySelectorAll('[data-offre]').length === 1) ouvrir(jour);
+    if (jour) choisir(jour.dataset.jour);
   });
   zone.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && e.target.closest('[data-jour]')) { e.preventDefault(); ouvrir(e.target); }
+    const jour = e.target.closest('[data-jour]');
+    if (jour && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); choisir(jour.dataset.jour); }
+  });
+
+  document.getElementById('agendaTete')?.addEventListener('click', e => {
+    if (!e.target.closest('[data-agenda="tout"]')) return;
+    agenda.jour = null;
+    rendreMois();
+    rendreListeAgenda();
   });
 }
+

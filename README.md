@@ -36,7 +36,7 @@ exception près, signalée plus bas.
 
 ### Sur Windows : rien à installer
 
-1. Télécharge `JobCockpit-4.0.0-windows.zip` depuis les
+1. Télécharge `JobCockpit-4.1.0-windows.zip` depuis les
    [versions publiées](https://github.com/VDEDemysrios/JobCockpit/releases).
 2. Décompresse-le où tu veux — un dossier que tu peux déplacer d'un bloc.
 3. Double-clique **`JobCockpit.exe`**, puis ouvre <http://localhost:3000>.

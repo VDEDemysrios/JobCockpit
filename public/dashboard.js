@@ -518,6 +518,13 @@ function carteCollecte(meta) {
     <div class="hc-tete">${icone('globe', 14)} Dernière collecte</div>
     <div class="hc-valeur"><b>${derniere ? `<span data-depuis="${echapper(derniere)}"></span>` : '—'}</b></div>
     <div class="hc-etat"><i></i>${libelle}</div>
+    ${
+      // LA CARTE QUI DIT « PÉRIMÉE » PORTE LE REMÈDE. Elle annonçait le
+      // problème et laissait chercher le bouton ailleurs — dans le bandeau,
+      // ou dans une bannière plus bas qui répétait la même phrase.
+      etat === 'stale' || !derniere
+        ? `<button type="button" class="btn btn-primary hc-action" data-hero="collecter">${icone('rafraichir', 14)} Collecter maintenant</button>`
+        : ''}
     <div class="hc-sous">${r && derniere
       ? `${pluriel(r.retenues ?? 0, 'offre retenue', 'offres retenues')} · ${pluriel(r.nouvelles ?? 0, 'nouvelle')}`
       : 'Lance une collecte pour remplir le radar.'}</div>
@@ -914,6 +921,15 @@ export function rendreIndicateurMaj(meta) {
   const texte = document.getElementById('veilleText');
   if (!banniere) return;
   banniere.classList.remove('stale', 'warn');
+  // LA BANNIÈRE NE RÉPÈTE PLUS LA CARTE DU HAUT (4.1). « À jour » et
+  // « périmée » sont déjà dits — avec le bouton — par la carte « Dernière
+  // collecte ». La bannière ne reste que pour ce que la carte ne peut pas
+  // expliquer en deux mots : aucune source configurée, une collecte en échec
+  // ou partielle, et la toute première fois.
+  const carteVisible = Boolean(document.querySelector('#dashHero .hc-collecte'));
+  const ordinaire = meta?.derniereCollecte
+    && !['non-configure', 'echec', 'partiel'].includes(meta.statut);
+  banniere.hidden = Boolean(carteVisible && ordinaire);
 
   if (!meta?.derniereCollecte) {
     banniere.classList.add('warn');

@@ -64,7 +64,13 @@
       <button data-t="dark">Nuit</button>
       <button data-t="cockpit">Cockpit</button>
     </div>
-    <div class="sb-foot">Collecte automatique · données locales.<br>Raccourcis : <span class="kbd">?</span> · Palette : <span class="kbd">Ctrl</span><span class="kbd">K</span> · Focus : <span class="kbd">F</span></div>
+    <div class="sb-foot">Collecte automatique · données locales.
+      <div class="sb-raccourcis">
+        <span>Palette</span><span><span class="kbd">Ctrl</span> <span class="kbd">K</span></span>
+        <span>Tri éclair</span><span><span class="kbd">Z</span></span>
+        <span>Mode focus</span><span><span class="kbd">F</span></span>
+        <span>Tous les raccourcis</span><span><span class="kbd">?</span></span>
+      </div></div>
     <div class="sb-signature">Conçu par Benjamin&nbsp;Perrin</div>
   </aside>
 
@@ -147,7 +153,9 @@
            tableau de bord pour savoir quoi faire, pas pour se contempler. -->
       <div class="panel-box">
         <h3><span data-ic="eclair" data-ic-taille="14"></span> À faire maintenant
-          <span class="h3-side" id="focusSub"></span></h3>
+          <span class="h3-side"><span id="focusSub"></span>
+            <button class="btn btn-tri" id="triBtnDash" type="button" title="Trier le stock une offre à la fois (Z)">
+              <span data-ic="eclair" data-ic-taille="13"></span> Trier en vitesse</button></span></h3>
         <div id="focusList"><div class="skel skel-court"></div><div class="skel skel-court"></div></div>
       </div>
 
@@ -265,9 +273,14 @@
           <option value="fresh">Tri : fraîcheur</option>
           <option value="date">Tri : date de l'offre</option>
           <option value="ville">Tri : ville</option>
+          <option value="salaire">Tri : salaire annoncé</option>
           <option value="relance">Tri : relance</option>
         </select>
         <select id="statusFilter" aria-label="Filtrer par statut de candidature"><option value="all">Tous les statuts</option><option>À postuler</option><option>Envoyé</option><option>Relancé</option><option>Entretien</option><option>Refus</option></select>
+        <!-- LE TRI ÉCLAIR (4.1) : la liste montre tout, lui montre UNE offre et
+             demande une réponse. Il trie ce que l'onglet affiche. -->
+        <button class="btn btn-tri" id="triBtn" type="button" title="Trier ces offres une par une : garder, écarter, plus tard (Z)">
+          <span data-ic="eclair" data-ic-taille="15"></span> Tri éclair <span class="kbd kbd-discret">Z</span></button>
         <span class="tb-espace"></span>
         <button class="btn btn-discret" id="toggleVue" title="Basculer liste / grille"><span data-ic="colonnes" data-ic-taille="15"></span> Grille</button>
         <button class="btn btn-discret" id="exportBtn"><span data-ic="document" data-ic-taille="15"></span> CSV</button>
@@ -341,15 +354,25 @@
 
     <!-- ══════════════ AGENDA ══════════════ -->
     <div class="view" id="view-agenda" style="display:none">
-      <div class="view-head"><div><h2><span data-ic="calendrier" data-ic-taille="17"></span> Agenda des relances</h2>
-        <div class="vh-sub" id="agendaSub"></div></div></div>
-      <div class="panel-box">
-        <h3><span data-ic="calendrier" data-ic-taille="14"></span> <span id="moisTitre">—</span>
-          <span class="h3-side">une pastille par relance · rouge = en retard</span></h3>
-        <div class="mois" id="moisCalendrier"></div>
+      <div class="view-head"><div><h2><span data-ic="calendrier" data-ic-taille="17"></span> Agenda</h2>
+        <div class="vh-sub" id="agendaSub"></div></div>
+        <div class="vh-side"><a class="btn btn-discret" href="/api/agenda.ics" download="job-cockpit.ics"
+          title="Relances et entretiens, à importer dans Outlook, Google Agenda ou Calendrier"><span data-ic="telecharger" data-ic-taille="14"></span> .ics</a></div></div>
+      <!-- LE MOIS ET LA LISTE CÔTE À CÔTE (4.1). Le calendrier occupait tout
+           l'écran et la liste passait dessous, hors de vue : on voyait QUAND
+           sans voir QUOI. Sur un écran étroit, la liste repasse sous le mois. -->
+      <div class="agenda-grille">
+        <div class="panel-box agenda-mois">
+          <h3><span data-ic="calendrier" data-ic-taille="14"></span> <span id="moisTitre">—</span>
+            <span class="h3-side agenda-legende"><span class="mev rel"><i></i>relance</span><span class="mev retard"><i></i>en retard</span><span class="mev ent"><i></i>entretien</span><span class="mev envoi"><i></i>envoi</span></span></h3>
+          <div class="mois" id="moisCalendrier"></div>
+        </div>
+        <div class="agenda-liste">
+          <div class="agenda-tete" id="agendaTete" hidden></div>
+          <div id="agenda"></div>
+          <div class="empty" id="agendaEmpty" style="display:none;">Rien à traiter de ce côté. Une relance se planifie d'elle-même quand tu marques une candidature envoyée.</div>
+        </div>
       </div>
-      <div id="agenda"></div>
-      <div class="empty" id="agendaEmpty" style="display:none;">Aucune relance planifiée. Ajoute une date de relance sur une offre depuis l'onglet Offres.</div>
     </div>
 
     <!-- ══════════════ MON CV ══════════════ -->
@@ -388,6 +411,10 @@
     <div class="view" id="view-options" style="display:none">
       <div class="view-head"><div><h2><span data-ic="reglages" data-ic-taille="17"></span> Options</h2>
         <div class="vh-sub">Ce que tu cherches et où, puis l'affichage et le confort.</div></div></div>
+
+      <!-- LE SOMMAIRE (4.1). Rempli par app.js d'après les panneaux présents :
+           en ajouter un suffit à lui donner son entrée. -->
+      <nav class="opt-nav" id="optNav" aria-label="Sections des options"></nav>
 
       <!-- Mes villes. Réglage le plus conséquent de la page : il commande ce
            que la collecte va chercher et la façon dont les offres se rangent.
@@ -569,6 +596,7 @@
         <div class="kbd-row"><span>Rechercher une offre</span><span><span class="kbd">/</span></span></div>
         <div class="kbd-row"><span>Lancer une collecte</span><span><span class="kbd">R</span></span></div>
         <div class="kbd-row"><span>Ajouter une offre</span><span><span class="kbd">N</span></span></div>
+        <div class="kbd-row"><span>Tri éclair</span><span><span class="kbd">Z</span></span></div>
       </div>
       <div>
         <div class="aide-titre">Dans la liste des offres</div>
@@ -578,6 +606,10 @@
         <div class="kbd-row"><span>Marquer envoyée</span><span><span class="kbd">E</span></span></div>
         <div class="kbd-row"><span>Rédiger la lettre</span><span><span class="kbd">L</span></span></div>
         <div class="kbd-row"><span>Écarter</span><span><span class="kbd">X</span></span></div>
+        <div class="aide-titre">Dans le tri éclair</div>
+        <div class="kbd-row"><span>Écarter / garder</span><span><span class="kbd">←</span> <span class="kbd">→</span></span></div>
+        <div class="kbd-row"><span>Plus tard</span><span><span class="kbd">↓</span></span></div>
+        <div class="kbd-row"><span>Annuler la dernière</span><span><span class="kbd">U</span></span></div>
         <div class="aide-titre">Confort</div>
         <div class="kbd-row"><span>Mode focus</span><span><span class="kbd">F</span></span></div>
         <div class="kbd-row"><span>Changer de thème</span><span><span class="kbd">T</span></span></div>

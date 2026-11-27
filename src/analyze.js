@@ -59,8 +59,19 @@ export function validerAnalyse(brute) {
   if (!brute || typeof brute !== 'object' || Array.isArray(brute)) return null;
   if (typeof brute.verdict !== 'string' || brute.verdict.trim() === '') return null;
 
+  // UNE PHRASE SEULE VAUT UNE LISTE D'UNE PHRASE.
+  //
+  // La règle était « un champ mal typé invalide tout ». Elle visait les
+  // réponses franchement cassées — et elle jetait aussi l'analyse entière
+  // quand le modèle écrivait `"compensable": "Aucun point bloquant."` au lieu
+  // d'un tableau d'une ligne. Onze champs justes perdus pour un crochet
+  // manquant, et un appel compté dans le quota du jour pour rien : le journal
+  // disait « analyse illisible » sur des offres parfaitement analysées.
+  // Un nombre ou un objet à la place d'une liste, eux, restent refusés : là,
+  // on ne sait pas ce que le modèle a voulu dire.
   const listeDeTextes = (valeur) => {
     if (valeur === undefined || valeur === null) return [];
+    if (typeof valeur === 'string') return valeur.trim() ? [valeur.trim()] : [];
     if (!Array.isArray(valeur)) return undefined; // signale un type incorrect
     return valeur.filter(x => typeof x === 'string');
   };
@@ -88,6 +99,30 @@ export function validerAnalyse(brute) {
 }
 
 /**
+ * Pourquoi une réponse a été refusée, en une ligne pour le journal.
+ *
+ * « Analyse illisible » ne disait pas QUOI : une réponse coupée en plein
+ * milieu (limite de longueur), un verdict oublié et un champ mal typé
+ * finissaient dans la même phrase. Savoir lequel dit quoi corriger — le
+ * prompt, la limite, ou rien du tout. Pure, exportée pour les tests.
+ */
+export function raisonDuRefus(reponse, brute) {
+  const texte = String(reponse ?? '').trim();
+  if (!texte) return 'réponse vide';
+  if (brute === null || brute === undefined) {
+    const fin = texte.slice(-1);
+    return fin === '}' || fin === ']' || fin === '`'
+      ? `JSON invalide (${texte.length} caractères)`
+      : `réponse coupée après ${texte.length} caractères`;
+  }
+  if (typeof brute !== 'object' || Array.isArray(brute)) return 'un tableau au lieu d\'un objet';
+  if (typeof brute.verdict !== 'string' || !brute.verdict.trim()) return 'verdict absent';
+  const fautif = ['exige', 'souhaite', 'decoratif', 'prouvable', 'nonprouvable', 'compensable', 'formul', 'budget']
+    .find(c => brute[c] !== undefined && brute[c] !== null && typeof brute[c] !== 'string' && !Array.isArray(brute[c]));
+  return fautif ? `champ « ${fautif} » mal typé` : 'forme inattendue';
+}
+
+/**
  * Analyse une offre. Ne lève JAMAIS d'exception : en cas de problème
  * (quota, panne, réponse illisible) elle renvoie null et la collecte continue.
  * @returns {Promise<object|null>}
@@ -101,9 +136,14 @@ export async function analyserOffre(offre, cv) {
 
   try {
     const reponse = await demander(construirePrompt(offre, cv), [], { json: true });
-    const analyse = validerAnalyse(extraireJson(reponse));
+    // Aucun modèle n'a répondu : `demander` l'a déjà écrit au journal. Dire en
+    // plus « analyse illisible » faisait passer un quota épuisé pour une
+    // réponse cassée — deux pannes qui ne se soignent pas pareil.
+    if (reponse === null || reponse === undefined) return null;
+    const brute = extraireJson(reponse);
+    const analyse = validerAnalyse(brute);
     if (!analyse) {
-      console.warn(`  ⚠ Analyse illisible pour « ${offre.titre} » — offre conservée sans analyse`);
+      console.warn(`  ⚠ Analyse illisible pour « ${offre.titre} » — ${raisonDuRefus(reponse, brute)} — offre conservée sans analyse`);
     }
     return analyse;
   } catch (erreur) {

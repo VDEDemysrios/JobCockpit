@@ -96,6 +96,11 @@ export function offresDuJour(offres, combien = 3) {
  * écrites : une lettre est un brouillon, une candidature est un acte.
  */
 export function envoyeesAujourdhui(offres) {
-  const aujourdhui = new Date().toISOString().slice(0, 10);
+  // EN HEURE LOCALE. `toISOString()` rend la date UTC : entre minuit et deux
+  // heures du matin (une heure l'hiver), « aujourd'hui » valait encore hier,
+  // et une candidature envoyée tard dans la soirée n'était comptée nulle part.
+  const d = new Date();
+  const p = (v) => String(v).padStart(2, '0');
+  const aujourdhui = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
   return offres.filter(o => o.suivi?.sent === aujourdhui).length;
 }

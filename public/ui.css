@@ -581,6 +581,197 @@ a.btn.indispo{opacity:.5;pointer-events:none;}
   .mf-cadran{width:180px;}
 }
 
+/* ═══════════════════════ LE TRI ÉCLAIR (4.1) ═══════════════════════
+
+   Une offre, trois réponses. L'écran est plein, dans le thème courant, et
+   tout y est subordonné à la carte : l'en-tête et le pied sont bas et
+   discrets, la carte prend ce qui reste. La couleur ne sert qu'à dire le sens
+   d'une décision — vert pour garder, rouge pour écarter — et elle n'apparaît
+   qu'au moment où on la prend. */
+
+.overlay.tri{padding:0;align-items:stretch;justify-content:stretch;backdrop-filter:none;
+  background:
+    radial-gradient(90% 70% at 50% 0%,color-mix(in srgb,var(--accent) 9%,transparent),transparent 70%),
+    var(--bg);}
+.overlay.tri.show{display:flex;animation:introEntree .28s ease;}
+.tri-scene{flex:1;min-width:0;display:grid;grid-template-rows:auto minmax(0,1fr) auto;outline:none;
+  overflow:hidden;position:relative;}
+
+.tri-tete{display:flex;align-items:center;gap:var(--e5);padding:var(--e3) clamp(14px,3vw,32px);
+  border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--panel) 80%,transparent);}
+.tri-marque{display:flex;align-items:center;gap:var(--e2);color:var(--accent);white-space:nowrap;}
+.tri-marque b{color:var(--ink);font-size:14px;letter-spacing:-.01em;}
+.tri-sous{color:var(--muted);font-size:12px;margin-left:var(--e2);}
+.tri-avance{flex:1;display:flex;align-items:center;gap:var(--e3);min-width:80px;max-width:420px;margin:0 auto;}
+.tri-barre{flex:1;height:4px;border-radius:99px;background:var(--line);overflow:hidden;}
+.tri-barre i{display:block;height:100%;border-radius:99px;background:var(--accent);transform-origin:left;
+  transform:scaleX(0);transition:transform .35s var(--ease-doux,ease);}
+.tri-compte{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;}
+.tri-scores{display:flex;gap:var(--e4);font-size:12px;color:var(--muted);}
+.tri-scores span{display:inline-flex;align-items:center;gap:4px;}
+.tri-scores b{font-variant-numeric:tabular-nums;color:var(--ink);min-width:1ch;}
+.tri-scores .oui{color:var(--g1);}
+.tri-scores .non{color:var(--g3);}
+
+/* La pile : la carte courante, et la suivante qui dépasse derrière elle. */
+.tri-pile{position:relative;min-height:0;padding:clamp(12px,3vh,28px) clamp(12px,3vw,32px) var(--e3);
+  display:grid;place-items:stretch center;}
+.tri-carte{grid-area:1/1;width:min(860px,100%);min-height:0;max-height:100%;display:flex;flex-direction:column;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r6);
+  box-shadow:var(--sh4);padding:var(--e6) clamp(16px,3vw,34px) var(--e5);position:relative;
+  touch-action:pan-y;will-change:transform;}
+.tri-carte.courante{cursor:grab;z-index:2;}
+.tri-carte.en-glisse{cursor:grabbing;user-select:none;transition:none;}
+/* La suivante dépasse sous la carte : l'origine est en BAS, sinon le
+   rétrécissement mangeait exactement le décalage et rien ne dépassait. */
+.tri-carte.suivante{z-index:1;transform-origin:50% 100%;transform:translateY(11px) scale(.955);opacity:.7;
+  box-shadow:var(--sh3);pointer-events:none;}
+.tri-carte.suivante>*{visibility:hidden;}
+.tri-carte.sort{z-index:3;pointer-events:none;}
+.tri-carte.vers-garder{border-color:var(--g1);box-shadow:0 0 0 2px var(--g1b),var(--sh4);}
+.tri-carte.vers-ecarter{border-color:var(--g3);box-shadow:0 0 0 2px var(--g3b),var(--sh4);}
+
+.tri-tampon{position:absolute;top:var(--e5);display:inline-flex;align-items:center;gap:6px;padding:5px 12px;
+  border:2px solid currentColor;border-radius:var(--r3);font-size:13px;font-weight:var(--w-bold);
+  text-transform:uppercase;letter-spacing:1.2px;opacity:0;pointer-events:none;background:var(--panel);z-index:4;}
+.tri-tampon.oui{left:var(--e5);color:var(--g1);transform:rotate(-8deg);}
+.tri-tampon.non{right:var(--e5);color:var(--g3);transform:rotate(8deg);}
+
+.tri-carte-tete{display:flex;flex-wrap:wrap;align-items:center;gap:var(--e2);margin-bottom:var(--e3);}
+.tri-salaire{margin-left:auto;font-size:13px;font-weight:var(--w-semi);color:var(--g1);
+  font-variant-numeric:tabular-nums;white-space:nowrap;}
+.tri-titre{margin:0;font-family:var(--font-titre);font-size:clamp(19px,2.3vw,26px);font-weight:650;
+  letter-spacing:-.025em;line-height:1.22;text-wrap:balance;}
+.tri-meta{color:var(--muted);font-size:13.5px;margin-top:6px;}
+.tri-source{color:var(--faint);font-size:12px;margin-left:var(--e2);}
+/* Le bas du texte s'estompe : c'est ce qui dit « ça continue, fais défiler »
+   sans barre de défilement à surveiller. */
+.tri-corps{flex:1;min-height:0;overflow-y:auto;margin:var(--e4) calc(var(--e3) * -1) 0;padding:0 var(--e3) var(--e6);
+  overscroll-behavior:contain;scrollbar-width:thin;
+  -webkit-mask:linear-gradient(#000 calc(100% - 34px),transparent);mask:linear-gradient(#000 calc(100% - 34px),transparent);}
+
+.tri-verdict{display:flex;gap:var(--e3);align-items:flex-start;margin:0 0 var(--e4);padding:var(--e3) var(--e4);
+  border-radius:var(--r3);background:var(--g0b);color:var(--ink);font-size:14.5px;line-height:1.5;}
+.tri-verdict .ic{flex-shrink:0;margin-top:3px;color:var(--g0);}
+.tri-verdict.vd1{background:var(--g1b);} .tri-verdict.vd1 .ic{color:var(--g1);}
+.tri-verdict.vd2{background:var(--g2b);} .tri-verdict.vd2 .ic{color:var(--g2);}
+.tri-verdict.vd3{background:var(--g3b);} .tri-verdict.vd3 .ic{color:var(--g3);}
+.tri-duo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--e5);margin-bottom:var(--e4);}
+.tri-col h4,.tri-extrait h4{display:flex;align-items:center;gap:5px;margin:0 0 var(--e2);font-size:10.5px;
+  font-weight:var(--w-semi);text-transform:uppercase;letter-spacing:.8px;color:var(--muted);}
+.tri-col.ok h4{color:var(--g1);}
+.tri-col.no h4{color:var(--g3);}
+.tri-col h4 i{font-style:normal;margin-left:2px;padding:0 5px;border-radius:99px;background:var(--bg2);
+  color:var(--muted);letter-spacing:0;}
+.tri-col ul{margin:0;padding-left:var(--e5);display:flex;flex-direction:column;gap:5px;
+  font-size:13px;line-height:1.45;color:var(--ink-2);}
+.tri-col li.rien{list-style:none;margin-left:calc(var(--e5) * -1);color:var(--faint);}
+.tri-comp{margin:var(--e2) 0 0;font-size:12px;color:var(--muted);}
+.tri-motifs{margin-bottom:var(--e4);}
+.tri-extrait{border-top:1px solid var(--line);padding-top:var(--e3);}
+.tri-extrait p{margin:0;font-size:13px;line-height:1.6;color:var(--muted);white-space:pre-line;}
+
+/* Le pied : les trois réponses, larges et nommées, puis les gestes annexes. */
+.tri-pied{padding:var(--e3) clamp(12px,3vw,32px) var(--e4);}
+.tri-gestes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--e3);
+  width:min(860px,100%);margin:0 auto;}
+.tri-btn{display:flex;align-items:center;gap:var(--e3);padding:var(--e3) var(--e4);border-radius:var(--r4);
+  border:1px solid var(--line);background:var(--panel);color:var(--ink);font:inherit;text-align:left;
+  cursor:pointer;transition:border-color .14s,background .14s,transform .12s,box-shadow .14s;}
+.tri-btn>span:not(.kbd){display:flex;flex-direction:column;min-width:0;flex:1;}
+.tri-btn b{font-weight:var(--w-semi);font-size:14px;}
+.tri-btn small{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tri-btn .ic{flex-shrink:0;color:var(--muted);transition:color .14s;}
+.tri-btn:hover{transform:translateY(-1px);box-shadow:var(--sh3);}
+.tri-btn:active{transform:translateY(0) scale(.985);}
+.tri-btn.oui:hover,.tri-btn.oui:focus-visible{border-color:var(--g1);background:var(--g1b);}
+.tri-btn.oui:hover .ic,.tri-btn.oui:focus-visible .ic{color:var(--g1);}
+.tri-btn.non:hover,.tri-btn.non:focus-visible{border-color:var(--g3);background:var(--g3b);}
+.tri-btn.non:hover .ic,.tri-btn.non:focus-visible .ic{color:var(--g3);}
+.tri-btn.tard:hover,.tri-btn.tard:focus-visible{border-color:var(--line-fort);background:var(--bg2);}
+.tri-second{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--e2);margin-top:var(--e3);}
+.tri-second .btn{font-size:12px;}
+.tri-second .kbd,.tri-tete .kbd{margin-left:4px;font-size:10px;padding:0 5px;opacity:.75;}
+.tri-annonce{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);}
+
+/* Le bilan, en fin de file. */
+.tri-bilan{grid-area:1/1;align-self:center;width:min(560px,100%);text-align:center;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r6);box-shadow:var(--sh4);
+  padding:var(--e10) var(--e8) var(--e8);animation:entree .4s var(--ease-doux,ease);}
+.tri-bilan-ic{display:inline-flex;align-items:center;justify-content:center;width:60px;height:60px;
+  border-radius:50%;background:var(--g1b);color:var(--g1);margin-bottom:var(--e4);}
+.tri-bilan h2{margin:0;font-family:var(--font-titre);font-size:22px;font-weight:650;letter-spacing:-.02em;}
+.tri-bilan p{margin:var(--e4) auto 0;color:var(--muted);line-height:1.6;max-width:44ch;}
+.tri-bilan-chiffres{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--e3);margin-top:var(--e6);}
+.tri-bilan-chiffres div{padding:var(--e4) var(--e2);border-radius:var(--r4);background:var(--bg2);}
+.tri-bilan-chiffres b{display:block;font-size:30px;font-weight:650;letter-spacing:-.03em;line-height:1;
+  font-variant-numeric:tabular-nums;}
+.tri-bilan-chiffres span{font-size:11.5px;color:var(--muted);}
+.tri-bilan-chiffres .oui b{color:var(--g1);}
+.tri-bilan-chiffres .non b{color:var(--g3);}
+.tri-bilan-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--e2);margin-top:var(--e6);}
+
+/* Le bouton qui y mène, dans la barre des offres et sur le tableau de bord. */
+.btn-tri{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));color:var(--accent-ink);
+  background:var(--accent-bg);}
+.btn-tri:hover{border-color:var(--accent);}
+.btn-tri .kbd{margin-left:2px;}
+
+@media(max-width:760px){
+  .tri-tete{flex-wrap:wrap;gap:var(--e2) var(--e4);}
+  .tri-sous{display:none;}
+  .tri-avance{order:3;flex:1 1 100%;max-width:none;}
+  .tri-scores{margin-left:auto;}
+  .tri-tete .kbd,.tri-second .kbd,.tri-btn .kbd{display:none;}
+  .tri-duo{grid-template-columns:minmax(0,1fr);gap:var(--e4);}
+  .tri-btn{flex-direction:column;gap:4px;padding:var(--e3) var(--e2);text-align:center;}
+  .tri-btn>span:not(.kbd){align-items:center;}
+  .tri-btn small{display:none;}
+  .tri-bilan{padding:var(--e8) var(--e5) var(--e6);}
+}
+
+[data-anim="off"] .tri-barre i,[data-anim="off"] .tri-btn{transition:none !important;}
+
+/* ═══════════════════════ FINITIONS 4.1 ═══════════════════════ */
+
+/* `hidden` VEUT DIRE CACHÉ, PARTOUT. L'attribut ne pèse rien face à une règle
+   d'auteur : dès qu'une classe pose `display:flex`, l'élément « caché »
+   s'affiche. C'est arrivé deux fois — la pastille « en retard » à zéro, puis
+   la flèche « revenir en bas » d'une conversation vide. Une règle pour tous
+   plutôt qu'une exception par élément. */
+[hidden]{display:none !important;}
+
+/* Le bouton de la carte « Dernière collecte », quand elle date. */
+.hc-action{align-self:flex-start;margin-top:var(--e3);padding:5px 11px;font-size:12px;}
+.h3-side .btn-tri{margin-left:var(--e2);padding:3px 9px;font-size:11.5px;vertical-align:middle;}
+
+/* Le salaire annoncé, dans la ligne de la carte : le seul chiffre de la ligne
+   qui se compare d'une offre à l'autre, donc le seul à être mis en couleur. */
+.pm-sal{display:inline-block;margin-left:6px;padding:0 6px;border-radius:var(--r1);
+  background:var(--g1b);color:var(--g1);font-weight:var(--w-medium);font-variant-numeric:tabular-nums;
+  white-space:nowrap;}
+
+/* LE PIED DU RAIL NE CASSE PLUS SES TOUCHES. « Ctrl » finissait sur une
+   ligne et « K » sur la suivante. Une ligne par raccourci, le nom à gauche,
+   les touches à droite. */
+.sb-raccourcis{display:grid;grid-template-columns:1fr auto;gap:3px var(--e2);align-items:center;
+  margin-top:var(--e2);}
+.sb-raccourcis span:nth-child(even){white-space:nowrap;text-align:right;}
+.sb-foot .kbd{font-size:9.5px;padding:0 5px;}
+
+/* LES OPTIONS ONT UN SOMMAIRE. Sept panneaux à la suite, sans repère : pour
+   changer de thème il fallait dépasser l'éditeur de villes à chaque fois. La
+   barre reste collée en haut de la vue et suit le défilement. */
+.opt-nav{position:sticky;top:0;z-index:6;display:flex;gap:2px;flex-wrap:wrap;margin:0 0 var(--e4);
+  padding:5px;border:1px solid var(--line);border-radius:var(--r4);
+  background:color-mix(in srgb,var(--panel) 88%,transparent);backdrop-filter:blur(10px);}
+.opt-nav button{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border:0;border-radius:var(--r2);
+  background:transparent;color:var(--muted);font:inherit;font-size:12.5px;cursor:pointer;
+  transition:background .14s,color .14s;}
+.opt-nav button:hover{color:var(--ink);background:var(--bg2);}
+.opt-nav button.actif{color:var(--accent-ink);background:var(--accent-bg);font-weight:var(--w-medium);}
+#view-options .panel-box{scroll-margin-top:58px;}
+
 /* ─────────────────────────── MOBILE ─────────────────────────── */
 
 /* LE BANDEAU DE COMMANDE NE PREND PLUS LA MOITIÉ DE L'ÉCRAN.

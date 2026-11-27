@@ -14,7 +14,7 @@
 // rassurer sans jamais formuler de réponse — et c'est précisément formuler
 // qui prépare. Le champ est donc devant, et la suite n'arrive qu'après envoi.
 import { API } from './api.js';
-import { echapper } from './format.js';
+import { echapper, titreLisible, nomLisible, dateLisible, enLigne } from './format.js';
 import { ouvrirSurcouche, fermerSurcouche } from './surcouche.js';
 import { confirmer } from './dialogue.js';
 import { revelerNoeud } from './frappe.js';
@@ -551,9 +551,10 @@ export async function rendreDossiers(toast) {
       return `
       <div class="dos${c?.urgent ? ' urgent' : ''}" data-dossier="${echapper(o.id)}">
         <div class="dos-t">
-          <div class="dos-titre">${echapper(o.titre)}</div>
-          <div class="dos-sous">${echapper([o.entreprise, o.ville].filter(Boolean).join(' · ') || '—')}
-            ${o.envoyeLe ? `· envoyée le ${echapper(o.envoyeLe)}` : ''}</div>
+          <div class="dos-titre">${echapper(titreLisible(o.titre, [o.ville, o.entreprise]))}</div>
+          <div class="dos-sous">${echapper(enLigne(nomLisible(o.entreprise), nomLisible(o.ville),
+            // « envoyée le 2026-08-07 » se lisait comme une référence de dossier.
+            o.envoyeLe ? `envoyée le ${dateLisible(o.envoyeLe)}` : '') || '—')}</div>
         </div>
         <div class="dos-etat">
           ${c ? `<span class="dos-jour ${c.classe}">${echapper(c.texte)}</span>` : ''}

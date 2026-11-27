@@ -486,41 +486,96 @@ body.kanban-glisse,body.kanban-glisse *{cursor:grabbing !important;
 .mois-auj{padding:0 8px;font-weight:var(--w-medium);}
 .mois-btn:hover,.mois-auj:hover{color:var(--accent);border-color:var(--accent);background:var(--accent-bg);}
 
-.mjour{position:relative;}
-.mjour.charge{cursor:pointer;outline:none;}
-.mjour.charge:hover,.mjour.charge:focus-visible{border-color:var(--accent);z-index:5;}
-.mjour .mp i.ent{background:var(--g2);border-radius:2px;transform:rotate(45deg);}
-.mjour.avec-entretien{border-color:color-mix(in srgb,var(--g2) 55%,var(--line));}
+/* LE MOIS ET LA LISTE CÔTE À CÔTE (4.1).
+   Le calendrier tenait tout l'écran avec des cases carrées de 130 px, vides
+   pour la plupart, et la liste passait dessous. La grille garde le mois à
+   gauche et ce qu'il y a à traiter à droite ; sous 1100 px, la liste repasse
+   sous le mois. */
+.agenda-grille{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,400px);gap:var(--e4);
+  align-items:start;}
+.agenda-mois{margin-bottom:0;}
+.agenda-liste{min-width:0;}
 
-/* L'aperçu du jour : au survol, et au FOCUS — le clavier et le doigt (un
-   tap donne le focus à la case) y ont droit aussi. */
-.mjour-apercu{position:absolute;left:0;top:calc(100% + 6px);z-index:20;width:250px;max-width:70vw;
-  padding:8px;border:1px solid var(--line-fort);border-radius:var(--r3);background:var(--panel);
-  box-shadow:var(--sh4);text-align:left;cursor:default;
-  opacity:0;visibility:hidden;transform:translateY(-4px);
-  transition:opacity .14s,transform .18s var(--ressort,ease),visibility 0s .18s;}
-.mjour:hover .mjour-apercu,.mjour:focus-within .mjour-apercu{opacity:1;visibility:visible;transform:none;
-  transition:opacity .14s,transform .18s var(--ressort,ease),visibility 0s;}
-/* Les deux dernières colonnes ouvrent vers la gauche, les deux dernières
-   rangées vers le haut : l'aperçu ne sort pas du panneau. Les 7 premiers
-   enfants de la grille sont les en-têtes de jours. */
-.mjour:nth-child(7n) .mjour-apercu,.mjour:nth-child(7n+6) .mjour-apercu{left:auto;right:0;}
-.mjour:nth-child(n+36) .mjour-apercu{top:auto;bottom:calc(100% + 6px);transform:translateY(4px);}
-.mja-t{font-size:10.5px;font-weight:var(--w-semi);text-transform:uppercase;letter-spacing:.7px;
-  color:var(--muted);padding:0 4px 6px;}
-.mjour-apercu ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;}
-.mjour-apercu li{display:flex;gap:8px;align-items:flex-start;padding:5px 6px;border-radius:var(--r2);
-  cursor:pointer;transition:background .12s;}
-.mjour-apercu li:hover{background:var(--bg2);}
-.mjour-apercu li>i{width:7px;height:7px;border-radius:50%;background:var(--accent);margin-top:4px;flex-shrink:0;}
-.mjour-apercu li.retard>i{background:var(--hot);}
-.mjour-apercu li.ent>i{background:var(--g2);border-radius:2px;transform:rotate(45deg);}
-.mjour-apercu li span{display:flex;flex-direction:column;min-width:0;}
-.mjour-apercu li b{font-size:12px;font-weight:var(--w-medium);color:var(--ink);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.mjour-apercu li small{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.mjour-apercu .mja-plus{font-size:11px;color:var(--faint);cursor:default;}
-.agenda-tag .ic{vertical-align:-2px;}
+/* `minmax(0,1fr)` et non `1fr` : une étiquette longue élargissait sa colonne,
+   et sur téléphone le dimanche sortait de l'écran. */
+.mois{grid-template-columns:repeat(7,minmax(0,1fr));}
+.mjour{position:relative;aspect-ratio:auto;min-height:88px;min-width:0;overflow:hidden;}
+.mjour.charge{cursor:pointer;outline:none;}
+.mjour.charge:hover,.mjour.charge:focus-visible{border-color:var(--accent);}
+.mjour.choisi{border-color:var(--accent);background:var(--accent-bg);box-shadow:0 0 0 1px var(--accent);}
+.mjour.avec-entretien{border-color:color-mix(in srgb,var(--g2) 55%,var(--line));}
+.mjour.today .mn{display:inline-flex;align-items:center;justify-content:center;align-self:flex-start;
+  min-width:20px;height:20px;padding:0 5px;margin:-2px 0 0 -3px;border-radius:99px;
+  background:var(--accent);color:#fff;}
+
+/* Les étiquettes : une pastille de nature, puis le nom. */
+.mevs{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.mev{display:flex;align-items:center;gap:4px;min-width:0;padding:1px 5px;border-radius:var(--r1);
+  font-size:10.5px;line-height:1.5;color:var(--accent-ink);background:var(--accent-bg);
+  cursor:pointer;transition:filter .12s,transform .12s;}
+.mev:hover{filter:brightness(.96);transform:translateX(1px);}
+.mev>i{flex:0 0 6px;width:6px;height:6px;border-radius:50%;background:var(--accent);}
+.mev>b{font-weight:var(--w-medium);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+.mev.retard{color:var(--hot);background:var(--hotb);}
+.mev.retard>i{background:var(--hot);}
+.mev.ent{color:var(--g2);background:var(--g2b);}
+.mev.ent>i{background:var(--g2);border-radius:2px;transform:rotate(45deg);}
+.mev.envoi{color:var(--muted);background:transparent;padding-left:5px;}
+.mev.envoi>i{background:transparent;border:1.5px solid var(--faint);}
+.mev-plus{font-size:10px;color:var(--faint);padding-left:5px;font-variant-numeric:tabular-nums;}
+
+/* La légende, dans l'en-tête du panneau : les mêmes pastilles, sans fond. */
+.agenda-legende{display:inline-flex;gap:var(--e3);flex-wrap:wrap;justify-content:flex-end;}
+.agenda-legende .mev{background:transparent;padding:0;cursor:default;color:var(--muted);font-size:11px;}
+.agenda-legende .mev:hover{filter:none;transform:none;}
+
+/* La liste : sections, puis une ligne par échéance avec ses deux gestes. */
+.agenda-section{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:var(--w-semi);
+  text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:var(--e4) 0 var(--e2);}
+.agenda-section:first-child{margin-top:2px;}
+.agenda-section b{font-weight:var(--w-semi);padding:0 6px;border-radius:99px;background:var(--bg2);
+  color:var(--ink-2);font-variant-numeric:tabular-nums;letter-spacing:0;}
+.agenda-section.retard{color:var(--hot);}
+.agenda-section.retard b{background:var(--hotb);color:var(--hot);}
+.agenda-tete{display:flex;align-items:center;gap:var(--e3);margin-bottom:var(--e3);padding:var(--e2) var(--e3);
+  border:1px solid var(--accent);border-radius:var(--r3);background:var(--accent-bg);font-size:12.5px;}
+.agenda-tete[hidden]{display:none;}
+.agenda-tete b{display:inline-block;color:var(--accent-ink);}
+.agenda-tete b::first-letter{text-transform:uppercase;}
+.agenda-tete span{color:var(--muted);}
+.agenda-tete .btn{margin-left:auto;padding:2px 8px;font-size:11.5px;}
+
+.agenda-liste .agenda-item{gap:var(--e3);padding:var(--e3) var(--e3) var(--e3) var(--e4);outline:none;}
+.agenda-liste .agenda-item:focus-visible{box-shadow:var(--lueur);}
+.agenda-liste .agenda-date{min-width:38px;margin-left:0;}
+.agenda-liste .agenda-date .ad-d{font-size:19px;}
+.agenda-item.entretien::before{background:var(--g2);}
+.agenda-item.envoi::before{background:var(--line-fort);}
+.ab-k{display:flex;align-items:center;gap:4px;font-size:10.5px;font-weight:var(--w-semi);
+  text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:1px;}
+.ab-k span{text-transform:none;letter-spacing:0;font-weight:var(--w-medium);}
+.agenda-item.overdue .ab-k{color:var(--hot);}
+.agenda-item.entretien .ab-k{color:var(--g2);}
+.agenda-liste .ab-t{font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.agenda-liste .ab-s{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.agenda-gestes{display:flex;flex-direction:column;gap:4px;flex-shrink:0;}
+.agenda-gestes .btn{padding:3px 9px;font-size:11.5px;justify-content:center;white-space:nowrap;}
+
+@media (max-width:1100px){
+  .agenda-grille{grid-template-columns:minmax(0,1fr);}
+}
+@media (max-width:720px){
+  /* Au téléphone, une case fait 45 px : plus la place d'un nom. Les
+     étiquettes redeviennent des pastilles, alignées, et la liste dessous dit
+     le reste. */
+  .mjour{min-height:46px;padding:4px;}
+  .mevs{flex-direction:row;flex-wrap:wrap;gap:3px;}
+  .mev{padding:0;background:transparent !important;}
+  .mev>b{display:none;}
+  .mev-plus{padding-left:0;font-size:9px;line-height:6px;}
+  .agenda-legende{display:none;}
+  .agenda-gestes{flex-direction:row;}
+}
 
 /* ═════════════════════════ GRILLE FLUIDE ═════════════════════════ */
 
@@ -558,7 +613,6 @@ body.kanban-glisse,body.kanban-glisse *{cursor:grabbing !important;
   .kanban-pro .kcard .km{font-size:11.5px;}
   .kpoignee{opacity:.6;}
 
-  .mjour-apercu{width:220px;}
   .mois-nom{min-width:100px;}
 }
 
@@ -573,8 +627,7 @@ body.kanban-glisse,body.kanban-glisse *{cursor:grabbing !important;
    replient, onglet qui glisse) se coupent aussi. La règle globale de
    style.css le fait déjà ; celle-ci couvre la spécificité des sélecteurs
    d'ici. */
-[data-anim="off"] .kanban.kanban-pro,[data-anim="off"] .dash-onglets-trait,
-[data-anim="off"] .mjour-apercu{transition:none !important;}
+[data-anim="off"] .kanban.kanban-pro,[data-anim="off"] .dash-onglets-trait{transition:none !important;}
 @media (prefers-reduced-motion:reduce){
-  .kanban.kanban-pro,.dash-onglets-trait,.mjour-apercu{transition:none !important;}
+  .kanban.kanban-pro,.dash-onglets-trait{transition:none !important;}
 }

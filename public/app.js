@@ -20,6 +20,7 @@
 import { API } from './api.js';
 import {
   GM, SOURCE_LABEL, MOIS, JOURS, todayISO, ageOffre, echapper, pluriel, dansNJours,
+  titreLisible, nomLisible, salaireAnnuel,
 } from './format.js';
 import { poserIcones, icone, illustration } from './icons.js';
 import { jouerIntro } from './intro.js';
@@ -32,6 +33,7 @@ import { lireRoute, ecrireRoute, villeDuSlug } from './routage.js';
 import { installerCollecte } from './collecte-live.js';
 import { installerFocus } from './focus.js';
 import { installerRappels } from './rappels.js';
+import { installerTri } from './tri.js';
 import { taperChamp, revelerNoeud, mouvementCoupe } from './frappe.js';
 import { poserTitreBase } from './titre.js';
 import { installerDepotCv } from './depot-cv.js';
@@ -144,6 +146,7 @@ let palette = null;
 let collecte = null;
 let focus = null;
 let rappels = null;
+let tri = null;
 
 // ----------------------------------------------------------------- utilitaires
 
@@ -273,8 +276,8 @@ async function chargerDonnees() {
   const [offres, meta, stats, cv, timeline] = await Promise.all([
     API.offres(), API.meta(), API.stats(), API.cv(), API.timeline(80).catch(() => ({ evenements: [] })),
   ]);
-  etat.offres = offres.offres;
   etat.meta = meta;
+  etat.offres = offres.offres.map(rendreLisible);
   etat.stats = stats.stats;
   etat.cv = cv;
   etat.timeline = timeline.evenements ?? [];
@@ -283,6 +286,22 @@ async function chargerDonnees() {
   // vaut mieux que de laisser l'auteur découvrir des offres sans verdict.
   const badge = document.getElementById('nb-cv');
   badge.style.display = (!cv.present || cv.perimee) ? '' : 'none';
+}
+
+/**
+ * LES CAPITALES NE CRIENT PLUS. Une offre sur dix arrive saisie tout en
+ * majuscules — titre, employeur et ville. On la rend lisible ICI, une fois, à
+ * l'arrivée des données : toutes les vues (liste, Kanban, agenda, palette,
+ * tri, exports) lisent alors le même texte propre, et la base garde
+ * l'original. Voir `titreLisible` dans format.js.
+ */
+function rendreLisible(offre) {
+  const entreprise = nomLisible(offre.entreprise);
+  const ville = nomLisible(offre.ville);
+  offre.titre = titreLisible(offre.titre, [ville, entreprise, ...(etat.meta?.villes ?? [])]);
+  offre.entreprise = entreprise;
+  offre.ville = ville;
+  return offre;
 }
 
 function trouver(id) {
@@ -629,7 +648,7 @@ function rendreTout() {
   else if (etat.vue === 'cv') rendreCv(etat.cv);
   else if (etat.vue === 'offers') rendreOffres();
   else if (etat.vue === 'kanban') rendreKanban(etat.offres, deposerKanban);
-  else if (etat.vue === 'agenda') rendreAgenda(etat.offres, ouvrirOffre);
+  else if (etat.vue === 'agenda') rendreAgenda(etat.offres, { ouvrir: ouvrirOffre, faite: relanceFaite, reporter: reporterRelance });
   // Ces deux vues lisent le serveur ou portent un état vivant (la
   // conversation, le robot) : on ne les reconstruit qu'à l'arrivée.
   else if (etat.vue === 'entretiens' && arriveeSurLaVue) rendreDossiers(toast);
@@ -778,6 +797,11 @@ function majFiltresEtCompteurs() {
   else if (etat.tri === 'fresh') liste.sort((a, b) => (ageOffre(a.dateOffre) ?? 999) - (ageOffre(b.dateOffre) ?? 999));
   else if (etat.tri === 'ville') liste.sort((a, b) => String(a.ville).localeCompare(String(b.ville)));
   else if (etat.tri === 'relance') liste.sort((a, b) => (a.suivi.relance || '9999').localeCompare(b.suivi.relance || '9999'));
+  // Le salaire annoncé, ramené à l'année. Les offres qui n'annoncent rien
+  // (sept sur dix) passent après, dans leur ordre de pertinence.
+  else if (etat.tri === 'salaire') liste.sort((a, b) =>
+    (salaireAnnuel(b.salaireSource) ?? -1) - (salaireAnnuel(a.salaireSource) ?? -1)
+    || rangGroupe(a.groupe) - rangGroupe(b.groupe) || (b.score ?? 0) - (a.score ?? 0));
   else liste.sort((a, b) => rangGroupe(a.groupe) - rangGroupe(b.groupe) || (b.score ?? 0) - (a.score ?? 0));
 
   // Les épinglées remontent toujours en tête.
@@ -1219,6 +1243,47 @@ async function basculerEnvoi(offre, el = null) {
     saluerObjectif(avant);
   }
   return true;
+}
+
+/**
+ * LES RELANCES SE RÈGLENT DEPUIS L'AGENDA (4.1).
+ *
+ * Une relance en retard ne se traitait qu'en ouvrant l'offre, en cherchant le
+ * champ de date et en le changeant : quatre relances, quatre allers-retours.
+ * Deux gestes suffisent ici — « Fait » et « +3 j » — et chacun s'annule d'un
+ * clic, parce qu'un bouton pressé trop vite sur une échéance ne doit pas
+ * coûter une recherche pour la retrouver.
+ */
+async function changerRelance(offre, champs, message, type = '') {
+  const avant = { status: offre.suivi.status, relance: offre.suivi.relance };
+  const r = await essayer(() => API.majSuivi(offre.id, champs));
+  if (!r) { rendreTout(); return; }
+  appliquerSuivi(offre, r, champs);
+  toast(message, type, {
+    libelle: 'Annuler',
+    faire: async () => {
+      const retour = await essayer(() => API.majSuivi(offre.id, avant), 'Relance remise comme avant');
+      if (retour) appliquerSuivi(offre, retour, avant);
+      await rafraichirStats();
+      rendreTout();
+      rappels?.rafraichir();
+    },
+  });
+  await rafraichirStats();
+  rendreTout();
+  rappels?.rafraichir();
+}
+
+/** La relance a été envoyée : le statut le dit, et l'échéance quitte l'agenda. */
+function relanceFaite(offre) {
+  sonSucces();
+  return changerRelance(offre, { status: 'Relancé', relance: '' },
+    `Relance notée — « ${offre.titre.slice(0, 38)} » passe à « Relancé »`, 'win');
+}
+
+/** Pas aujourd'hui : la relance est repoussée, pas oubliée. */
+function reporterRelance(offre, jours = 3) {
+  return changerRelance(offre, { relance: dansNJours(jours) }, `Relance reportée de ${jours} jours`);
 }
 
 /**
@@ -1893,7 +1958,71 @@ function telecharger(blob, nom) {
 
 // ------------------------------------------------------------ vue Options
 
+/**
+ * LE SOMMAIRE DES OPTIONS (4.1).
+ *
+ * Sept panneaux à la suite, dont le premier — l'éditeur de villes — fait
+ * deux écrans de haut : changer de thème demandait de le dépasser à chaque
+ * fois. Une barre collée en haut nomme les sections, y mène d'un clic, et
+ * suit le défilement.
+ *
+ * Elle se construit d'après les panneaux PRÉSENTS dans le balisage : en
+ * ajouter un lui donne son entrée, sans liste à tenir à jour ici.
+ */
+const NOMS_COURTS_OPTIONS = { 'Agenda et sauvegardes': 'Sauvegardes', 'Quota Gemini du jour': 'Quota Gemini',
+  'Sources de collecte': 'Sources', 'Tes données': 'Données' };
+let sommaireOptions = null;
+
+function installerSommaireOptions() {
+  if (sommaireOptions) return;
+  const vue = document.getElementById('view-options');
+  const nav = document.getElementById('optNav');
+  const panneaux = [...vue.querySelectorAll(':scope > .panel-box')];
+  if (!nav || !panneaux.length) return;
+
+  const titreDe = (p) => {
+    const h = p.querySelector('h3');
+    // Le texte du titre, sans celui de sa note de droite (« 12 / 250 »).
+    const brut = [...(h?.childNodes ?? [])].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ').trim();
+    return NOMS_COURTS_OPTIONS[brut] ?? brut;
+  };
+  nav.innerHTML = panneaux.map((p, i) => {
+    p.id ||= `opt-section-${i}`;
+    return `<button type="button" data-opt="${p.id}">${echapper(titreDe(p))}</button>`;
+  }).join('');
+  const boutons = [...nav.querySelectorAll('button')];
+  const marquer = (id) => boutons.forEach(b => {
+    const actif = b.dataset.opt === id;
+    b.classList.toggle('actif', actif);
+    if (actif) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
+  });
+
+  nav.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-opt]');
+    if (!b) return;
+    document.getElementById(b.dataset.opt)?.scrollIntoView({ behavior: mouvementCoupe() ? 'auto' : 'smooth', block: 'start' });
+    marquer(b.dataset.opt);
+  });
+
+  // La section « courante » est la dernière dont le haut a passé la barre.
+  // Calculé au défilement de la VUE (c'est elle qui défile, pas la page).
+  let image = 0;
+  const suivre = () => {
+    image = 0;
+    const seuil = vue.getBoundingClientRect().top + 90;
+    let courant = panneaux[0];
+    for (const p of panneaux) if (p.getBoundingClientRect().top <= seuil) courant = p;
+    // Tout en bas, le dernier panneau est trop court pour atteindre le seuil.
+    if (vue.scrollTop + vue.clientHeight >= vue.scrollHeight - 4) courant = panneaux[panneaux.length - 1];
+    marquer(courant.id);
+  };
+  vue.addEventListener('scroll', () => { image ||= requestAnimationFrame(suivre); }, { passive: true });
+  sommaireOptions = { suivre };
+  suivre();
+}
+
 function rendreOptions() {
+  installerSommaireOptions();
   document.getElementById('optDensite').value = options.densite;
   document.getElementById('optAnim').checked = options.animations;
   document.getElementById('optIntro').checked = options.intro;
@@ -2187,7 +2316,7 @@ function commandes() {
     { id: 'v-dashboard', titre: 'Tableau de bord', cat: 'Aller à', ic: 'graphique', raccourci: 'G D', faire: () => changerVue('dashboard') },
     { id: 'v-offers', titre: 'Toutes les offres', cat: 'Aller à', ic: 'liste', raccourci: 'G O', mots: 'liste annonces', faire: () => changerVue('offers') },
     { id: 'v-kanban', titre: 'Kanban', cat: 'Aller à', ic: 'colonnes', raccourci: 'G K', mots: 'candidatures colonnes', faire: () => changerVue('kanban') },
-    { id: 'v-agenda', titre: 'Agenda des relances', cat: 'Aller à', ic: 'calendrier', raccourci: 'G A', faire: () => changerVue('agenda') },
+    { id: 'v-agenda', titre: 'Agenda', cat: 'Aller à', ic: 'calendrier', raccourci: 'G A', mots: 'relances entretiens calendrier échéances', faire: () => changerVue('agenda') },
     { id: 'v-entretiens', titre: 'Entretiens', cat: 'Aller à', ic: 'cible', raccourci: 'G E', mots: 'préparation jury', faire: () => changerVue('entretiens') },
     { id: 'v-chill', titre: 'Chill', cat: 'Aller à', ic: 'etoile', raccourci: 'G C', mots: 'discuter compagnon', faire: () => changerVue('chill') },
     { id: 'v-cv', titre: 'Mon CV', cat: 'Aller à', ic: 'parchemin', raccourci: 'G V', faire: () => changerVue('cv') },
@@ -2199,6 +2328,8 @@ function commandes() {
     })),
     { id: 'a-collecte', titre: 'Lancer une collecte', cat: 'Action', ic: 'radar', raccourci: 'R', mots: 'rafraichir chercher',
       aide: 'Interroge les sources et montre le radar en direct.', faire: () => lancerCollecte() },
+    { id: 'a-tri', titre: 'Tri éclair', cat: 'Action', ic: 'eclair', raccourci: 'Z', mots: 'trier vite garder écarter une par une stock',
+      aide: 'Une offre à la fois : garder (→), écarter (←) ou plus tard (↓). Chaque décision s\'annule.', faire: () => ouvrirTri() },
     { id: 'a-focus', titre: 'Mode focus', cat: 'Action', ic: 'focus', raccourci: 'F', mots: 'pomodoro concentration minuteur',
       aide: 'Masque tout sauf les trois du jour et un minuteur de 25 minutes.', faire: () => focus?.basculer() },
     { id: 'a-ajouter', titre: 'Ajouter une offre', cat: 'Action', ic: 'plus', raccourci: 'N', faire: () => ajouterOffre() },
@@ -2259,6 +2390,7 @@ installerClavier({
     champ.select();
   },
   actionCarte,
+  ouvrirTri: () => ouvrirTri(),
   get focus() { return focus; },
   get rappels() { return rappels; },
   fermerTiroir: () => {
@@ -2309,6 +2441,86 @@ rappels = installerRappels({
   offres: () => etat.offres,
   ouvrirOffre: ouvrirOffreParId,
 });
+
+/**
+ * LE TRI ÉCLAIR (4.1) — voir tri.js pour le pourquoi.
+ *
+ * Il ne possède aucun état à lui : « garder » est l'épingle, « écarter » est
+ * la croix. Les trois écritures passent donc par les mêmes routes que la
+ * liste, et `etat.offres` reste la seule vérité. L'écran n'est redessiné qu'à
+ * la FERMETURE : pendant le tri, il est derrière une surcouche, et le
+ * reconstruire à chaque carte serait du travail que personne ne voit.
+ */
+tri = installerTri({
+  offres: () => etat.offres,
+  ecarter: async (offre) => {
+    const r = await essayer(() => API.supprimerOffre(offre.id));
+    if (!r) return false;
+    etat.offres = etat.offres.filter(o => o.id !== offre.id);
+    etat.ouvertes.delete(offre.id);
+    return true;
+  },
+  restaurer: async (offre) => {
+    const r = await essayer(() => API.restaurerOffre(offre.id));
+    if (!r) return false;
+    if (!trouver(offre.id)) etat.offres.push(offre);
+    return true;
+  },
+  epingler: async (offre, on) => {
+    const r = await essayer(() => API.majSuivi(offre.id, { pinned: on }));
+    if (!r) return false;
+    appliquerSuivi(offre, r, { pinned: on });
+    return true;
+  },
+  ouvrirOffre,
+  voirGardees: () => {
+    etat.drapeaux.add('pin');
+    const puce = document.querySelector('#chips [data-f="pin"]');
+    puce?.classList.add('active');
+    puce?.setAttribute('aria-pressed', 'true');
+    // L'onglet courant n'en contient peut-être aucune : on ouvre celui qui en
+    // a le plus, plutôt qu'une liste vide juste après « voir les gardées ».
+    const parOnglet = {};
+    etat.offres.filter(o => o.suivi.pinned).forEach(o => { parOnglet[ongletDe(o)] = (parOnglet[ongletDe(o)] ?? 0) + 1; });
+    if (!parOnglet[etat.ville]) {
+      const meilleur = Object.entries(parOnglet).sort((a, b) => b[1] - a[1])[0]?.[0];
+      if (meilleur) { etat.ville = meilleur; localStorage.setItem('bp_ville', meilleur); ongletsRendus = null; }
+    }
+    etat.limite = PAR_PAGE;
+    changerVue('offers');
+  },
+  apres: async (bilan) => {
+    if (!bilan.total) return;
+    await rafraichirStats();
+    rendreTout();
+    rappels?.rafraichir();
+    toast(`Tri terminé : ${bilan.gardees} gardée${bilan.gardees > 1 ? 's' : ''}, ${bilan.ecartees} écartée${bilan.ecartees > 1 ? 's' : ''}.`, 'win');
+  },
+  toast,
+});
+
+/**
+ * Ouvre le tri sur ce qu'on regarde. Depuis la liste des offres, c'est
+ * l'onglet courant AVEC ses filtres — « trier les fraîches de Lyon » se dit
+ * en cochant « Fraîches » dans l'onglet Lyon, puis Z. Ailleurs, c'est tout
+ * le stock.
+ */
+function ouvrirTri() {
+  if (tri?.estOuvert()) return;
+  if (etat.vue === 'offers') {
+    const libelle = etat.ville === VILLE_AUTRE ? 'Autre' : etat.ville === ONGLET_ENVOYEES ? 'Envoyées' : etat.ville;
+    tri.ouvrir({ offres: majFiltresEtCompteurs(), libelle });
+  } else {
+    tri.ouvrir();
+  }
+}
+// La carte « Dernière collecte » du tableau de bord porte son propre bouton
+// quand la collecte date : par délégation, la carte est redessinée.
+document.getElementById('dashHero').addEventListener('click', (e) => {
+  if (e.target.closest('[data-hero="collecter"]')) lancerCollecte();
+});
+document.getElementById('triBtn').addEventListener('click', ouvrirTri);
+document.getElementById('triBtnDash').addEventListener('click', ouvrirTri);
 
 // --------------------------------------------- migration depuis localStorage
 
