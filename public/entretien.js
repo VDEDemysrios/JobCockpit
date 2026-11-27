@@ -16,6 +16,8 @@
 import { API } from './api.js';
 import { echapper } from './format.js';
 import { ouvrirSurcouche, fermerSurcouche } from './surcouche.js';
+import { confirmer } from './dialogue.js';
+import { revelerNoeud } from './frappe.js';
 
 let offreEnCours = null;
 
@@ -412,10 +414,10 @@ export async function ouvrirEntretien(offre, toast) {
   let etat;
   try {
     etat = await API.entretien(offre.id);
-  } catch (e) { return toast(e.message, 'erreur'); }
+  } catch (e) { return toast(e.message, 'err'); }
 
   if (!etat.geminiPret) {
-    return toast('La clé Gemini est nécessaire pour préparer un entretien.', 'erreur');
+    return toast('La clé Gemini est nécessaire pour préparer un entretien.', 'err');
   }
   afficher(etat);
   ouvrirSurcouche(boite(), { titre: 'Entretien blanc' });
@@ -425,9 +427,9 @@ export async function ouvrirEntretien(offre, toast) {
 export async function ouvrirFiche(offre, toast) {
   offreEnCours = offre;
   let etat;
-  try { etat = await API.entretien(offre.id); } catch (e) { return toast(e.message, 'erreur'); }
+  try { etat = await API.entretien(offre.id); } catch (e) { return toast(e.message, 'err'); }
   if (!etat.geminiPret) {
-    return toast('La clé Gemini est nécessaire.', 'erreur');
+    return toast('La clé Gemini est nécessaire.', 'err');
   }
   afficher(etat);
   ouvrirSurcouche(boite(), { titre: 'Entretien blanc' });
@@ -454,13 +456,15 @@ async function demanderFiche(toast, bouton) {
     afficher(await API.entretien(offreEnCours.id));
     toast('Fiche prête');
     // La fiche est en bas d'une surcouche qui défile : sans ça, on clique, il
-    // se passe une minute, et rien ne bouge à l'écran.
-    boite().querySelector('.ent-doc:last-of-type')
-      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // se passe une minute, et rien ne bouge à l'écran. Elle se révèle ensuite
+    // de haut en bas : une minute d'attente mérite mieux qu'un bloc qui tombe.
+    const fiche = boite().querySelector('.ent-doc:last-of-type');
+    fiche?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    revelerNoeud(fiche, { duree: 2200 });
     return r;
   } catch (e) {
     doc.remove();
-    toast(e.message, 'erreur');
+    toast(e.message, 'err');
     if (bouton) bouton.disabled = false;
     return null;
   }
@@ -600,11 +604,11 @@ export function installerEntretien(toast) {
     const oter = e.target.closest('[data-oter]');
     if (oter && offreEnCours) {
       e.stopPropagation();
-      if (!confirm('Supprimer cette carte ?')) return;
+      if (!await confirmer({ titre: 'Supprimer cette carte ?', ok: 'Supprimer', danger: true })) return;
       try {
         await API.entretienOterNotion(offreEnCours.id, Number(oter.dataset.oter));
         afficher(await API.entretien(offreEnCours.id));
-      } catch (err) { toast(err.message, 'erreur'); }
+      } catch (err) { toast(err.message, 'err'); }
       return;
     }
 
@@ -616,7 +620,7 @@ export function installerEntretien(toast) {
       try {
         await API.entretienNotionSue(offreEnCours.id, i, su);
         afficher(await API.entretien(offreEnCours.id));
-      } catch (err) { toast(err.message, 'erreur'); }
+      } catch (err) { toast(err.message, 'err'); }
       return;
     }
 
@@ -649,7 +653,7 @@ export function installerEntretien(toast) {
         await API.entretienDebrief(offreEnCours.id);
         afficher(await API.entretien(offreEnCours.id));
         toast('Débriefing prêt');
-      } catch (err) { toast(err.message, 'erreur'); bouton.disabled = false; }
+      } catch (err) { toast(err.message, 'err'); bouton.disabled = false; }
     }
 
     if (quoi === 'fiche') {
@@ -668,13 +672,18 @@ export function installerEntretien(toast) {
         afficher(await API.entretien(offreEnCours.id));
         toast(`${r.ajoutees} carte${r.ajoutees > 1 ? 's' : ''} à réviser`);
       } catch (err) {
-        toast(err.message, 'erreur');
+        toast(err.message, 'err');
         bouton.disabled = false; bouton.textContent = avant;
       }
     }
 
     if (quoi === 'reset') {
-      if (!confirm('Recommencer la séance ?\n\nLes questions et tes réponses seront effacées. La fiche de révision est conservée.')) return;
+      const ok = await confirmer({
+        titre: 'Recommencer la séance ?',
+        message: 'Les questions et tes réponses seront effacées. La fiche de révision est conservée.',
+        ok: 'Recommencer', danger: true,
+      });
+      if (!ok) return;
       await API.entretienReset(offreEnCours.id);
       afficher(await API.entretien(offreEnCours.id));
     }
@@ -693,7 +702,7 @@ export function installerEntretien(toast) {
       await API.entretienRepondre(offreEnCours.id, reponse);
       afficher(await API.entretien(offreEnCours.id));
     } catch (err) {
-      toast(err.message, 'erreur');
+      toast(err.message, 'err');
       afficher(await API.entretien(offreEnCours.id));
     }
   });

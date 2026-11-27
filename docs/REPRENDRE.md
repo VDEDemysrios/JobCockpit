@@ -5,7 +5,9 @@
 > [README](../README.md) qu'il faut lire ; pour l'**héberger**, c'est
 > [MISE-EN-LIGNE.md](MISE-EN-LIGNE.md).
 
-**Version publiée : 1.5.0** · 419 tests, 0 échec.
+**Version en cours : 4.0.0** · 570 tests, 0 échec. Le chantier 4.0 (premium :
+collecte en direct, kanban tactile, palette, mode focus, rappels) est décrit
+dans [CHANTIER-4.0.md](CHANTIER-4.0.md) et dans `docs/versions/4.0.0.md`.
 
 ---
 

@@ -120,8 +120,10 @@ test('la réponse renvoie le suivi tel qu\'il est en base', async () => {
     await s.patch({ status: 'Envoyé', sent: '2026-07-28', relance: '2026-08-04' });
     const r = await s.patch({ status: 'À postuler' });
 
+    // Chantier 4.0 (contrat 3.6) : la date d'entretien fait partie du suivi
+    // renvoyé — elle manquait, et la carte la perdait jusqu'au rechargement.
     assert.deepEqual(r.suivi, {
-      status: 'À postuler', sent: '', relance: '', notes: '', pinned: false,
+      status: 'À postuler', sent: '', relance: '', entretien: '', notes: '', pinned: false,
     });
   } finally { s.fermer(); }
 });

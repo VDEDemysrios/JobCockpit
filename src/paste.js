@@ -39,7 +39,7 @@ export async function extraireOffreCollee(texteBrut) {
     throw new Error('Texte trop court : colle l\'annonce complète (au moins quelques lignes).');
   }
 
-  const reponse = await demander(PROMPT + texteBrut.slice(0, 20000));
+  const reponse = await demander(PROMPT + texteBrut.slice(0, 20000), [], { json: true });
   const brut = extraireJson(reponse);
 
   if (!brut || typeof brut.titre !== 'string' || brut.titre.trim() === '') {

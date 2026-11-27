@@ -30,53 +30,28 @@
 <div class="ambiance" aria-hidden="true"></div>
 
   <main class="porte">
-    <div class="logo">🚀</div>
+    <!-- Le logo en SVG, comme le reste du mobilier : l'emoji fusée se rendait
+         différemment sur chaque système. -->
+    <div class="logo" aria-hidden="true"><svg width="44" height="44" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5 5-2Z"/></svg></div>
     <h1>Job Cockpit</h1>
     <p>Cet espace contient ton CV, tes candidatures et tes lettres.<br>Il demande un mot de passe.</p>
 
-    <form id="form" autocomplete="on">
-      <input type="password" id="motDePasse" name="password" placeholder="Mot de passe"
-             autocomplete="current-password" required autofocus>
+    <!-- `method="post"` est un filet : sans lui, si le script ne se chargeait
+         pas, le formulaire partirait en GET — mot de passe dans l'adresse.
+         C'est exactement ce qui arrivait quand le script était en ligne et
+         que la politique de sécurité le bloquait. -->
+    <form id="form" method="post" action="/api/connexion" autocomplete="on">
+      <input type="password" id="motDePasse" name="motDePasse" placeholder="Mot de passe"
+             aria-label="Mot de passe" autocomplete="current-password" required autofocus>
       <button class="btn btn-primary" type="submit" id="valider">Entrer</button>
     </form>
 
-    <div class="erreur" id="erreur"></div>
+    <div class="erreur" id="erreur" role="alert"></div>
     <div class="pied">Données hébergées en Europe · rien n'est partagé.</div>
   </main>
 
-<script>
-  const form = document.getElementById('form');
-  const champ = document.getElementById('motDePasse');
-  const bouton = document.getElementById('valider');
-  const erreur = document.getElementById('erreur');
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    erreur.classList.remove('visible');
-    bouton.disabled = true;
-    bouton.textContent = 'Vérification…';
-
-    try {
-      const r = await fetch('/api/connexion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ motDePasse: champ.value }),
-      });
-      const d = await r.json().catch(() => ({}));
-
-      if (r.ok && d.ok) { window.location.href = '/'; return; }
-
-      erreur.textContent = d.error ?? 'Connexion impossible.';
-      erreur.classList.add('visible');
-      champ.select();
-    } catch {
-      erreur.textContent = 'Serveur injoignable.';
-      erreur.classList.add('visible');
-    } finally {
-      bouton.disabled = false;
-      bouton.textContent = 'Entrer';
-    }
-  });
-</script>
+<!-- Un FICHIER, pas un script en ligne : `script-src 'self'` l'autorise. -->
+<script src="connexion.js"></script>
 </body>
 </html>

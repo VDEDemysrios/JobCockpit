@@ -91,7 +91,7 @@ export async function genererCvAdapte({ offre, analyse, cv }) {
   if (!estConfigure()) return null;
   if (!cv || cv.length < 100) return null;
   try {
-    const data = extraireJson(await demander(construirePromptCvAdapte({ offre, analyse, cv })));
+    const data = extraireJson(await demander(construirePromptCvAdapte({ offre, analyse, cv }), [], { json: true }));
     if (!data || typeof data.accroche !== 'string') return null;
     const textes = (v) => (Array.isArray(v) ? v.filter(x => typeof x === 'string' && x.trim()) : []);
     const points = textes(data.points);

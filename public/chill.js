@@ -36,6 +36,8 @@ import { API } from './api.js';
 import { echapper } from './format.js';
 import { rendreTexte } from './entretien.js';
 import { ouvrirDock, jouerMedia } from './dock.js';
+import { revelerNoeud } from './frappe.js';
+import { confirmer } from './dialogue.js';
 import {
   installerRobot, poser, reveiller, dire, taire,
   voixActive, basculerVoix, voixDisponible, voixFrancaises, voixPreferee, poserVoix,
@@ -218,7 +220,12 @@ function rendreConversation() {
         trombone.</p>
     </div>`;
   }
-  return fil.map((m, i) => `
+  return fil.map(htmlTour).join('');
+}
+
+/** Un tour de parole. Séparé pour pouvoir en AJOUTER un sans tout refaire. */
+function htmlTour(m, i) {
+  return `
     <div class="ch-tour ch-${m.role}">
       <div class="ch-bulle">
         ${rendrePiecesDe(m)}
@@ -228,11 +235,51 @@ function rendreConversation() {
       </div>
       <div class="ch-sous">
         <span class="ch-heure">${heure(m.le)}</span>
-        <button class="ch-mini" data-copier="${i}" title="Copier">⧉</button>
+        <button class="ch-mini" data-copier="${i}" title="Copier" aria-label="Copier le message">⧉</button>
         ${m.role === 'lui' && voixDisponible()
-    ? `<button class="ch-mini" data-relire="${i}" title="Lire à voix haute">🔈</button>` : ''}
+    ? `<button class="ch-mini" data-relire="${i}" title="Lire à voix haute" aria-label="Lire à voix haute">🔈</button>` : ''}
       </div>
-    </div>`).join('');
+    </div>`;
+}
+
+/**
+ * LE CHAT N'EST PLUS RECONSTRUIT À L'ENVOI.
+ *
+ * Chaque message envoyé, puis chaque réponse, refaisait toute la vue : le fil
+ * entier, l'en-tête, le robot réinstallé, le champ recréé. Sur une
+ * conversation de soixante tours, la page clignotait deux fois par échange,
+ * le défilement revenait en bas d'un saut, et le robot perdait son état au
+ * moment précis où il devait « écrire ». On AJOUTE maintenant le tour au fil,
+ * et la réponse du compagnon se révèle progressivement, comme écrite.
+ */
+function ajouterTour(m, i, { reveler = false } = {}) {
+  const f = document.getElementById('chFil');
+  if (!f) { rendreChill(); return; }
+  f.querySelector('.ch-accueil')?.remove();
+  f.insertAdjacentHTML('beforeend', htmlTour(m, i));
+  const tour = f.lastElementChild;
+  tour.classList.add('ch-arrive');
+  f.scrollTop = f.scrollHeight;
+  if (reveler) {
+    revelerNoeud(tour.querySelector('.ch-texte'), { duree: 1500 })
+      .then(() => { f.scrollTop = f.scrollHeight; });
+  }
+  // Le bouton « Effacer » n'existait qu'à partir d'un premier message.
+  const tete = document.querySelector('#chillZone .ch-tete');
+  if (tete && !tete.querySelector('[data-chill="vider"]')) {
+    tete.insertAdjacentHTML('beforeend', '<button class="chill-vider" data-chill="vider">Effacer</button>');
+  }
+}
+
+/** Les trois points « il écrit », posés au bout du fil le temps de l'appel. */
+function montrerAttente(oui) {
+  const f = document.getElementById('chFil');
+  if (!f) return;
+  f.querySelector('.ch-ecrit')?.remove();
+  if (!oui) return;
+  f.insertAdjacentHTML('beforeend', `<div class="ch-tour ch-lui ch-ecrit" aria-label="Il écrit">
+    <div class="ch-bulle"><span class="ch-points" aria-hidden="true"><i></i><i></i><i></i></span></div></div>`);
+  f.scrollTop = f.scrollHeight;
 }
 
 function rendreEnAttente() {
@@ -374,7 +421,7 @@ export function installerChill(toast) {
   const joindre = async (fichiers) => {
     for (const f of [...fichiers].slice(0, 6)) {
       const { piece, erreur } = await preparerFichier(f);
-      if (erreur) { toast(erreur, 'erreur'); continue; }
+      if (erreur) { toast(erreur, 'err'); continue; }
       enAttente.push(piece);
     }
     rendreEnAttente();
@@ -424,7 +471,12 @@ export function installerChill(toast) {
     if (b.dataset.chill === 'spotify') ouvrirDock('spotify');
     if (b.dataset.chill === 'twitch') ouvrirDock('twitch');
     if (b.dataset.chill === 'vider') {
-      if (!confirm('Effacer la conversation ?')) return;
+      const ok = await confirmer({
+        titre: 'Effacer la conversation ?',
+        message: 'Elle ne vit que dans ce navigateur : une fois effacée, elle ne se récupère pas.',
+        ok: 'Effacer', danger: true,
+      });
+      if (!ok) return;
       taire();
       fil = [];
       localStorage.removeItem(CLE_FIL);
@@ -467,6 +519,10 @@ export function installerChill(toast) {
     zone.querySelector('.ch-panneau')?.classList.remove('ch-survol');
     if (!e.dataTransfer?.files?.length) return;
     e.preventDefault();
+    // LE FICHIER S'ARRÊTE ICI. Sans ça, l'événement remontait jusqu'au dépôt
+    // de CV, qui écoute la fenêtre entière : un .docx joint à la conversation
+    // devenait le nouveau CV — en silence, jusqu'à la prochaine analyse.
+    e.stopPropagation();
     joindre(e.dataTransfer.files);
   });
 
@@ -529,7 +585,10 @@ export function installerChill(toast) {
 
     fil.push({ role: 'moi', texte, le: Date.now(), pieces });
     ecrireFil();
-    rendreChill();
+    ajouterTour(fil[fil.length - 1], fil.length - 1);
+    if (champ) { champ.value = ''; grandirChamp(); }
+    rendreEnAttente();
+    montrerAttente(true);
 
     // IL LIT D'ABORD, IL ÉCRIT ENSUITE. Deux états valent mieux qu'un : le
     // premier dit « c'est parti », le second « ça vient ». Sur un appel de dix
@@ -548,9 +607,10 @@ export function installerChill(toast) {
       clearTimeout(versEcrit);
       fil.push({ role: 'lui', texte: r.reponse, le: Date.now(), pieces: [] });
       ecrireFil();
-      rendreChill();
+      montrerAttente(false);
+      ajouterTour(fil[fil.length - 1], fil.length - 1, { reveler: true });
 
-      for (const x of r.refus ?? []) toast(`${x.nom} : ${x.raison}`, 'erreur');
+      for (const x of r.refus ?? []) toast(`${x.nom} : ${x.raison}`, 'err');
 
       if (voixActive()) {
         annoncer('Il parle…');
@@ -563,8 +623,8 @@ export function installerChill(toast) {
       clearTimeout(versEcrit);
       poser('repos');
       annoncer('Ça n\'est pas passé.');
-      rendreChill();
-      toast(err.message, 'erreur');
+      montrerAttente(false);
+      toast(err.message, 'err');
     } finally {
       envoiEnCours = false;
     }

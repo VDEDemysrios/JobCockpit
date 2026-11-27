@@ -242,7 +242,7 @@ async function ouvrirChaine(id) {
     chaine = { fiche: d.chaine, videos: d.videos ?? [], charge: true };
   } catch (e) {
     chaine = { fiche: null, videos: [], charge: true };
-    signaler(e.message, 'erreur');
+    signaler(e.message, 'err');
   }
   rendreYoutube();
 }
@@ -254,7 +254,7 @@ export async function ouvrirYoutube(toast) {
     etat = { configure: d.configure, pays: d.pays ?? 'FR', aide: d.aide ?? '' };
   } catch (e) {
     etat = { ...etat, configure: false };
-    if (toast) toast(e.message, 'erreur');
+    if (toast) toast(e.message, 'err');
   }
   rendreYoutube();
   // On ne recharge pas à chaque passage : l'accueil ne coûte qu'une unité,

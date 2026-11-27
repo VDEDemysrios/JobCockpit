@@ -25,13 +25,21 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 :root{
-  --font:'Inter var','Inter',-apple-system,BlinkMacSystemFont,'Segoe UI Variable Text',
+  /* INTER VARIABLE, LIVRÉE AVEC L'APPLICATION (public/fonts, licence OFL).
+     La pile nommait « Inter » en premier, mais rien ne la fournissait : sur
+     une machine sans Inter installée — presque toutes — on lisait Segoe UI,
+     et l'interface changeait de voix d'un poste à l'autre. La police est
+     désormais servie par le serveur lui-même (`font-src 'self'`), déclarée
+     dans ui.css. */
+  --font:'Inter Variable','Inter var','Inter',-apple-system,BlinkMacSystemFont,'Segoe UI Variable Text',
     'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
   --mono:ui-monospace,'SF Mono','Cascadia Mono',Menlo,Consolas,monospace;
-  /* Police de titraille. Identique au texte du contenu par défaut :
-     c'est la seule façon de changer la voix des titres sans toucher à celle
-     du contenu, qui doit rester lisible sur 282 lignes. */
-  --font-titre:var(--font);
+  /* Police de titraille : sa propre variable, et non plus un alias de
+     `--font`. Même famille (une seule police à charger), mais les titres
+     reçoivent leurs réglages — chasse resserrée, chiffres et formes
+     alternatives — dans ui.css, sans toucher au texte courant. */
+  --font-titre:'Inter Variable','Inter var','Inter',-apple-system,BlinkMacSystemFont,'Segoe UI Variable Display',
+    'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
   --sbw:212px;
 
   /* Espacement — multiples de 2, échelle resserrée.
@@ -48,6 +56,14 @@
 
   /* Graisses */
   --w-normal:400; --w-medium:500; --w-semi:600; --w-bold:700;
+
+  /* DEUX NOMS QUI N'EXISTAIENT PAS. `--bord` et `--bg1` étaient utilisés par
+     la relance, le CV adapté, le tableau de conversion et Spotify, et définis
+     nulle part : la bordure tombait à sa valeur initiale (la couleur du
+     texte, en noir plein) et le fond était transparent. Ils deviennent des
+     alias des jetons réels, et suivent donc les quatre thèmes. */
+  --bord:var(--line);
+  --bg1:var(--bg2);
 }
 
 /* ─────────────────────────── THÈMES ─────────────────────────── */
@@ -251,16 +267,6 @@ html,body{height:100%;overflow:hidden;}
 .nav button .nvbadge{margin-left:auto;background:var(--hot);color:#fff;font-size:10px;
   font-weight:var(--w-semi);border-radius:var(--r1);padding:0 5px;min-width:17px;text-align:center;}
 
-.sbq-titre{font-size:9.5px;text-transform:uppercase;letter-spacing:1.2px;opacity:.5;
-  font-weight:var(--w-bold);margin-bottom:var(--e2);padding-left:var(--e2);}
-.sbq{display:flex;align-items:center;gap:var(--e2);font-size:11.5px;padding:5px var(--e2);
-  border-radius:var(--r1);opacity:.78;transition:opacity .15s,background .15s;cursor:pointer;}
-.sbq:hover{background:rgba(255,255,255,.07);opacity:1;}
-.sbq.ok{opacity:.45;}
-.sbq.ok .sbq-n{text-decoration:line-through;}
-.sbq-n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.sbq-p{font-size:10px;opacity:.75;font-variant-numeric:tabular-nums;}
-
 /* ── LE SÉLECTEUR DE THÈME ──────────────────────────────────────────────
 
    IL Y A QUATRE THÈMES, ET LE CODE EN SUPPOSAIT CINQ. La règle
@@ -354,7 +360,7 @@ html,body{height:100%;overflow:hidden;}
 .ville:focus-visible,.chip:focus-visible,.seg button:focus-visible{outline-offset:-2px;}
 
 /* Confort de lecture — la mesure typographique, pas la largeur de l'écran. */
-.verdict,.extrait,.note-panel,.goal-msg,.veille-banner .grow{max-width:105ch;}
+.verdict,.extrait,.note-panel,.veille-banner .grow{max-width:105ch;}
 .letter-area,.paste-area{max-width:100ch;}
 /* LE TITRE DE VUE N'EST PAS UNE COUVERTURE.
    34 px en gras, c'est le titre d'un document — et c'est très exactement ce
@@ -459,8 +465,11 @@ html,body{height:100%;overflow:hidden;}
    groupe telle que le thème la définit, donc elle reste juste dans les quatre
    thèmes, ce qu'un emoji ne sait pas faire. */
 .pt{display:inline-block;width:7px;height:7px;border-radius:50%;vertical-align:0;}
-.pt1{background:var(--g1)}.pt2{background:var(--g2)}
-.pt0{background:var(--g0)}.pt3{background:var(--g3)}
+/* Toujours composées avec `.pt` : `.pt2` seule colorait aussi le TITRE des
+   résultats de la palette, qui porte la même classe par coïncidence — chaque
+   résultat s'affichait sur un bandeau ambre, comme surligné en entier. */
+.pt.pt1{background:var(--g1)}.pt.pt2{background:var(--g2)}
+.pt.pt0{background:var(--g0)}.pt.pt3{background:var(--g3)}
 
 /* ─────────────────────── TUILES DE STATISTIQUE ─────────────────────── */
 
@@ -753,12 +762,7 @@ select:focus,.search:focus,input:focus,textarea:focus{outline:none;border-color:
 .gr-empilee .ge-barre{display:flex;border-radius:99px;overflow:hidden;background:var(--line);}
 .gr-empilee .ge-barre>span{animation:grow .6s cubic-bezier(.22,1,.36,1) backwards;}
 
-.funnel-row{display:flex;align-items:center;gap:var(--e3);margin-bottom:7px;font-size:12.5px;}
-.funnel-row .fname{width:86px;color:var(--muted);}
-.funnel-row .ftrack{flex:1;height:9px;background:var(--line);border-radius:5px;overflow:hidden;}
-.funnel-row .ffill{height:100%;border-radius:5px;animation:grow .6s ease;}
-.funnel-row .fn{width:26px;text-align:right;font-weight:var(--w-semi);}
-.ring-wrap,.goal-wrap{display:flex;align-items:center;gap:var(--e6);flex-wrap:wrap;}
+.ring-wrap{display:flex;align-items:center;gap:var(--e6);flex-wrap:wrap;}
 
 /* ─────────────────────── CARTES D'OFFRE ─────────────────────── */
 
@@ -1525,10 +1529,10 @@ html.page-libre,html.page-libre>body{height:auto;min-height:100%;overflow:visibl
    quelque chose. */
 .grid.sans-entree .card{animation:none;}
 
-@media(prefers-reduced-motion:reduce){
-  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;
-    transition-duration:.01ms !important;}
-}
+/* (La règle `prefers-reduced-motion` qui se trouvait ici était un DOUBLON de
+   celle de la section « Accessibilité », plus bas et plus complète — elle
+   coupe aussi le défilement doux. Une seule suffit ; deux finissent par
+   diverger.) */
 
 /* ═══════════════════════ OUVERTURE — LE BALAYAGE ═══════════════════════
 
@@ -1950,8 +1954,6 @@ html.page-libre,html.page-libre>body{height:auto;min-height:100%;overflow:visibl
   width:40%;transition:opacity .2s;}
 .stat:hover::before{opacity:1;animation:reflet 1.05s var(--ease-doux);}
 .stat:hover{transform:translateY(-4px);}
-.prog-tile{animation:entree .55s var(--ease-elan) backwards;}
-.prog-tile:hover .em{animation:vaEtVient 1.4s ease-in-out infinite;}
 
 /* ── Rouleaux de chiffres ─────────────────────────────────────────────── */
 /* Le flou de mouvement est posé par anim.js le temps de la rotation, puis
@@ -2220,48 +2222,16 @@ html.page-libre,html.page-libre>body{height:auto;min-height:100%;overflow:visibl
   gap:var(--e3);align-items:start;}
 @media(max-width:980px){.chill-grille{grid-template-columns:1fr;}}
 
-.chill-parler h3,.chill-media h3{display:flex;align-items:center;gap:var(--e2);}
+.chill-media h3{display:flex;align-items:center;gap:var(--e2);}
 .chill-vider{margin-left:auto;font-family:inherit;font-size:11px;
   color:var(--muted);background:transparent;border:1px solid var(--line-fort);
   border-radius:var(--r2);padding:2px 8px;cursor:pointer;text-transform:none;
   letter-spacing:0;font-weight:var(--w-normal);}
 .chill-vider:hover{background:var(--bg2);color:var(--ink);}
-.chill-type{font-size:10.5px;color:var(--accent);text-transform:none;letter-spacing:0;}
 
-.chill-fil{display:flex;flex-direction:column;gap:var(--e2);
-  min-height:220px;max-height:46vh;overflow-y:auto;padding-right:var(--e2);}
-.chill-vide{font-size:13px;color:var(--muted);line-height:1.6;margin:0;}
-/* Les bulles ne prennent que la largeur de leur texte : une conversation de
-   trois mots ne doit pas occuper toute la colonne. */
-.chill-tour{max-width:82%;padding:var(--e2) var(--e3);border-radius:var(--r3);
-  font-size:13.5px;line-height:1.55;}
-.chill-moi{align-self:flex-end;background:var(--accent-bg);
-  border:1px solid var(--accent);color:var(--accent-ink);}
-.chill-lui{align-self:flex-start;background:var(--bg2);border:1px solid var(--line);}
-.chill-attente{opacity:.55;letter-spacing:3px;}
-
-.chill-saisie{display:flex;gap:var(--e2);align-items:flex-end;margin-top:var(--e3);}
-.chill-saisie textarea{flex:1;font-family:inherit;font-size:13.5px;color:var(--ink);
-  background:var(--panel);border:1px solid var(--line-fort);border-radius:var(--r3);
-  padding:var(--e2) var(--e3);resize:vertical;max-height:200px;line-height:1.5;}
-.chill-saisie-boutons{display:flex;flex-direction:column;gap:5px;flex:0 0 auto;}
-.chill-joindre{white-space:nowrap;}
-
-/* COLLER OU JOINDRE UNE IMAGE.
-   Une capture d'écran d'offre, de mail — le compagnon sait la regarder.
-   L'aperçu se pose au-dessus de la barre de saisie, retirable d'un clic. */
-.chill-apercu:empty{display:none;}
-.chill-apercu{margin-top:var(--e2);}
-.chill-apercu-vignette{position:relative;display:inline-block;}
-.chill-apercu-vignette img{max-height:96px;max-width:180px;border-radius:var(--r2);
-  border:1px solid var(--bord);display:block;}
-.chill-apercu-x{position:absolute;top:-7px;right:-7px;width:22px;height:22px;
-  border-radius:50%;border:0;background:var(--hot,#c0392b);color:#fff;font-size:14px;
-  line-height:1;cursor:pointer;box-shadow:var(--sh1);}
-/* L'image ENVOYÉE, dans le fil : elle rend la bulle un peu plus large. */
-.chill-image{display:block;max-width:100%;max-height:260px;border-radius:var(--r2);
-  margin-bottom:5px;}
-.chill-tour:has(.chill-image){max-width:92%;}
+/* (L'ancienne conversation — `.chill-fil`, `.chill-tour`, `.chill-saisie`,
+   `.chill-apercu`… — a été remplacée par le compagnon `.ch-*` plus bas. Ses
+   règles survivaient sans élément à habiller : retirées en 4.0.) */
 
 .chill-lien{display:flex;gap:var(--e2);margin-bottom:var(--e3);}
 .chill-lien input{flex:1;min-width:0;font-family:inherit;font-size:12.5px;

@@ -83,8 +83,17 @@ export function installerDepotCv(toast, apresDepot) {
   const montrer = () => voile.classList.add('actif');
   const cacher = () => { profondeur = 0; voile.classList.remove('actif'); };
 
+  // UNE ZONE QUI REÇOIT SES PROPRES FICHIERS N'EST PAS UN DÉPÔT DE CV.
+  // Le chat du Chill accepte des pièces jointes — Word compris. Un .docx
+  // glissé dans la conversation remontait jusqu'ici, et REMPLAÇAIT LE CV :
+  // celui dont dépendent toutes les analyses et toutes les lettres, écrasé par
+  // une pièce qu'on voulait seulement montrer au compagnon. Ces zones portent
+  // `data-depot-propre` ; on n'y affiche pas le voile, et on n'y prend rien.
+  const dansZonePropre = (e) => Boolean(e.target?.closest?.('[data-depot-propre]'));
+
   window.addEventListener('dragenter', (e) => {
     if (!transporteUnFichier(e)) return;
+    if (dansZonePropre(e)) { cacher(); return; }
     profondeur++;
     montrer();
   });
@@ -103,6 +112,8 @@ export function installerDepotCv(toast, apresDepot) {
 
   window.addEventListener('drop', async (e) => {
     if (!transporteUnFichier(e)) return;
+    // Déjà pris par une zone qui sait quoi en faire (la conversation).
+    if (e.defaultPrevented || dansZonePropre(e)) { cacher(); return; }
     e.preventDefault();
     cacher();
     const fichier = e.dataTransfer.files?.[0];

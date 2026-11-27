@@ -13,12 +13,31 @@ import { villeDeRattachement } from '../zone.js';
  *
  * @returns {Promise<{offres: object[], sourcesOk: string[], sourcesEnEchec: string[], sourcesIgnorees: string[]}>}
  */
-export async function collecterDepuisSources(sources, { intitules, villes, rayonKm, depuisDate, profil }) {
-  const brutes = [];
+//
+// LES SOURCES EN PARALLÈLE, CHACUNE EN SÉRIE.
+//
+// Tout était séquentiel : France Travail, puis Adzuna, puis Jooble, puis les
+// flux — chaque source attendant que la précédente ait fini ses vingt ou
+// trente requêtes. La collecte durait la SOMME des quatre, alors que rien ne
+// les lie : ce sont quatre serveurs différents, avec chacun ses limites.
+//
+// On lance donc les sources ensemble (`Promise.allSettled` : aucune ne peut
+// faire tomber les autres, même en levant hors de son `try`), mais chaque
+// source enchaîne SES requêtes une à une — c'est elle qui a une limite de
+// débit, pas nous. La durée devient celle de la plus lente.
+//
+// L'ORDRE DE FUSION NE DÉPEND PAS DE QUI RÉPOND LE PREMIER. Chaque source
+// remplit son propre tableau, et on les recolle dans l'ordre de la liste :
+// la fusion garde la première description en cas d'égalité, et une offre ne
+// doit pas changer de source affichée selon la latence du jour.
+export async function collecterDepuisSources(sources, { intitules, villes, rayonKm, depuisDate, profil, progres }) {
+  const emettre = typeof progres === 'function' ? progres : () => {};
+  const signaler = (donnees) => { try { emettre('source', donnees); } catch { /* observateur */ } };
   const sourcesOk = new Set();
   const sourcesEnEchec = new Set();
   const sourcesIgnorees = [];
 
+  const actives = [];
   for (const source of sources) {
     // Le profil est transmis à estConfiguree() : toutes les sources ne se
     // configurent pas dans .env. Les flux RSS, par exemple, se déclarent dans
@@ -26,34 +45,62 @@ export async function collecterDepuisSources(sources, { intitules, villes, rayon
     if (!source.estConfiguree(profil)) {
       sourcesIgnorees.push(source.nom);
       console.log(`  ⏭  ${source.nom} : non configurée, ignorée`);
+      signaler({ nom: source.nom, etat: 'ignoree', intitule: null, ville: null, trouvees: 0, message: 'non configurée' });
       continue;
     }
+    actives.push(source);
+  }
 
+  /** Toutes les requêtes d'UNE source, l'une après l'autre. */
+  async function interroger(source) {
+    const siennes = [];
     for (const intitule of intitules) {
       // Passe prioritaire (une requête par ville) puis passe nationale (ville = null).
       for (const ville of [...villes, null]) {
+        const nomVille = ville?.nom ?? 'France';
+        signaler({ nom: source.nom, etat: 'debut', intitule, ville: nomVille, trouvees: 0, message: null });
         try {
           const resultats = await source.chercher({ intitule, ville, rayonKm, depuisDate, profil });
           for (const offre of resultats) {
-            brutes.push({ ...offre, source: source.nom });
+            siennes.push({ ...offre, source: source.nom });
           }
           sourcesOk.add(source.nom);
+          signaler({ nom: source.nom, etat: 'ok', intitule, ville: nomVille, trouvees: resultats.length, message: null });
         } catch (erreur) {
           // Une requête en échec ne compromet ni les autres requêtes ni les autres sources.
           sourcesEnEchec.add(source.nom);
-          console.warn(`  ⚠  ${source.nom} [${intitule} / ${ville?.nom ?? 'France'}] : ${erreur.message}`);
+          console.warn(`  ⚠  ${source.nom} [${intitule} / ${nomVille}] : ${erreur.message}`);
+          signaler({ nom: source.nom, etat: 'echec', intitule, ville: nomVille, trouvees: 0, message: erreur.message });
         }
       }
     }
+    return siennes;
   }
+
+  const issues = await Promise.allSettled(actives.map(interroger));
+
+  const brutes = [];
+  issues.forEach((issue, i) => {
+    if (issue.status === 'fulfilled') { brutes.push(...issue.value); return; }
+    // Ne devrait pas arriver — chaque requête a son `try` — mais une source
+    // qui lèverait AVANT sa première requête (un `intitules` mal formé, par
+    // exemple) reste une panne isolée, pas la fin de la collecte.
+    sourcesEnEchec.add(actives[i].nom);
+    console.warn(`  ⚠  ${actives[i].nom} : ${issue.reason?.message ?? issue.reason}`);
+  });
 
   // Une source ayant réussi au moins une requête n'est pas comptée en échec.
   for (const nom of sourcesOk) sourcesEnEchec.delete(nom);
 
+  // Les ensembles se remplissent dans l'ordre d'arrivée, désormais aléatoire :
+  // on les rend dans l'ordre de la liste des sources, comme avant.
+  const ordre = (noms) => sources.map(s => s.nom).filter(n => noms.has(n));
+
   return {
     offres: fusionner(brutes, villes),
-    sourcesOk: [...sourcesOk],
-    sourcesEnEchec: [...sourcesEnEchec],
+    brutes: brutes.length,
+    sourcesOk: ordre(sourcesOk),
+    sourcesEnEchec: ordre(sourcesEnEchec),
     sourcesIgnorees,
   };
 }

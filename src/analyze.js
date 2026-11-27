@@ -100,7 +100,7 @@ export async function analyserOffre(offre, cv) {
   }
 
   try {
-    const reponse = await demander(construirePrompt(offre, cv));
+    const reponse = await demander(construirePrompt(offre, cv), [], { json: true });
     const analyse = validerAnalyse(extraireJson(reponse));
     if (!analyse) {
       console.warn(`  ⚠ Analyse illisible pour « ${offre.titre} » — offre conservée sans analyse`);

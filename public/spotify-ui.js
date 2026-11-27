@@ -24,6 +24,7 @@
 // fige le temps d'un geste.
 import { API } from './api.js';
 import { echapper } from './format.js';
+import { confirmer } from './dialogue.js';
 import {
   demarrerLecteurLocal, arreterLecteurLocal, appareilLocal,
   volumeLocal, commandeLocale, positionLocale, resumeEtatSdk, deverrouillerSon,
@@ -537,7 +538,7 @@ async function rafraichirEtat(toast) {
     };
   } catch (e) {
     etat = { ...etat, connecte: false };
-    if (toast) toast(e.message, 'erreur');
+    if (toast) toast(e.message, 'err');
   }
   rendreSpotify();
   if (etat.connecte && etat.lecteur?.actif && !local.pret && !local.erreur) brancherLocal();
@@ -684,7 +685,7 @@ async function brancherLocal() {
       },
       surErreur: (m) => {
         local.erreur = m; local.pret = false;
-        signaler(m, 'erreur');
+        signaler(m, 'err');
         rendreSpotify();
       },
     });
@@ -707,7 +708,7 @@ async function brancherLocal() {
 async function activerLocal() {
   try {
     await API.spotifyLecteurLocal(true);
-  } catch (e) { return signaler(e.message, 'erreur'); }
+  } catch (e) { return signaler(e.message, 'err'); }
   // LA POLITIQUE DE SÉCURITÉ EST UN EN-TÊTE, posé à chaque réponse. Elle ne
   // change donc pas pour une page déjà chargée : sans rechargement, le SDK
   // serait bloqué et l'option aurait l'air de ne rien faire.
@@ -750,7 +751,7 @@ async function charger(quoi = onglet) {
     else if (quoi === 'paroles') return chargerParoles();
     else return;
     rendreSpotify();
-  } catch (err) { signaler(err.message, 'erreur'); }
+  } catch (err) { signaler(err.message, 'err'); }
   return undefined;
 }
 
@@ -767,7 +768,7 @@ async function ouvrirContenu(uri) {
       modifiable: Boolean(d.modifiable), instantane: d.instantane ?? null };
   } catch (err) {
     ouvert = null;
-    signaler(err.message, 'erreur');
+    signaler(err.message, 'err');
   }
   rendreSpotify();
 }
@@ -823,7 +824,7 @@ export function installerSpotify(toast) {
         gele = 0;
         if (!local.pret || reglageQueLeSdkIgnore) rafraichirLecture();
       }, 500);
-    } catch (err) { gele = 0; signaler(err.message, 'erreur'); }
+    } catch (err) { gele = 0; signaler(err.message, 'err'); }
   };
 
   const raccourci = async (action, o) => {
@@ -849,7 +850,7 @@ export function installerSpotify(toast) {
     try {
       await API.spotifyAppareil(id);
       setTimeout(() => { gele = 0; rafraichirLecture(); }, 800);
-    } catch (err) { gele = 0; signaler(err.message, 'erreur'); }
+    } catch (err) { gele = 0; signaler(err.message, 'err'); }
   };
 
   z.addEventListener('click', async (e) => {
@@ -869,7 +870,12 @@ export function installerSpotify(toast) {
       // remettre. Le projet applique déjà cette règle au nettoyage des
       // offres — une suppression ne doit pas être ce que fait un clic parti
       // tout seul.
-      if (!confirm(`Retirer « ${titre} » de « ${ouvert.nom} » ?`)) return;
+      const ok = await confirmer({
+        titre: `Retirer « ${titre} » de « ${ouvert.nom} » ?`,
+        message: 'Spotify ne propose pas d\'annulation : il faudra le retrouver pour le remettre.',
+        ok: 'Retirer', danger: true,
+      });
+      if (!ok) return;
       try {
         await API.spotifyRetirer(ouvert.contexte, oter.dataset.retirerPiste,
           Number(oter.dataset.rang), ouvert.instantane);
@@ -879,7 +885,7 @@ export function installerSpotify(toast) {
         // l'instantané aussi. Garder l'ancien affichage ferait supprimer le
         // voisin au clic d'après.
         await ouvrirContenu(ouvert.contexte);
-      } catch (err) { signaler(err.message, 'erreur'); }
+      } catch (err) { signaler(err.message, 'err'); }
       return;
     }
 
@@ -900,7 +906,7 @@ export function installerSpotify(toast) {
         signaler(`« ${classe.titre} » ajouté.`);
         classe = null;
         rendreSpotify();
-      } catch (err) { signaler(err.message, 'erreur'); }
+      } catch (err) { signaler(err.message, 'err'); }
       return;
     }
 
@@ -911,7 +917,7 @@ export function installerSpotify(toast) {
         signaler('Mis à la suite.');
         if (classe) { classe = null; rendreSpotify(); }
         if (onglet === 'file') charger('file');
-      } catch (err) { signaler(err.message, 'erreur'); }
+      } catch (err) { signaler(err.message, 'err'); }
       return;
     }
 
@@ -958,7 +964,7 @@ export function installerSpotify(toast) {
         // On QUITTE la page pour autoriser, puis Spotify nous ramène là d'où
         // l'on vient — le serveur retient l'origine, voir /spotify/connexion.
         window.location.href = d.url;
-      } catch (err) { signaler(err.message, 'erreur'); }
+      } catch (err) { signaler(err.message, 'err'); }
       return;
     }
     if (quoi === 'deconnexion') {
@@ -981,15 +987,15 @@ export function installerSpotify(toast) {
     if (quoi === 'plein-ecran') {
       const dock = document.getElementById('dock');
       if (document.fullscreenElement) document.exitFullscreen();
-      else dock.requestFullscreen?.().catch(err => signaler(err.message, 'erreur'));
+      else dock.requestFullscreen?.().catch(err => signaler(err.message, 'err'));
       return;
     }
     if (quoi === 'appareils') {
       try {
         appareils = (await API.spotifyAppareils()).appareils;
         rendreSpotify();
-        if (!appareils.length) signaler('Aucun appareil Spotify joignable.', 'erreur');
-      } catch (err) { signaler(err.message, 'erreur'); }
+        if (!appareils.length) signaler('Aucun appareil Spotify joignable.', 'err');
+      } catch (err) { signaler(err.message, 'err'); }
       return;
     }
     if (quoi === 'aleatoire') return commander('aleatoire', { valeur: !etat.lecture?.aleatoire });
@@ -1045,7 +1051,7 @@ export function installerSpotify(toast) {
         albums: d.albums ?? [], artistes: d.artistes ?? [],
       };
       rendreSpotify();
-    } catch (err) { signaler(err.message, 'erreur'); }
+    } catch (err) { signaler(err.message, 'err'); }
   });
 
   // Le plein écran change la mise en page du lecteur : sans ce rendu, on

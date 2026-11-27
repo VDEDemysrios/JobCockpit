@@ -1,0 +1,640 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   JOB COCKPIT 4.0 — MOBILIER COMMUN
+   Toasts, dialogues, palette, squelettes, transitions de vue, police,
+   radar de collecte, mode focus, rappels.
+
+   Chargée APRÈS style.css : elle complète et surcharge, elle ne redéfinit
+   pas les jetons de thème (ils restent dans style.css).
+
+   LES TROIS RÈGLES DU MOUVEMENT, ICI COMME AILLEURS
+   · `[data-anim="off"]` (Options) coupe tout : la règle `*` de style.css
+     s'applique à ces éléments aussi, avec `!important` ;
+   · `prefers-reduced-motion` aussi — même règle, section Accessibilité ;
+   · ce qui tourne en boucle n'anime que transform / opacity / box-shadow /
+     background-position, et se suspend sous `[data-page="cachee"]` (bloc
+     en fin de fichier).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────── POLICE ─────────────────────────── */
+
+/* Inter Variable, sous-ensembles latin et latin étendu (OFL — voir
+   fonts/LICENSE-Inter-OFL.txt). `swap` : le texte s'affiche tout de suite
+   dans la police de secours, puis bascule — jamais de page blanche le temps
+   du téléchargement. `unicode-range` : le latin étendu (ł, ő, ș…) n'est
+   chargé que si une page en contient. */
+@font-face{
+  font-family:'Inter Variable';font-style:normal;font-display:swap;font-weight:100 900;
+  src:url(fonts/inter-latin-wght-normal.woff2) format('woff2-variations'),
+      url(fonts/inter-latin-wght-normal.woff2) format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face{
+  font-family:'Inter Variable';font-style:normal;font-display:swap;font-weight:100 900;
+  src:url(fonts/inter-latin-ext-wght-normal.woff2) format('woff2-variations'),
+      url(fonts/inter-latin-ext-wght-normal.woff2) format('woff2');
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/* Inter a des formes alternatives faites pour l'écran : « cv11 » (a à un
+   seul étage) rend le texte plus calme, « ss03 » arrondit la ponctuation.
+   Les chiffres restent proportionnels dans le texte, tabulaires là où
+   style.css le demande. */
+body{font-feature-settings:"cv11","ss03";}
+
+/* LA VOIX DES TITRES. Même famille, réglages propres : plus serrés, plus
+   gras d'un cran, chiffres alternatifs. C'est ce qui distingue un titre d'un
+   texte en gras. */
+h1,h2,h3,.view-head h2,.panel-box h3,.dlg-titre,.cl-tete h2,.mf-temps b,.cl-bilan h3{
+  font-family:var(--font-titre);font-feature-settings:"cv11","ss03","ss01";}
+.view-head h2{letter-spacing:-.022em;font-weight:650;}
+.panel-box h3{letter-spacing:-.01em;}
+
+/* `hidden` doit gagner sur `display:inline-flex` : sans cette règle, la
+   pastille « en retard » restait visible, et battante, pour ZÉRO relance. */
+.cpill[hidden],[hidden].cpill{display:none !important;}
+
+/* ─────────────────────────── BOUTONS ─────────────────────────── */
+
+.btn-icone{padding:6px 8px;position:relative;}
+.btn-danger{background:var(--hot);border-color:var(--hot);color:#fff;}
+.btn-danger:hover{background:color-mix(in srgb,var(--hot) 86%,#000);border-color:var(--hot);color:#fff;}
+.kbd-discret{margin-left:4px;opacity:.6;font-size:10px;padding:0 5px;}
+@media(max-width:1100px){.kbd-discret{display:none;}}
+
+/* Les puces de filtre sont devenues de vrais boutons : elles héritent de la
+   police de la page, pas de celle du navigateur. */
+button.chip{font-family:inherit;}
+.chip[aria-pressed="true"]{color:var(--accent-ink);}
+.chip-source .ic{opacity:.7;}
+
+/* L'épingle et la croix des cartes, devenues des boutons (voir
+   `preparerCarte` dans app.js) : sans fond, sans bordure — elles gardent
+   l'allure discrète des glyphes qu'elles remplacent. */
+button.pinbtn,button.ecarter{background:none;border:0;font:inherit;padding:3px;
+  border-radius:var(--r1);display:inline-flex;align-items:center;}
+button.ecarter:focus-visible{opacity:1;}
+.chevron .ic{display:block;}
+
+/* ─────────────────────────── MESSAGES ─────────────────────────── */
+
+/* Plus sobres et plus riches à la fois : une icône qui dit le genre, une
+   barre qui dit le temps restant, un bouton pour fermer. Le fond est très
+   légèrement translucide pour qu'un message ne découpe pas un bloc noir
+   au-dessus d'un tableau de bord clair. */
+.toast{position:relative;overflow:hidden;min-width:260px;max-width:440px;
+  padding:9px 8px 11px 12px;gap:10px;
+  background:color-mix(in srgb,var(--ink) 95%,transparent);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  border:1px solid color-mix(in srgb,var(--bg) 16%,transparent);
+  animation:toastIn .34s var(--ease-elan);}
+.toast.err{background:color-mix(in srgb,var(--hot) 96%,#000);}
+.toast.win{background:color-mix(in srgb,var(--g1) 96%,#000);}
+.toast-ic{display:flex;flex-shrink:0;opacity:.85;}
+.toast-texte{flex:1;min-width:0;overflow-wrap:anywhere;}
+.toast-compte{font-size:11px;font-weight:var(--w-semi);opacity:.7;font-variant-numeric:tabular-nums;}
+.toast-fermer{display:flex;flex-shrink:0;background:none;border:0;color:inherit;opacity:.5;
+  cursor:pointer;padding:4px;border-radius:var(--r1);}
+.toast-fermer:hover,.toast-fermer:focus-visible{opacity:1;background:rgba(255,255,255,.12);}
+.toast-action{margin-left:0;}
+/* Le temps qui reste, en scaleX : le compositeur s'en charge, rien ne se
+   repeint. Suspendue au survol, comme le minuteur qu'elle montre. */
+.toast-temps{position:absolute;left:0;right:0;bottom:0;height:2px;background:currentColor;
+  opacity:.32;transform-origin:left center;
+  animation:toastTemps var(--toast-duree,3200ms) linear forwards;}
+.toast.pause .toast-temps{animation-play-state:paused;}
+@keyframes toastTemps{from{transform:scaleX(1);}to{transform:scaleX(0);}}
+.toast.sort{animation:toastSort .22s ease forwards;pointer-events:none;}
+@keyframes toastSort{to{opacity:0;transform:translateX(18px) scale(.98);}}
+
+/* ─────────────────────────── DIALOGUES ─────────────────────────── */
+
+.dlg{background:var(--panel);border:1px solid var(--line-fort);border-radius:var(--r5);
+  box-shadow:var(--sh4);width:min(440px,100%);padding:var(--e6);
+  display:grid;grid-template-columns:auto 1fr;gap:var(--e3) var(--e4);
+  animation:dlgEntre .24s var(--ease-elan);}
+@keyframes dlgEntre{from{opacity:0;transform:translateY(8px) scale(.97);}}
+.dlg-ic{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:var(--accent-bg);color:var(--accent);}
+.dlg.danger .dlg-ic{background:var(--hotb);color:var(--hot);}
+.dlg-titre{margin:4px 0 0;font-size:15.5px;font-weight:650;line-height:1.35;letter-spacing:-.01em;}
+.dlg-texte{margin:6px 0 0;color:var(--muted);font-size:13px;line-height:1.55;}
+.dlg-pied{grid-column:1 / -1;display:flex;justify-content:flex-end;gap:var(--e2);margin-top:var(--e3);}
+
+/* ─────────────────────────── PALETTE ─────────────────────────── */
+
+.palette-box{max-width:780px;display:flex;flex-direction:column;max-height:min(640px,80vh);}
+.palette-saisie{display:flex;align-items:center;gap:10px;padding:0 var(--e5);
+  border-bottom:1px solid var(--line);color:var(--faint);}
+.palette-saisie input{border:0;border-radius:0;padding:var(--e5) 0;flex:1;min-width:0;color:var(--ink);}
+.palette-saisie input:focus{box-shadow:none;}
+.palette-corps{display:flex;min-height:0;flex:1;}
+.palette-res{flex:1;min-width:0;max-height:none;}
+.palette-apercu{width:270px;flex-shrink:0;border-left:1px solid var(--line);padding:var(--e5);
+  background:var(--bg2);overflow-y:auto;font-size:12.5px;}
+.palette-apercu:empty{display:none;}
+.pa-ic{color:var(--accent);margin-bottom:var(--e2);}
+.pa-titre{font-weight:var(--w-semi);font-size:13.5px;line-height:1.35;letter-spacing:-.01em;}
+.pa-meta{color:var(--muted);margin-top:3px;}
+.pa-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:var(--e3);}
+.pa-verdict{margin:var(--e3) 0 0;color:var(--ink-2);line-height:1.55;font-style:italic;}
+.pa-vide{margin:var(--e3) 0 0;color:var(--faint);}
+.pa-pied{margin-top:var(--e3);color:var(--faint);font-size:11.5px;}
+.pa-astuce{margin-top:var(--e4);color:var(--faint);font-size:11px;}
+.pres{position:relative;}
+.pres .pem{display:flex;align-items:center;justify-content:center;color:var(--muted);}
+.pres.sel .pem{color:var(--accent);}
+.pres .pt2 mark{background:none;color:var(--accent-ink);font-weight:var(--w-semi);
+  text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--accent) 45%,transparent);
+  text-underline-offset:2px;}
+.pres .pr{display:flex;gap:3px;flex-shrink:0;}
+.pres .pr .kbd{padding:0 5px;font-size:10px;}
+.pres.danger .pt2{color:var(--hot);}
+.pres-plus{display:flex;background:none;border:0;color:var(--faint);padding:3px;border-radius:var(--r1);
+  cursor:pointer;opacity:0;}
+.pres.sel .pres-plus,.pres:hover .pres-plus{opacity:1;}
+.pres-plus:hover{background:var(--panel);color:var(--accent);}
+.palette-retour{display:flex;align-items:center;gap:var(--e2);width:100%;background:none;border:0;
+  border-bottom:1px solid var(--line);margin-bottom:var(--e1);padding:var(--e2) var(--e3);
+  color:var(--muted);font:inherit;font-size:12px;cursor:pointer;text-align:left;}
+.palette-retour span:nth-child(2){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.palette-vide span{display:block;margin-top:6px;font-size:12px;color:var(--faint);}
+@media(max-width:760px){.palette-apercu{display:none;}}
+
+/* L'aide clavier, sur deux colonnes : vingt-deux lignes en une seule
+   colonne dépassaient la hauteur d'un écran portable. */
+.aide-box{max-width:720px;}
+.aide-colonnes{display:grid;grid-template-columns:1fr 1fr;gap:0 var(--e8);}
+.aide-titre{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--faint);
+  font-weight:var(--w-bold);margin:var(--e4) 0 var(--e1);}
+.aide-colonnes>div>.aide-titre:first-child{margin-top:0;}
+@media(max-width:640px){.aide-colonnes{grid-template-columns:1fr;}}
+
+/* ─────────────────────────── SQUELETTES ─────────────────────────── */
+
+/* La règle `.skel` existait (style.css) et n'était jamais utilisée. Elle
+   habille désormais le premier chargement et les zones que Gemini remplit.
+   Le reflet glisse par `background-position` : admis en boucle, et
+   suspendu en arrière-plan. */
+.skel{margin-bottom:var(--e2);}
+.skel-ligne{height:62px;}
+.skel-court{height:34px;}
+.skel-carte{height:52px;border-radius:0;margin:0;border-bottom:1px solid var(--line);}
+.skel-tuile{height:92px;margin:0;}
+.stats>.skel-tuile{flex:1;min-width:150px;}
+.skel-texte{padding:var(--e3) 0;}
+.skel-texte .skel{height:11px;border-radius:99px;margin-bottom:9px;}
+.skel-texte .skel.court{width:55%;}
+
+/* ─────────────────────────── TRANSITIONS DE VUE ─────────────────────────── */
+
+/* La vue qui part se fond dans celle qui arrive, en un quart de seconde. Le
+   contenu seul porte un nom de transition : la barre latérale ne bouge pas,
+   elle n'a pas changé. */
+.main{view-transition-name:jc-contenu;}
+::view-transition-old(jc-contenu){animation:vtSort .16s var(--ease-doux) both;}
+::view-transition-new(jc-contenu){animation:vtEntre .26s var(--ease-doux) both;}
+@keyframes vtSort{to{opacity:0;transform:translateY(-4px);}}
+@keyframes vtEntre{from{opacity:0;transform:translateY(8px);}}
+/* Au changement de thème, tout l'écran fond d'un aspect à l'autre, contenu
+   compris — c'est une seule image qui change, pas deux. */
+.vt-theme::view-transition-old(jc-contenu),.vt-theme::view-transition-new(jc-contenu),
+.vt-theme::view-transition-old(root),.vt-theme::view-transition-new(root){
+  animation-duration:.34s;animation-name:-ua-view-transition-fade-out;}
+.vt-theme::view-transition-new(jc-contenu),.vt-theme::view-transition-new(root){
+  animation-name:-ua-view-transition-fade-in;}
+/* Le repli, là où les transitions de vue manquent. */
+.theme-bascule body,.theme-bascule .panel-box,.theme-bascule .card,.theme-bascule .sidebar,
+.theme-bascule .cmdbar,.theme-bascule .btn{transition:background-color .35s ease,color .35s ease,border-color .35s ease !important;}
+
+/* ─────────────────────────── CARTES D'OFFRE ─────────────────────────── */
+
+/* LE DÉTAIL S'OUVRE EN HAUTEUR, IL N'APPARAÎT PLUS D'UN BLOC.
+   `display:none → block` ne s'anime pas : la carte sautait de 50 à 900 px en
+   une image, et la liste en dessous avec elle. Une grille à une rangée qui
+   passe de `0fr` à `1fr` se laisse animer, sans mesurer en JS.
+   `content-visibility:hidden` fermé : le navigateur ne calcule PAS la mise en
+   page des détails repliés — cinquante cartes fermées ne coûtent pas plus
+   qu'avec `display:none`, et leurs champs restent hors de la tabulation. */
+.card .detail{display:grid;grid-template-rows:0fr;border-top:0 solid var(--line);
+  transition:grid-template-rows .3s var(--ease-doux),border-top-width .3s;}
+.card.open .detail{display:grid;grid-template-rows:1fr;border-top-width:1px;animation:none;}
+.detail-in{min-height:0;overflow:hidden;content-visibility:hidden;
+  transition:content-visibility .3s allow-discrete;}
+.card.open .detail-in{content-visibility:visible;}
+
+.card .head{outline:none;border-radius:0;}
+.card .head:focus-visible{box-shadow:inset 0 0 0 2px var(--accent);}
+/* La carte courante de la navigation clavier (J/K) : un liseré d'accent et
+   un fond, pour qu'on sache où « P » ou « X » vont agir. */
+.card.focus{background:var(--bg2);}
+.card.focus::after{content:"";position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent);}
+
+/* ─────────────────────────── MICRO-INTERACTIONS ─────────────────────────── */
+
+/* L'échec secoue, la réussite pulse — là où l'on regarde. */
+.secousse{animation:secousse .42s cubic-bezier(.36,.07,.19,.97);}
+@keyframes secousse{
+  10%,90%{transform:translateX(-1px);}20%,80%{transform:translateX(2px);}
+  30%,50%,70%{transform:translateX(-4px);}40%,60%{transform:translateX(4px);}}
+.pulsation{animation:pulsation .6s var(--ease-doux);}
+@keyframes pulsation{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--g1) 45%,transparent);}
+  100%{box-shadow:0 0 0 10px transparent;}}
+
+/* LA COCHE SE DESSINE au passage « Envoyé » : le trait part de zéro et
+   parcourt son tracé, le cercle s'ouvre. Une fois, à la réussite. */
+.coche-anim .ic circle{stroke-dasharray:57;animation:cocheCercle .5s var(--ease-doux) backwards;}
+.coche-anim .ic path{stroke-dasharray:14;animation:cocheTrait .38s .32s var(--ease-doux) backwards;}
+@keyframes cocheCercle{from{stroke-dashoffset:57;}}
+@keyframes cocheTrait{from{stroke-dashoffset:14;}}
+.coche-anim{animation:pulsation .7s .3s var(--ease-doux) backwards;}
+
+/* Le texte en cours de frappe : un curseur discret au bout. */
+.frappe-en-cours::after{content:"";display:inline-block;width:.5em;height:1em;margin-left:1px;
+  vertical-align:-.12em;background:var(--accent);opacity:.55;}
+textarea.frappe-en-cours{caret-color:var(--accent);}
+
+/* ─────────────────────────── BANDEAU ─────────────────────────── */
+
+/* L'objectif de la semaine en anneau miniature : l'arc glisse quand une
+   candidature part (transition, pas boucle). */
+.cpill-obj{gap:6px;}
+.obj-anneau{width:15px;height:15px;transform:rotate(-90deg);flex-shrink:0;}
+.obj-fond{fill:none;stroke:var(--line-fort);stroke-width:2.6;}
+.obj-arc{fill:none;stroke:var(--accent);stroke-width:2.6;stroke-linecap:round;
+  transition:stroke-dashoffset .9s var(--ease-elan);}
+.cpill-obj.vert .obj-arc{stroke:var(--g1);}
+.cpill .ic{opacity:.8;}
+
+/* La pastille de collecte réduite. */
+.cl-pastille{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);
+  background:var(--panel);color:var(--ink-2);font:inherit;font-size:11.5px;font-weight:var(--w-medium);
+  padding:3px 10px 3px 6px;border-radius:99px;cursor:pointer;
+  animation:pastilleSouffle 2.4s var(--ease-doux) infinite;}
+.cl-pastille[hidden]{display:none;}
+.cl-pastille:hover{border-color:var(--accent);color:var(--ink);}
+.cl-pastille.fini{animation:none;border-color:color-mix(in srgb,var(--g1) 55%,var(--line));}
+@keyframes pastilleSouffle{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 35%,transparent);}
+  70%,100%{box-shadow:0 0 0 7px transparent;}}
+.clp-anneau{width:16px;height:16px;transform:rotate(-90deg);}
+.clp-fond{fill:none;stroke:var(--line-fort);stroke-width:2.4;}
+.clp-arc{fill:none;stroke:var(--accent);stroke-width:2.4;stroke-linecap:round;
+  stroke-dasharray:50.27;stroke-dashoffset:calc(50.27px * (1 - var(--p, 0)));
+  transition:stroke-dashoffset .5s var(--ease-doux);}
+.cl-pastille.fini .clp-arc{stroke:var(--g1);}
+.clp-texte{font-variant-numeric:tabular-nums;}
+
+/* La cloche et son centre de notifications. */
+.nc-ancre{position:relative;display:inline-flex;}
+.nc-nb{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;
+  border-radius:99px;background:var(--hot);color:#fff;font-size:10px;font-weight:var(--w-bold);
+  display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;
+  box-shadow:0 0 0 2px var(--panel);}
+.nc-nb[hidden]{display:none;}
+.nc-centre{position:absolute;top:calc(100% + 8px);right:0;width:min(380px,92vw);z-index:120;
+  background:var(--panel);border:1px solid var(--line-fort);border-radius:var(--r4);
+  box-shadow:var(--sh4);overflow:hidden;animation:dlgEntre .2s var(--ease-elan);}
+.nc-centre[hidden]{display:none;}
+.nc-tete{display:flex;align-items:baseline;gap:var(--e2);padding:var(--e3) var(--e4);
+  border-bottom:1px solid var(--line);}
+.nc-sous{color:var(--faint);font-size:11.5px;}
+.nc-groupe{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--faint);
+  font-weight:var(--w-bold);padding:var(--e3) var(--e4) var(--e1);}
+.nc-liste{list-style:none;margin:0;padding:0 var(--e2) var(--e2);max-height:46vh;overflow-y:auto;}
+.nc-ligne{display:flex;gap:var(--e3);align-items:flex-start;width:100%;text-align:left;
+  background:none;border:0;border-radius:var(--r2);padding:var(--e2);font:inherit;color:var(--ink);cursor:pointer;}
+.nc-ligne:hover,.nc-ligne:focus-visible{background:var(--bg2);}
+.nc-ic{display:flex;width:28px;height:28px;border-radius:var(--r2);align-items:center;justify-content:center;
+  background:var(--accent-bg);color:var(--accent);flex-shrink:0;}
+.nc-ligne.entretien .nc-ic{background:var(--g2b);color:var(--g2);}
+.nc-ligne.relance .nc-ic{background:var(--hotb);color:var(--hot);}
+.nc-ligne.offre-fraiche .nc-ic{background:var(--g1b);color:var(--g1);}
+.nc-corps{display:flex;flex-direction:column;min-width:0;}
+.nc-titre{font-weight:var(--w-medium);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.nc-meta{color:var(--muted);font-size:11.5px;}
+.nc-vide{padding:var(--e6) var(--e5);text-align:center;color:var(--muted);font-size:12.5px;}
+.nc-vide p{margin:var(--e2) 0 0;}
+.nc-pied{display:flex;flex-wrap:wrap;gap:var(--e2);align-items:center;padding:var(--e3) var(--e4);
+  border-top:1px solid var(--line);background:var(--bg2);}
+.nc-note{display:inline-flex;align-items:center;gap:5px;color:var(--faint);font-size:11.5px;}
+#notifBtn.a-rappels{color:var(--hot);}
+
+/* ─────────────────────────── ÉTATS VIDES ─────────────────────────── */
+
+.illu{color:var(--line-fort);display:block;margin:0 auto var(--e3);}
+.illu .il-a{stroke:var(--accent);}
+.empty .illu{margin-top:var(--e4);}
+.empty p{margin:0 auto;max-width:56ch;}
+
+/* ─────────────────────────── LETTRE : VERSIONS ─────────────────────────── */
+
+.lettre-versions{margin-top:var(--e3);border:1px solid var(--line);border-radius:var(--r3);
+  background:var(--panel);padding:var(--e2);}
+.lettre-versions[hidden]{display:none;}
+.lv-liste{list-style:none;margin:0;padding:0;max-height:240px;overflow-y:auto;}
+.lv{display:flex;align-items:center;gap:var(--e3);padding:var(--e2);border-radius:var(--r2);}
+.lv:hover{background:var(--bg2);}
+.lv-n{font-family:var(--mono);font-size:11px;color:var(--accent);width:28px;flex-shrink:0;}
+.lv-corps{display:flex;flex-direction:column;min-width:0;flex:1;}
+.lv-meta{font-size:11.5px;color:var(--muted);}
+.lv-apercu{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.lv-vide{margin:var(--e2);color:var(--muted);font-size:12.5px;}
+
+/* ─────────────────────────── OPTIONS ─────────────────────────── */
+
+.opt-col{flex-direction:column;align-items:stretch;}
+.opt-ligne{display:flex;align-items:center;justify-content:space-between;gap:var(--e4);flex-wrap:wrap;}
+.sauv-liste{list-style:none;margin:var(--e3) 0 0;padding:0;border-top:1px solid var(--line);}
+.sauv-liste li{display:flex;justify-content:space-between;gap:var(--e3);padding:6px 0;
+  border-bottom:1px solid var(--line);font-size:12px;}
+.sv-nom{font-family:var(--mono);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;}
+.sv-meta,.sv-plus{color:var(--muted);}
+a.btn.indispo{opacity:.5;pointer-events:none;}
+
+/* ─────────────────────────── LE CHAT ─────────────────────────── */
+
+/* Un tour ajouté glisse à sa place ; les autres ne bougent pas. */
+.ch-arrive{animation:entree .3s var(--ease-doux);}
+.ch-points{display:inline-flex;gap:4px;padding:4px 2px;}
+.ch-points i{width:6px;height:6px;border-radius:50%;background:var(--muted);
+  animation:chPoint 1.1s ease-in-out infinite;}
+.ch-points i:nth-child(2){animation-delay:.15s;}
+.ch-points i:nth-child(3){animation-delay:.3s;}
+@keyframes chPoint{0%,80%,100%{opacity:.3;transform:translateY(0);}40%{opacity:1;transform:translateY(-3px);}}
+
+/* ═══════════════════════ LE RADAR DE COLLECTE ═══════════════════════
+
+   La collecte EST le radar de l'ouverture, en vrai : même fond d'instrument,
+   mêmes cercles de portée, même faisceau conique. Le thème de l'application
+   n'y change rien — un instrument a sa propre lumière, et c'est ce qui le
+   rend lisible au milieu de quatre thèmes. */
+
+.overlay.cl{padding:0;display:none;flex-direction:column;align-items:stretch;justify-content:flex-start;
+  background:radial-gradient(120% 120% at 40% 40%,#0c1220 0%,#080a12 50%,#040509 100%);
+  color:#dbe7f3;backdrop-filter:none;}
+.overlay.cl.show{display:flex;animation:introEntree .35s ease;}
+.cl-fond{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+.cl-grille{position:absolute;inset:-2px;
+  background:
+    linear-gradient(rgba(125,211,252,.045) 1px,transparent 1px) 0 0/100% 40px,
+    linear-gradient(90deg,rgba(125,211,252,.045) 1px,transparent 1px) 0 0/40px 100%;
+  -webkit-mask:radial-gradient(circle at 40% 45%,#000 0%,transparent 75%);
+  mask:radial-gradient(circle at 40% 45%,#000 0%,transparent 75%);}
+
+.cl-tete{position:relative;z-index:2;display:flex;align-items:center;gap:var(--e5);flex-wrap:wrap;
+  padding:var(--e4) var(--e6);border-bottom:1px solid rgba(125,211,252,.1);}
+.cl-titre{display:flex;align-items:center;gap:var(--e3);}
+.cl-titre h2{margin:0;font-size:15px;font-weight:650;color:#f1f5f9;letter-spacing:-.01em;}
+.cl-voyant{width:8px;height:8px;border-radius:50%;background:#38bdf8;
+  box-shadow:0 0 10px 2px rgba(56,189,248,.6);animation:clVoyant 1.4s ease-in-out infinite;}
+@keyframes clVoyant{50%{opacity:.35;}}
+.cl.fini .cl-voyant{animation:none;background:#34d399;box-shadow:0 0 10px 2px rgba(52,211,153,.5);}
+.cl.echec .cl-voyant{background:#f87171;box-shadow:0 0 10px 2px rgba(248,113,113,.5);}
+.cl-chrono{font-family:var(--mono);font-size:12px;color:rgba(125,211,252,.7);font-variant-numeric:tabular-nums;}
+
+.cl-etapes{display:flex;gap:2px;list-style:none;margin:0 auto;padding:0;flex-wrap:wrap;}
+.cl-etapes li{display:flex;align-items:center;gap:6px;font-size:11px;padding:3px 9px;border-radius:99px;
+  color:rgba(219,231,243,.45);transition:color .3s,background .3s;}
+.cl-etape-pt{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.6;}
+.cl-etapes li.actif{color:#7dd3fc;background:rgba(56,189,248,.1);}
+.cl-etapes li.actif .cl-etape-pt{opacity:1;box-shadow:0 0 8px 1px rgba(125,211,252,.8);}
+.cl-etapes li.fait{color:rgba(52,211,153,.85);}
+.cl-bouton{display:inline-flex;align-items:center;gap:6px;background:transparent;
+  border:1px solid rgba(241,245,249,.22);color:rgba(241,245,249,.8);font:inherit;font-size:12px;
+  padding:5px 12px;border-radius:var(--r2);cursor:pointer;}
+.cl-bouton:hover,.cl-bouton:focus-visible{border-color:#f1f5f9;color:#fff;}
+
+.cl-scene{position:relative;z-index:1;flex:1;min-height:0;display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(300px,380px);}
+.cl-centre{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:var(--e5);padding:var(--e6);min-height:0;}
+.cl-radar{position:relative;width:min(56vh,46vw);aspect-ratio:1;flex-shrink:0;}
+.cl-cercle{position:absolute;left:50%;top:50%;width:var(--taille);height:var(--taille);
+  margin:calc(var(--taille) / -2) 0 0 calc(var(--taille) / -2);
+  border:1px solid rgba(125,211,252,.16);border-radius:50%;}
+.cl-croix{position:absolute;inset:0;opacity:.5;
+  background:
+    linear-gradient(to right,transparent calc(50% - .5px),rgba(125,211,252,.14) 50%,transparent calc(50% + .5px)),
+    linear-gradient(to bottom,transparent calc(50% - .5px),rgba(125,211,252,.14) 50%,transparent calc(50% + .5px));}
+/* Le faisceau tourne tant que la collecte tourne — `transform`, en boucle,
+   suspendu en arrière-plan ; il s'éteint en fondu à la fin. */
+.cl-faisceau{position:absolute;inset:0;border-radius:50%;
+  background:conic-gradient(from 0deg,transparent 282deg,rgba(56,189,248,.04) 314deg,
+    rgba(56,189,248,.16) 342deg,rgba(56,189,248,.42) 360deg);
+  -webkit-mask:radial-gradient(circle,#000 0 96%,transparent 97%);
+  mask:radial-gradient(circle,#000 0 96%,transparent 97%);
+  animation:clTour 3.2s linear infinite;transition:opacity .8s ease;}
+@keyframes clTour{to{transform:rotate(360deg);}}
+.cl.fini .cl-faisceau{animation:none;opacity:0;}
+.cl.repli .cl-faisceau{animation-duration:2.2s;}
+.cl-points{position:absolute;inset:0;}
+/* Chaque offre retenue s'allume en un point de la couleur de son groupe.
+   Les nouvelles émettent une onde, une seule fois. */
+.cl-point{position:absolute;width:6px;height:6px;margin:-3px;border-radius:50%;background:#94a3b8;
+  animation:clPoint .7s var(--ease-elan) backwards;}
+.cl-point.g1{background:#34d399;}
+.cl-point.g2{background:#fbbf24;}
+.cl-point.g3{background:#f87171;opacity:.75;}
+.cl-point.neuve{width:8px;height:8px;margin:-4px;animation:clPoint .7s var(--ease-elan) backwards,clOnde 1.4s .1s ease-out;}
+@keyframes clPoint{0%{opacity:0;transform:scale(.3);}35%{opacity:1;transform:scale(2.2);}100%{transform:scale(1);}}
+@keyframes clOnde{0%{box-shadow:0 0 0 0 rgba(255,255,255,.55);}100%{box-shadow:0 0 0 16px rgba(255,255,255,0);}}
+/* Le titre de la dernière offre tombée, posé à côté de son point. */
+.cl-etiquette{position:absolute;transform:translate(12px,-50%);max-width:240px;pointer-events:none;
+  font-size:11.5px;line-height:1.3;color:#e2e8f0;background:rgba(8,12,20,.85);
+  border:1px solid rgba(125,211,252,.25);border-radius:var(--r2);padding:4px 8px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;}
+.cl-etiquette.a-gauche{transform:translate(calc(-100% - 12px),-50%);}
+.cl-etiquette.vu{animation:clEtiquette 2.2s ease forwards;}
+@keyframes clEtiquette{0%{opacity:0;}10%,70%{opacity:1;}100%{opacity:0;}}
+
+.cl-compteurs{display:flex;gap:var(--e8);}
+.cl-compteurs div{display:flex;flex-direction:column;align-items:center;}
+.cl-compteurs b{font-size:24px;font-weight:650;color:#f1f5f9;font-variant-numeric:tabular-nums;letter-spacing:-.02em;}
+.cl-compteurs span{font-size:10.5px;text-transform:uppercase;letter-spacing:1.2px;color:rgba(125,211,252,.6);}
+.cl-progression{display:flex;align-items:center;gap:var(--e3);width:min(420px,80%);}
+.cl-barre{flex:1;height:4px;border-radius:99px;background:rgba(125,211,252,.12);overflow:hidden;}
+.cl-barre span{display:block;height:100%;background:linear-gradient(90deg,#38bdf8,#7dd3fc);
+  transform-origin:left center;transform:scaleX(0);transition:transform .5s var(--ease-doux);}
+.cl-pc{font-family:var(--mono);font-size:12px;color:#7dd3fc;width:44px;text-align:right;font-variant-numeric:tabular-nums;}
+.cl-statut{margin:0;font-size:12.5px;color:rgba(219,231,243,.7);text-align:center;max-width:52ch;min-height:1.5em;}
+
+.cl-cote{display:flex;flex-direction:column;min-height:0;border-left:1px solid rgba(125,211,252,.1);
+  background:rgba(4,6,12,.45);padding:var(--e4) var(--e5);}
+.cl-cote h3{margin:0 0 var(--e2);font-size:10px;text-transform:uppercase;letter-spacing:1.3px;
+  color:rgba(125,211,252,.6);font-weight:var(--w-bold);}
+.cl-sources{list-style:none;margin:0 0 var(--e5);padding:0;display:flex;flex-direction:column;gap:3px;}
+.cl-src{display:flex;align-items:center;gap:var(--e2);font-size:12px;padding:4px 6px;border-radius:var(--r1);}
+.cl-src-pt{width:7px;height:7px;border-radius:50%;background:rgba(219,231,243,.3);flex-shrink:0;}
+.cl-src.actif .cl-src-pt{background:#38bdf8;box-shadow:0 0 8px 1px rgba(56,189,248,.7);}
+.cl-src.ok .cl-src-pt{background:#34d399;}
+.cl-src.partiel .cl-src-pt{background:#fbbf24;}
+.cl-src.echec .cl-src-pt{background:#f87171;}
+.cl-src.ignoree{opacity:.45;}
+.cl-src-nom{flex:1;}
+.cl-src-n{font-family:var(--mono);font-size:11px;color:rgba(219,231,243,.55);font-variant-numeric:tabular-nums;}
+.cl-journal{list-style:none;margin:0;padding:0;flex:1;min-height:0;overflow-y:auto;
+  display:flex;flex-direction:column;gap:2px;scrollbar-width:thin;scrollbar-color:rgba(125,211,252,.2) transparent;
+  -webkit-mask:linear-gradient(#000 80%,transparent);mask:linear-gradient(#000 80%,transparent);}
+.cl-ligne{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-size:11.5px;line-height:1.45;
+  padding:3px 6px;border-radius:var(--r1);color:rgba(219,231,243,.75);animation:clLigne .3s var(--ease-doux);}
+@keyframes clLigne{from{opacity:0;transform:translateY(-4px);}}
+.cl-ligne .ic{align-self:center;color:#7dd3fc;}
+.cl-ligne.err{color:#fca5a5;}
+.cl-ligne.err .ic{color:#f87171;}
+.cl-ligne.etape{color:#bae6fd;font-weight:var(--w-medium);}
+.cl-ligne.analyse .ic{color:#c4b5fd;}
+.cl-offre{color:#f1f5f9;font-weight:var(--w-medium);}
+.cl-ent{color:rgba(219,231,243,.5);font-size:11px;}
+.cl-n{font-family:var(--mono);color:#7dd3fc;}
+.cl-neuf{font-size:9.5px;text-transform:uppercase;letter-spacing:.8px;color:#34d399;
+  border:1px solid rgba(52,211,153,.4);border-radius:3px;padding:0 4px;}
+.cl-verdict{flex-basis:100%;color:rgba(219,231,243,.55);font-style:italic;font-size:11px;}
+.cl-pt{width:7px;height:7px;border-radius:50%;background:#94a3b8;align-self:center;flex-shrink:0;}
+.cl-pt.g1{background:#34d399;}.cl-pt.g2{background:#fbbf24;}.cl-pt.g3{background:#f87171;}
+
+/* Le bilan : il se pose sur le radar quand tout est fini. */
+.cl-resume{position:absolute;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;
+  background:rgba(4,6,12,.55);padding:var(--e6);animation:introEntree .4s ease;}
+.cl-resume[hidden]{display:none;}
+.cl-bilan{width:min(520px,100%);text-align:center;background:rgba(10,15,26,.92);
+  border:1px solid rgba(125,211,252,.22);border-radius:var(--r6);padding:var(--e8) var(--e6);
+  box-shadow:0 30px 80px -20px rgba(0,0,0,.8),0 0 0 1px rgba(56,189,248,.06);
+  animation:dlgEntre .45s var(--ease-elan);}
+.cl-bilan-ic{display:inline-flex;width:48px;height:48px;border-radius:50%;align-items:center;justify-content:center;
+  background:rgba(52,211,153,.12);color:#34d399;margin-bottom:var(--e3);}
+.cl-bilan.echec .cl-bilan-ic{background:rgba(248,113,113,.12);color:#f87171;}
+.cl-bilan h3{margin:0 0 var(--e5);font-size:19px;color:#f8fafc;letter-spacing:-.02em;}
+.cl-bilan p{color:rgba(219,231,243,.75);font-size:13px;line-height:1.55;}
+.cl-bilan-chiffres{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--e3);}
+.cl-chiffre{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.cl-chiffre b{font-size:30px;font-weight:650;color:#f8fafc;font-variant-numeric:tabular-nums;
+  letter-spacing:-.03em;line-height:1.1;}
+.cl-chiffre.nouvelles b{color:#34d399;}
+.cl-chiffre span{font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:rgba(125,211,252,.6);}
+.cl-bilan-note{margin:var(--e4) 0 0;font-size:12px !important;color:rgba(219,231,243,.5) !important;}
+.cl-bilan-pied{display:flex;justify-content:center;gap:var(--e2);margin-top:var(--e6);}
+.cl-bilan .btn:not(.btn-primary){background:transparent;border-color:rgba(241,245,249,.25);color:#e2e8f0;}
+/* `roulement` (anim.js) découpe les chiffres en colonnes qui défilent. */
+.cl-chiffre b .roul{height:1.1em;}
+
+@media(max-width:900px){
+  .cl-scene{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr);overflow-y:auto;}
+  .cl-radar{width:min(70vw,40vh);}
+  .cl-cote{border-left:0;border-top:1px solid rgba(125,211,252,.1);}
+  .cl-etapes{order:3;width:100%;margin:0;}
+  .cl-compteurs{gap:var(--e5);}
+  .cl-bilan-chiffres{grid-template-columns:repeat(2,1fr);}
+}
+
+/* ═══════════════════════ LE MODE FOCUS ═══════════════════════ */
+
+/* Le rail et le bandeau disparaissent : `.app` est masquée, le lecteur
+   flottant (frère de `.app`) continue de jouer au-dessus. */
+[data-focus="on"] .app{display:none;}
+.mode-focus{position:fixed;inset:0;z-index:60;overflow-y:auto;background:var(--bg);
+  padding:var(--e6) clamp(16px,5vw,64px);animation:entree .35s var(--ease-doux);}
+.mode-focus[hidden]{display:none;}
+.mf-tete{display:flex;align-items:center;justify-content:space-between;gap:var(--e4);
+  max-width:1100px;margin:0 auto var(--e8);}
+.mf-marque{display:flex;align-items:center;gap:var(--e2);color:var(--accent);}
+.mf-marque b{color:var(--ink);font-size:14px;}
+.mf-sous{color:var(--muted);font-size:12.5px;margin-left:var(--e2);}
+.mf-grille{display:grid;grid-template-columns:minmax(260px,360px) minmax(0,1fr);gap:var(--e10);
+  max-width:1100px;margin:0 auto;align-items:start;}
+.mf-minuteur{display:flex;flex-direction:column;align-items:center;gap:var(--e5);
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r6);padding:var(--e8) var(--e6);
+  position:sticky;top:0;}
+.mf-cadran{position:relative;width:220px;aspect-ratio:1;}
+.mf-cadran svg{width:100%;height:100%;transform:rotate(-90deg);}
+.mf-piste{fill:none;stroke:var(--line);stroke-width:5;}
+.mf-arc{fill:none;stroke:var(--accent);stroke-width:5;stroke-linecap:round;
+  transition:stroke-dashoffset 1s linear;}
+.mf-minuteur.pause .mf-arc{stroke:var(--g1);}
+.mf-temps{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.mf-temps b{font-size:46px;font-weight:600;letter-spacing:-.04em;font-variant-numeric:tabular-nums;line-height:1;}
+.mf-temps span{font-size:11px;text-transform:uppercase;letter-spacing:1.4px;color:var(--muted);margin-top:6px;}
+.mf-commandes{display:flex;gap:var(--e2);flex-wrap:wrap;justify-content:center;}
+.mf-travail h3{display:flex;align-items:center;gap:var(--e2);font-size:12px;text-transform:uppercase;
+  letter-spacing:1px;color:var(--muted);margin:0 0 var(--e3);}
+.mf-travail h3:not(:first-child){margin-top:var(--e8);}
+.mf-carte{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);
+  border-radius:var(--r4);padding:var(--e5) var(--e6);}
+.mf-carte-titre{font-size:18px;font-weight:650;letter-spacing:-.02em;line-height:1.3;}
+.mf-carte-meta{color:var(--muted);margin-top:4px;}
+.mf-verdict{color:var(--ink-2);font-style:italic;line-height:1.6;margin:var(--e4) 0 0;}
+.mf-carte-actions{display:flex;flex-wrap:wrap;gap:var(--e2);margin-top:var(--e5);}
+.mf-vide{color:var(--muted);margin:0;}
+.mf-trois{display:flex;flex-direction:column;gap:var(--e2);}
+.mf-choix{display:grid;grid-template-columns:28px 1fr;gap:2px var(--e3);text-align:left;width:100%;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r3);padding:var(--e3) var(--e4);
+  font:inherit;color:var(--ink);cursor:pointer;transition:border-color .15s,background .15s;}
+.mf-choix:hover{border-color:var(--line-fort);background:var(--bg2);}
+.mf-choix.actif{border-color:var(--accent);background:var(--accent-bg);}
+.mf-rang{grid-row:span 2;display:flex;align-items:center;justify-content:center;width:28px;height:28px;
+  border-radius:50%;background:var(--bg2);font-weight:var(--w-semi);font-size:12px;}
+.mf-choix.actif .mf-rang{background:var(--accent);color:#fff;}
+.mf-choix-t{font-weight:var(--w-medium);}
+.mf-choix-m{color:var(--muted);font-size:12px;}
+@media(max-width:900px){
+  .mf-grille{grid-template-columns:1fr;gap:var(--e6);}
+  .mf-minuteur{position:static;}
+  .mf-cadran{width:180px;}
+}
+
+/* ─────────────────────────── MOBILE ─────────────────────────── */
+
+/* LE BANDEAU DE COMMANDE NE PREND PLUS LA MOITIÉ DE L'ÉCRAN.
+   style.css empilait chaque action en pleine largeur : sept lignes de
+   boutons avant le premier contenu, sur chaque vue. Trois lignes suffisent :
+   la recherche, puis les trois icônes de confort, puis Ajouter et Collecter
+   côte à côte — les deux seules actions qu'on vient chercher au pouce. */
+@media(max-width:900px){
+  .cmdbar{padding:var(--e3) var(--e4);gap:var(--e3);}
+  .cmd-actions{display:flex;flex-wrap:wrap;gap:var(--e2);align-items:center;}
+  #paletteBtn{flex:1 1 100%;grid-column:auto;justify-content:flex-start;}
+  #paletteBtn .kbd-discret{display:none;}
+  #focusBtn,.nc-ancre,#lecteurBtn{flex:0 0 auto;}
+  #lecteurBtn{margin-right:auto;}
+  #quickAdd,#refreshBtn{flex:1 1 calc(50% - var(--e2));justify-content:center;}
+  .cl-pastille{align-self:flex-start;}
+
+  /* Barre d'outils des offres : les boutons secondaires sur UNE ligne, et
+     « + Offre » en tête, pas en bas d'une pile. */
+  .toolbar .btn{flex:0 1 auto;}
+  #toggleForm{order:-1;flex:1 1 100%;}
+}
+@media(max-width:420px){
+  .cmd-actions{display:flex;}
+  .toolbar .btn{flex:1 1 22%;padding-left:6px;padding-right:6px;}
+  #toggleForm{flex:1 1 100%;}
+}
+
+@media(max-width:600px){
+  #toastZone{left:12px;right:12px;bottom:12px;align-items:stretch;}
+  .toast{max-width:none;min-width:0;}
+  .dlg{padding:var(--e5);}
+  .nc-centre{position:fixed;left:12px;right:12px;top:auto;bottom:12px;width:auto;}
+  .palette-box{margin-top:0;max-height:88vh;}
+  .cl-tete{padding:var(--e3) var(--e4);}
+  .cl-compteurs b{font-size:19px;}
+}
+
+/* ─────────────────────────── CE QUI TOURNE, EN ARRIÈRE-PLAN ─────────────────────────── */
+
+/* Animer ce que personne ne regarde ne coûte que de la batterie. */
+[data-page="cachee"] .skel,
+[data-page="cachee"] .cl-faisceau,
+[data-page="cachee"] .cl-voyant,
+[data-page="cachee"] .cl-pastille,
+[data-page="cachee"] .ch-points i{animation-play-state:paused;}
+
+/* Les transitions de vue ne jouent pas quand le mouvement est coupé —
+   app.js ne les lance même pas ; ceci couvre une transition déjà partie. */
+[data-anim="off"]::view-transition-old(jc-contenu),[data-anim="off"]::view-transition-new(jc-contenu),
+[data-anim="off"]::view-transition-old(root),[data-anim="off"]::view-transition-new(root){animation:none !important;}
+@media(prefers-reduced-motion:reduce){
+  ::view-transition-old(jc-contenu),::view-transition-new(jc-contenu),
+  ::view-transition-old(root),::view-transition-new(root){animation:none !important;}
+  .card .detail{transition:none;}
+}
+[data-anim="off"] .card .detail,[data-anim="off"] .detail-in{transition:none !important;}

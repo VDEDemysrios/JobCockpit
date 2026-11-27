@@ -32,6 +32,9 @@ const MODELES = [
  */
 export function classerErreur(message) {
   const texte = String(message ?? '');
+  // Un appel resté sans réponse 60 s : ce modèle est englué, pas notre
+  // requête. Le réessayer ferait attendre encore une minute pour rien.
+  if (/\baborted\b|TimeoutError|timed? ?out|délai dépassé/i.test(texte)) return 'modele-indisponible';
   if (/\b404\b|no longer available|not found/i.test(texte)) return 'modele-indisponible';
   if (/\b503\b|high demand|overloaded|UNAVAILABLE/i.test(texte)) return 'modele-indisponible';
   if (/\b429\b|quota|RESOURCE_EXHAUSTED|rate limit/i.test(texte)) return 'quota';
@@ -85,7 +88,9 @@ export async function demanderAncre(prompt) {
       const reponse = await genai.models.generateContent({
         model: modele,
         contents: prompt,
-        config: { tools: [{ googleSearch: {} }] },
+        // Pas de `responseMimeType` ici : l'API refuse le JSON imposé quand
+        // l'outil de recherche est actif. `extraireJson` fait le travail.
+        config: { ...configurationAppel(), tools: [{ googleSearch: {} }] },
       });
 
       const meta = reponse.candidates?.[0]?.groundingMetadata;
@@ -142,7 +147,44 @@ export function extraireJson(texte) {
 }
 
 let client = null;
-const limiteur = new Limiteur(10);
+let limiteur = new Limiteur(10);
+
+/** Délai maximal d'un appel, au-delà duquel on passe au modèle suivant. */
+export const DELAI_APPEL_MS = 60_000;
+
+/**
+ * La configuration d'un appel : délai, et format de sortie.
+ *
+ * PAS DE DÉLAI, C'ÉTAIT UNE ATTENTE INFINIE. Un modèle saturé qui ne répond
+ * ni oui ni non gardait la requête ouverte indéfiniment : la collecte restait
+ * figée sur « analyse 7/25 », le bouton de lettre tournait sans fin. Soixante
+ * secondes, c'est quatre fois la plus longue analyse mesurée.
+ *
+ * LE JSON DEMANDÉ À LA SOURCE. `responseMimeType: 'application/json'` fait
+ * produire au modèle du JSON strict, sans bloc markdown ni phrase d'excuse
+ * autour. `extraireJson` reste derrière, en filet : il ne coûte rien.
+ *
+ * Fonction pure, exportée pour être vérifiée sans réseau.
+ */
+export function configurationAppel({ json = false, delaiMs = DELAI_APPEL_MS } = {}) {
+  const config = { abortSignal: AbortSignal.timeout(delaiMs), httpOptions: { timeout: delaiMs } };
+  if (json) config.responseMimeType = 'application/json';
+  return config;
+}
+
+/**
+ * Remplace le client Gemini — pour les tests uniquement.
+ * Sans cela, vérifier ce qu'on ENVOIE à Google exigerait le réseau et une clé.
+ * Le limiteur est neutralisé du même geste : six secondes entre deux appels
+ * factices rendraient la suite interminable.
+ * @returns {() => void} de quoi remettre le client réel
+ */
+export function remplacerClientPourTests(factice) {
+  const avant = { client, limiteur };
+  client = factice;
+  limiteur = { attendre: async () => {} };
+  return () => { client = avant.client; limiteur = avant.limiteur; };
+}
 
 function obtenirClient() {
   if (!client) {
@@ -165,9 +207,11 @@ export function estConfigure() {
  * @param {string} prompt
  * @param {Array<{mimeType:string, data:string}>} [images] images en base64,
  *   pour les modèles qui savent voir (le compagnon Chill qui reçoit une capture).
+ * @param {{json?: boolean, delaiMs?: number}} [options] `json` quand l'appelant
+ *   attend un objet JSON (analyse, collage, relance, CV adapté)
  * @returns {Promise<string|null>} null si tous les modèles ont échoué
  */
-export async function demander(prompt, images = []) {
+export async function demander(prompt, images = [], options = {}) {
   const genai = obtenirClient();
 
   // Sans image, on passe le prompt tel quel — c'est le cas de tout le reste du
@@ -185,6 +229,7 @@ export async function demander(prompt, images = []) {
         const reponse = await genai.models.generateContent({
           model: modele,
           contents: contenu,
+          config: configurationAppel(options),
         });
         return reponse.text;
       } catch (erreur) {

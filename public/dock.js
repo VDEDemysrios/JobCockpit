@@ -222,7 +222,7 @@ export function jouerMedia(saisie) {
     ? versLecteur(saisie, location.hostname, avecCompte())
     : saisie;
   if (!media) {
-    signaler('Lien non reconnu — YouTube, Twitch ou Spotify.', 'erreur');
+    signaler('Lien non reconnu — YouTube, Twitch ou Spotify.', 'err');
     return false;
   }
 

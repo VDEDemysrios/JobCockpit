@@ -8,11 +8,14 @@
 import 'dotenv/config';
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, basename } from 'node:path';
 import {
   ouvrirBase, upsertOffre, ecrireMeta, transaction, purgerOffresPerimees, enregistrerAnalyse,
   offresHorsProfil, supprimerOffres, idsRejetes, purgerSansReponse,
+  compacterJournal, fermerBase,
 } from '../src/db.js';
+import { emetteur } from '../src/collecte-live.js';
+import { creerVerrou } from '../src/verrou.js';
 import { peutAnalyser, noterAppel, fermerAnalyse, etatQuota, ANALYSE } from '../src/quota.js';
 import { sauvegarder } from '../src/sauvegarde.js';
 import { corrigerBase } from './corriger-departements.js';
@@ -61,27 +64,40 @@ function ilYaNJours(n) {
  * @param {string} options.cv        texte du CV
  * @param {boolean} options.analyser lancer l'analyse LLM (false dans les tests)
  * @param {Function} [options.analyserOffre] injectable pour les tests
+ * @param {Function|object} [options.progres] reçoit les événements de la
+ *   collecte en direct (`(nom, donnees)` ou un EventEmitter) — voir
+ *   src/collecte-live.js. Facultatif : sans lui, rien ne change.
  * @returns {Promise<object>} résumé de la collecte
  */
 export async function collecter({
   db, profil, sources, cv, analyser = true, analyserOffre: analyse = analyserOffre,
+  progres = null,
 }) {
   const debut = Date.now();
   const depuisDate = ilYaNJours(profil.fraicheurJours);
+  const emettre = emetteur(progres);
 
   console.log(`\n🔎 Collecte — offres publiées depuis le ${depuisDate}`);
+  emettre('debut', {
+    sources: sources.map(s => s.nom),
+    intitules: profil.intitules ?? [],
+    villes: (profil.villesPrioritaires ?? []).map(v => v.nom),
+    depuisDate,
+  });
 
   // 1-3. Requêtes, isolation des pannes, dédoublonnage.
-  const { offres, sourcesOk, sourcesEnEchec, sourcesIgnorees } =
+  const { offres, brutes, sourcesOk, sourcesEnEchec, sourcesIgnorees } =
     await collecterDepuisSources(sources, {
       intitules: profil.intitules,
       villes: profil.villesPrioritaires,
       rayonKm: profil.rayonKm,
       depuisDate,
       profil,
+      progres: emettre,
     });
 
   console.log(`  ${offres.length} offre(s) distincte(s) après dédoublonnage`);
+  emettre('etape', { nom: 'fusion', detail: { brutes, distinctes: offres.length } });
 
   const retenues = [];
 
@@ -118,6 +134,7 @@ export async function collecter({
 
   console.log(`  ${retenues.length} offre(s) retenue(s) après filtres`);
   if (ignorees > 0) console.log(`  🚫 ${ignorees} offre(s) déjà écartée(s) par toi, ignorée(s)`);
+  emettre('etape', { nom: 'filtrage', detail: { retenues: retenues.length, ignorees } });
 
   // 7. Écriture en base — AVANT l'analyse, en transaction, et UNIQUEMENT
   //    dans `offers`.
@@ -127,11 +144,25 @@ export async function collecter({
   //    l'écriture, et la moisson entière a été perdue. La récolte est un
   //    résultat en soi — elle ne doit dépendre d'aucun service extérieur.
   let nouvelles = 0;
+  const ecrites = [];
   transaction(db, () => {
     for (const offre of retenues) {
-      if (upsertOffre(db, offre).nouvelle) nouvelles++;
+      const { nouvelle } = upsertOffre(db, offre);
+      if (nouvelle) nouvelles++;
+      ecrites.push({ offre, nouvelle });
     }
   });
+  // Les offres partent sur le flux APRÈS la validation : annoncer au radar
+  // une offre que l'annulation de la transaction aurait effacée ferait
+  // allumer un point qui n'existe pas.
+  for (const { offre, nouvelle } of ecrites) {
+    emettre('offre', {
+      id: offre.id, titre: offre.titre, entreprise: offre.entreprise ?? null,
+      ville: offre.ville ?? null, groupe: offre.groupe, score: offre.score ?? null,
+      nouvelle, source: offre.source ?? null,
+    });
+  }
+  emettre('etape', { nom: 'ecriture', detail: { nouvelles } });
 
   // 8. Analyse LLM — groupes 1, 2 et 0 seulement, jamais deux fois la même
   //    offre, et les prioritaires d'abord.
@@ -182,7 +213,11 @@ export async function collecter({
     const ECHECS_AVANT_ABANDON = 5;
     let echecsConsecutifs = 0;
 
+    emettre('etape', { nom: 'analyse', detail: { prevues: aAnalyser.length } });
+    let rang = 0;
+
     for (const offre of aAnalyser) {
+      rang++;
       // LA RÉSERVE. Vérifiée avant CHAQUE appel, pas une fois pour toutes :
       // une lettre rédigée pendant la collecte consomme du quota elle aussi.
       const feuVert = peutAnalyser(db, profil);
@@ -197,6 +232,13 @@ export async function collecter({
       } catch (erreur) {
         console.warn(`  ⚠ Analyse impossible pour « ${offre.titre} » : ${erreur.message}`);
       }
+
+      // Une par appel, réussi ou non : un verdict nul dit au radar que
+      // l'analyse a été tentée, pas oubliée.
+      emettre('analyse', {
+        id: offre.id, titre: offre.titre, i: rang, total: aAnalyser.length,
+        verdict: resultat?.verdict ?? null,
+      });
 
       if (resultat) {
         noterAppel(db, ANALYSE);
@@ -273,6 +315,7 @@ export async function collecter({
   if (sansReponse > 0) {
     console.log(`  🧹 ${sansReponse} offre(s) sans suite depuis ${profil.sansReponseJours} jours, écartée(s)`);
   }
+  emettre('etape', { nom: 'nettoyage', detail: { purgees, horsProfil, departementsCorriges } });
 
   // Sauvegarde. En DERNIER, une fois la base dans son état définitif du tour.
   //
@@ -288,6 +331,11 @@ export async function collecter({
   } else if (sauvegarde.erreur !== 'sauvegarde désactivée dans profile.json') {
     console.warn(`  ⚠ Sauvegarde impossible : ${sauvegarde.erreur}`);
   }
+  emettre('etape', { nom: 'sauvegarde', detail: {
+    ok: sauvegarde.ok,
+    nom: sauvegarde.ok ? basename(sauvegarde.chemin) : null,
+    erreur: sauvegarde.ok ? null : sauvegarde.erreur,
+  } });
 
   // 9. Journal.
   //    « non-configure » se distingue de « ok » : sans clé d'API, une collecte
@@ -320,6 +368,11 @@ export async function collecter({
   ecrireMeta(db, 'last_collect_status', statut);
   ecrireMeta(db, 'last_collect_summary', JSON.stringify(resume));
 
+  // Le journal WAL a encaissé toute la collecte : on le replie dans la base
+  // maintenant, plutôt que de le laisser grossir jusqu'au prochain point de
+  // contrôle automatique. Ne lève jamais.
+  compacterJournal(db);
+
   return resume;
 }
 
@@ -334,6 +387,22 @@ async function principal() {
   }
 
   const db = ouvrirBase('data.db');
+
+  // LE VERROU PARTAGÉ AVEC LE SERVEUR.
+  //
+  // La tâche Windows tourne dans un autre processus : le drapeau en mémoire
+  // du serveur lui est invisible, et inversement. Le seul terrain commun est
+  // la base. Si une collecte y est déclarée depuis moins de 30 minutes — le
+  // bouton du tableau de bord, ou une tâche précédente qui traîne —, on ne
+  // lance pas la nôtre par-dessus.
+  const verrou = creerVerrou({ db });
+  const pris = verrou.prendre({ origine: 'tache' });
+  if (!pris.ok) {
+    console.warn(`⏸  ${pris.error}`);
+    fermerBase(db);
+    return;
+  }
+
   try {
     const resume = await collecter({ db, profil, sources: SOURCES, cv, analyser: true });
 
@@ -355,7 +424,8 @@ async function principal() {
 
     if (resume.statut === 'echec') process.exitCode = 1;
   } finally {
-    db.close();
+    verrou.rendre();
+    fermerBase(db);
   }
 }
 

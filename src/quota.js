@@ -43,7 +43,7 @@ export const ENTRETIEN = 'entretien';
 export const CHAT = 'chat';
 
 /** Valeurs par défaut, si `profile.json` ne dit rien. */
-const DEFAUTS = { quotaJournalier: 200, reserveLettres: 40 };
+const DEFAUTS = { quotaJournalier: 200, reserveLettres: 40, reserveChat: 20 };
 
 /** Jour courant en heure LOCALE — comme partout ailleurs dans le projet. */
 function jourLocal(quand = new Date()) {
@@ -61,7 +61,19 @@ export function reglages(profil = {}) {
     Math.max(0, Number(g.reserveLettres ?? DEFAUTS.reserveLettres)),
     Math.floor(quotaJournalier / 2)
   );
-  return { quotaJournalier, reserveLettres };
+  // LA RÉSERVE DU CHAT ET DE L'ENTRETIEN.
+  //
+  // Ce que l'analyse automatique laisse, EN PLUS de la réserve des lettres,
+  // pour ce que l'auteur fait lui-même : discuter, préparer un entretien.
+  // Sans elle, une journée de collectes mangeait tout jusqu'à la réserve des
+  // lettres, et la première question au compagnon la grignotait. Bornée pour
+  // que les deux réserves réunies ne dépassent jamais la moitié du quota :
+  // l'analyse doit toujours garder de quoi travailler.
+  const reserveChat = Math.min(
+    Math.max(0, Number(g.reserveChat ?? DEFAUTS.reserveChat) || 0),
+    Math.max(0, Math.floor(quotaJournalier / 2) - reserveLettres)
+  );
+  return { quotaJournalier, reserveLettres, reserveChat };
 }
 
 /** Enregistre un appel effectivement parti chez Gemini. */
@@ -89,31 +101,62 @@ export function appelsDuJour(db, quand = new Date()) {
   const lignes = db.prepare('SELECT usage, appels FROM quota_gemini WHERE jour = ?')
     .all(jourLocal(quand));
   const par = Object.fromEntries(lignes.map(l => [l.usage, l.appels]));
+  const analyse = par[ANALYSE] ?? 0;
+  const lettre = par[LETTRE] ?? 0;
+  const entretien = par[ENTRETIEN] ?? 0;
+  const chat = par[CHAT] ?? 0;
   return {
-    analyse: par[ANALYSE] ?? 0,
-    lettre: par[LETTRE] ?? 0,
-    total: (par[ANALYSE] ?? 0) + (par[LETTRE] ?? 0),
+    analyse,
+    lettre,
+    entretien,
+    chat,
+    // LE TOTAL COMPTE TOUT CE QUI EST PARTI CHEZ GOOGLE.
+    //
+    // Il ne comptait que l'analyse et les lettres. Une matinée de préparation
+    // d'entretien — quinze appels — et une heure de discussion — cinquante —
+    // passaient donc sous le radar : l'application croyait avoir 65 appels de
+    // marge que Google, lui, avait déjà décomptés, et la lettre du soir
+    // tombait sur un 429 alors que la réserve la disait protégée.
+    total: analyse + lettre + entretien + chat,
     analyseFermee: Boolean(par['analyse-fermee']),
   };
 }
 
 /**
  * L'analyse peut-elle encore consommer du quota ?
+ * Elle s'arrête avant d'entamer la réserve des lettres ET celle du chat.
  * @returns {{ok: boolean, raison?: string, restant: number}}
  */
 export function peutAnalyser(db, profil, quand = new Date()) {
-  const { quotaJournalier, reserveLettres } = reglages(profil);
+  const { quotaJournalier, reserveLettres, reserveChat } = reglages(profil);
   const a = appelsDuJour(db, quand);
-  const plafondAnalyse = quotaJournalier - reserveLettres;
+  const plafondAnalyse = quotaJournalier - reserveLettres - reserveChat;
   const restant = Math.max(0, plafondAnalyse - a.total);
 
   if (a.analyseFermee) {
     return { ok: false, restant: 0, raison: 'Google a refusé une analyse aujourd\'hui — le reste du quota est gardé pour les lettres.' };
   }
   if (a.total >= plafondAnalyse) {
-    return { ok: false, restant: 0, raison: `Réserve atteinte : ${reserveLettres} appels sont gardés pour les lettres.` };
+    const chat = reserveChat ? ` et ${reserveChat} pour le chat et l'entretien` : '';
+    return { ok: false, restant: 0, raison: `Réserve atteinte : ${reserveLettres} appels sont gardés pour les lettres${chat}.` };
   }
   return { ok: true, restant };
+}
+
+/**
+ * Le chat ou la préparation d'entretien peuvent-ils appeler Gemini ?
+ *
+ * Ils ont accès à tout, SAUF à la réserve des lettres : une conversation
+ * d'une heure ne doit pas coûter la lettre qu'on voulait écrire ensuite.
+ */
+export function peutDiscuter(db, profil, quand = new Date()) {
+  const { quotaJournalier, reserveLettres } = reglages(profil);
+  const a = appelsDuJour(db, quand);
+  const restant = Math.max(0, quotaJournalier - reserveLettres - a.total);
+  return restant > 0
+    ? { ok: true, restant }
+    : { ok: false, restant: 0,
+      raison: `Quota du jour presque épuisé : les ${reserveLettres} derniers appels sont gardés pour les lettres.` };
 }
 
 /**
@@ -131,15 +174,19 @@ export function peutRediger(db, profil, quand = new Date()) {
 
 /** État lisible, pour l'interface et les journaux. */
 export function etatQuota(db, profil, quand = new Date()) {
-  const { quotaJournalier, reserveLettres } = reglages(profil);
+  const { quotaJournalier, reserveLettres, reserveChat } = reglages(profil);
   const a = appelsDuJour(db, quand);
   return {
     jour: jourLocal(quand),
     quotaJournalier,
     reserveLettres,
+    reserveChat,
     analyses: a.analyse,
     lettres: a.lettre,
+    entretiens: a.entretien,
+    chat: a.chat,
     total: a.total,
+    restantChat: peutDiscuter(db, profil, quand).restant,
     restantAnalyse: peutAnalyser(db, profil, quand).restant,
     restantLettres: Math.max(0, quotaJournalier - a.total),
     analyseFermee: a.analyseFermee,

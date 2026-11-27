@@ -127,7 +127,16 @@ export function creerAuth({ motDePasse, securise = true }) {
     tentatives.set(ip, t);
   }
 
-  const CHEMINS_LIBRES = new Set(['/connexion', '/connexion.html', '/api/connexion', '/style.css']);
+  // LE SCRIPT DE LA PAGE DE CONNEXION EST UN FICHIER, PAS UN BLOC EN LIGNE.
+  //
+  // La politique de sécurité interdit tout script en ligne, et elle a raison.
+  // Mais tant qu'il était écrit dans la page, elle le bloquait sans un mot :
+  // le formulaire partait alors en GET, avec le mot de passe dans l'adresse.
+  // Le script vit donc dans `connexion.js`, et ce chemin doit rester joignable
+  // AVANT la connexion — sinon la page ne peut pas charger ce qui la fait
+  // marcher.
+  const CHEMINS_LIBRES = new Set(['/connexion', '/connexion.html', '/connexion.js',
+    '/api/connexion', '/style.css']);
 
   function protection(req, res, suite) {
     if (CHEMINS_LIBRES.has(req.path)) return suite();

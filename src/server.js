@@ -15,7 +15,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-import { ouvrirBase, lireMeta } from './db.js';
+import { ouvrirBase, lireMeta, fermerBase } from './db.js';
+import { creerCollecteLive } from './collecte-live.js';
 import { creerRoutes } from './api.js';
 import { creerAuth, motDePasseSuggere } from './auth.js';
 import { demarrerPlanificateur } from './planificateur.js';
@@ -79,8 +80,15 @@ if (profilIllisible) {
   process.exit(1);
 }
 const cheminCv = join(RACINE, 'profile/cv.txt');
-const cv = existsSync(cheminCv) ? readFileSync(cheminCv, 'utf8') : '';
+// Une FONCTION, pas une valeur : le CV déposé dans l'application doit servir
+// dès la collecte suivante, pas au prochain redémarrage.
+const cv = () => (existsSync(cheminCv) ? readFileSync(cheminCv, 'utf8') : '');
 const db = ouvrirBase(CHEMIN_BASE);
+
+// UNE collecte en direct, donc UN verrou, pour le bouton, `/refresh` et le
+// planificateur. Deux objets distincts, c'étaient deux verrous qui ne se
+// voyaient pas — et deux collectes en même temps.
+const live = creerCollecteLive({ db });
 
 const app = express();
 
@@ -209,7 +217,7 @@ const auth = creerAuth({ motDePasse: MOT_DE_PASSE, securise: publique });
 auth.monter(app, PUBLIC);
 app.use(auth.protection);
 
-const routesApi = creerRoutes({ db, collecter, sources: SOURCES, profil,
+const routesApi = creerRoutes({ db, collecter, sources: SOURCES, profil, live,
   lecteurLocalActif: () => lecteurLocal,
   majLecteurLocal: (actif) => { lecteurLocal = actif; } });
 app.use('/api', routesApi);
@@ -251,7 +259,7 @@ app.use((erreur, req, res, next) => {
 });
 
 const planificateur = demarrerPlanificateur({
-  db, collecter, sources: SOURCES, profil, cv,
+  db, collecter, sources: SOURCES, profil, cv, live,
   actif: process.env.COLLECTE_AUTO === '1',
 });
 
@@ -284,16 +292,23 @@ serveur.on('error', (erreur) => {
     console.error('\n❌ Le serveur n\'a pas pu démarrer :', erreur.message, '\n');
   }
   planificateur?.arreter();
-  db.close();
+  fermerBase(db);
   process.exit(1);
 });
 
 // Fermeture propre : sans cela, le fichier SQLite peut rester verrouillé.
+// `fermerBase` passe `PRAGMA optimize` avant de fermer, et le verrou de
+// collecte est rendu : laissé en base, il bloquerait la tâche Windows pendant
+// trente minutes après un simple redémarrage.
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, () => {
     planificateur?.arreter();
+    live.verrou.rendre();
+    // Les flux SSE ouverts garderaient `serveur.close` en attente pour
+    // toujours : on les coupe.
+    serveur.closeAllConnections?.();
     serveur.close(() => {
-      db.close();
+      fermerBase(db);
       process.exit(0);
     });
   });

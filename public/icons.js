@@ -58,7 +58,59 @@ const TRACES = {
   fleche:     '<path d="M5 12h14M13 6l6 6-6 6"/>',
   croix:      '<path d="M6 6l12 12M18 6 6 18"/>',
   info:       '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.8h.01"/>',
+
+  // 4.0 — ce qui manquait pour chasser les derniers glyphes texte (★ ☆ ✕ ▸ ↗)
+  // et les emoji du mobilier : épingle, chevrons, lecture, minuteur, radar…
+  alerte:     '<path d="M12 3.5 21.5 20h-19L12 3.5Z"/><path d="M12 10v4.5M12 17.3h.01"/>',
+  epingle:    '<path d="M9 3.5h6l-1 5 3.5 3.5v1.5h-11V12L10 8.5l-1-5Z"/><path d="M12 13.5V21"/>',
+  'epingle-pleine': '<path d="M9 3.5h6l-1 5 3.5 3.5v1.5h-11V12L10 8.5l-1-5Z" fill="currentColor"/><path d="M12 13.5V21"/>',
+  chevron:    '<path d="m9.5 6 6 6-6 6"/>',
+  'chevron-bas': '<path d="m6 9.5 6 6 6-6"/>',
+  'chevron-g': '<path d="m14.5 6-6 6 6 6"/>',
+  lecture:    '<path d="M8 5.5v13l10.5-6.5L8 5.5Z"/>',
+  pause:      '<path d="M8.5 5.5v13M15.5 5.5v13"/>',
+  stop:       '<rect x="6.5" y="6.5" width="11" height="11" rx="2"/>',
+  minuteur:   '<circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 1.5M9.5 2.5h5M19 6.5l1.5-1.5"/>',
+  radar:      '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12 18.4 5.6"/><circle cx="15.5" cy="9" r="1" fill="currentColor" stroke="none"/>',
+  focus:      '<path d="M4 8.5V5.5A1.5 1.5 0 0 1 5.5 4h3M15.5 4h3A1.5 1.5 0 0 1 20 5.5v3M20 15.5v3a1.5 1.5 0 0 1-1.5 1.5h-3M8.5 20h-3A1.5 1.5 0 0 1 4 18.5v-3"/><circle cx="12" cy="12" r="3"/>',
+  poubelle:   '<path d="M4.5 6.5h15M9.5 6.5V4.5h5v2M6.5 6.5l1 13h9l1-13"/><path d="M10.5 10.5v6M13.5 10.5v6"/>',
+  externe:    '<path d="M14 4.5h5.5V10M19.5 4.5 11 13"/><path d="M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/>',
+  copier:     '<rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2"/><path d="M15.5 8.5V5.5A1.5 1.5 0 0 0 14 4H5.5A1.5 1.5 0 0 0 4 5.5V14a1.5 1.5 0 0 0 1.5 1.5h3"/>',
+  telecharger:'<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5"/><path d="M4.5 19.5h15"/>',
+  disque:     '<path d="M5 4h11l3 3v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4Z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/>',
+  historique: '<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3.5 4v5h5"/><path d="M12 7.5V12l3 2"/>',
+  plus:       '<path d="M12 5v14M5 12h14"/>',
+  clavier:    '<rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 9.5h.01M9.5 9.5h.01M13 9.5h.01M16.5 9.5h.01M6 13h.01M18 13h.01M8.5 15.5h7"/>',
+  retour:     '<path d="M9.5 7 4.5 12l5 5"/><path d="M4.5 12h10a5 5 0 0 1 5 5v.5"/>',
+  analyse:    '<path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="5.5"/><path d="m10 12 1.5 1.5L14.5 10"/>',
+  lune:       '<path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10Z"/>',
+  ecran:      '<rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M9 20h6M12 16.5V20"/>',
 };
+
+/**
+ * Les ILLUSTRATIONS des états vides.
+ *
+ * Un état vide écrit en gris sur blanc se lit comme une panne : « Aucune offre
+ * ne correspond » ressemblait à une liste qui n'a pas chargé. Un petit dessin
+ * dit que la page est là, vivante, et que c'est le filtre qui est vide. Tracés
+ * au même trait que les icônes, en deux tons (`currentColor` et l'accent), et
+ * décoratifs : `aria-hidden`, le texte porte le sens.
+ */
+const ILLUSTRATIONS = {
+  recherche: '<circle cx="34" cy="34" r="18"/><path d="m47 47 13 13"/><path d="M26 34h16" class="il-a"/>',
+  offres: '<rect x="12" y="16" width="48" height="40" rx="5"/><path d="M20 28h22M20 36h32M20 44h16"/><circle cx="54" cy="18" r="7" class="il-a"/><path d="m51 18 2 2 4-4" class="il-a"/>',
+  agenda: '<rect x="12" y="16" width="48" height="42" rx="5"/><path d="M12 28h48M24 10v10M48 10v10"/><path d="m28 42 6 6 11-12" class="il-a"/>',
+  notifs: '<path d="M50 32a14 14 0 1 0-28 0c0 12-6 15-6 15h40s-6-3-6-15Z"/><path d="M32 54a4.5 4.5 0 0 0 8 0"/><path d="M56 14l4-4M58 24h5" class="il-a"/>',
+  calme: '<circle cx="36" cy="36" r="24"/><path d="M26 41s3.5 5 10 5 10-5 10-5M27 30h.01M45 30h.01"/><path d="M14 14l5 5M58 14l-5 5" class="il-a"/>',
+};
+
+/** Le balisage d'une illustration d'état vide, sur un carré de 72 unités. */
+export function illustration(nom, taille = 72) {
+  const trace = ILLUSTRATIONS[nom] ?? ILLUSTRATIONS.calme;
+  return `<svg class="illu" width="${taille}" height="${taille}" viewBox="0 0 72 72" fill="none"
+    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+    aria-hidden="true">${trace}</svg>`;
+}
 
 /**
  * Renvoie le balisage SVG d'une icône.

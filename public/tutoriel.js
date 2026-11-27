@@ -14,8 +14,11 @@
 //   refusée pour de bon : voir `terminer()` ;
 // · interruptible à tout instant, par Échap, par le bouton, par un clic
 //   dehors. Une visite qu'on ne peut pas quitter est une prise en otage ;
-// · muette si les animations sont coupées ou si le système demande moins de
-//   mouvement.
+// · SANS MOUVEMENT si les animations sont coupées — mais jouée quand même.
+//   Elle était SAUTÉE dans ce cas, et c'était une erreur de lecture de la
+//   règle : la visite n'est pas une animation, c'est une explication. Couper
+//   les mouvements privait de la seule page qui dit comment installer son
+//   CV. Le projecteur se pose alors sans glisser, c'est tout.
 
 const CLE_VUE = 'bp_tutoriel_vu';
 
@@ -105,10 +108,7 @@ export function dejaVue() {
  * @returns {Promise<void>} résolue à la fin ou à l'abandon
  */
 export function lancerTutoriel({ allerA, forcer = false } = {}) {
-  const racine = document.documentElement;
-  const sobre = racine.dataset.anim === 'off'
-    || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  if (!forcer && (dejaVue() || sobre)) return Promise.resolve();
+  if (!forcer && dejaVue()) return Promise.resolve();
 
   const voile = document.createElement('div');
   voile.className = 'tuto';
@@ -150,14 +150,30 @@ export function lancerTutoriel({ allerA, forcer = false } = {}) {
       fini = true;
       try { localStorage.setItem(CLE_VUE, '1'); } catch { /* navigation privée */ }
       document.removeEventListener('keydown', auClavier, true);
+      // L'ÉCOUTEUR DE REDIMENSIONNEMENT PART AVEC LA VISITE. Il restait posé
+      // à vie : chaque visite rejouée en ajoutait un, et chacun continuait de
+      // chercher la cible d'une étape disparue à chaque changement de taille.
+      window.removeEventListener('resize', auRedimensionnement);
       voile.remove();
       resoudre();
     };
 
+    /**
+     * Pendant la visite, le clavier est À ELLE. Sans `stopPropagation`, la
+     * flèche droite avançait la visite ET « r » lançait une collecte, « t »
+     * repeignait l'écran derrière le projecteur — le gestionnaire de
+     * raccourcis ne savait pas qu'une visite était en cours.
+     */
     function auClavier(e) {
+      if (e.key === 'Tab') return;      // la tabulation reste dans la bulle
+      e.stopPropagation();
       if (e.key === 'Escape') { e.preventDefault(); terminer(); }
       else if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); aller(1); }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); aller(-1); }
+    }
+
+    function auRedimensionnement() {
+      if (!fini) placer(document.querySelector(ETAPES[index]?.cible));
     }
 
     /** Avance ou recule, en sautant les étapes dont la cible n'existe pas. */
@@ -237,7 +253,7 @@ export function lancerTutoriel({ allerA, forcer = false } = {}) {
     // reprendre la main.
     voile.addEventListener('click', (e) => { if (e.target === voile) terminer(); });
     document.addEventListener('keydown', auClavier, true);
-    window.addEventListener('resize', () => placer(document.querySelector(ETAPES[index].cible)));
+    window.addEventListener('resize', auRedimensionnement);
 
     // Première étape : on saute d'emblée celles dont la cible manque.
     index = -1;

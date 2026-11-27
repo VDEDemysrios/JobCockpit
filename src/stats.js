@@ -45,6 +45,9 @@ export function debutDeSemaine(aujourdhui) {
   return d.toISOString().slice(0, 10);
 }
 
+/** Midi local d'une date ISO : à l'abri du fuseau et des changements d'heure. */
+const jourLocalMidi = (iso) => new Date(`${String(iso).slice(0, 10)}T12:00:00`);
+
 const compter = (rows, cle = 'jour', valeur = 'n') =>
   Object.fromEntries(rows.map(r => [r[cle], r[valeur]]));
 
@@ -118,13 +121,21 @@ export function calculerStats(db, options = {}) {
   }
 
   // Semaines : 16 dernières, pour la courbe de rythme.
+  //
+  // SEIZE REQUÊTES POUR UN CHIFFRE DÉJÀ EN MÉMOIRE. Chaque semaine relançait
+  // un COUNT sur `tracking`, alors que `envoisParJour`, lu une ligne plus
+  // haut, porte exactement la même information jour par jour. On somme donc
+  // ce qu'on a — même comparaison de chaînes que l'ancien SQL, donc mêmes
+  // chiffres, sans un aller-retour de plus vers la base.
   const semaines = [];
   for (let i = 15; i >= 0; i--) {
     const debut = decaler(lundi, -7 * i);
     const fin = decaler(debut, 6);
     semaines.push({
       lundi: debut,
-      envois: nb(`SELECT COUNT(*) n FROM tracking WHERE sent_date >= ? AND sent_date <= ?`, [debut, fin]),
+      envois: Object.entries(envoisParJour)
+        .filter(([j]) => j >= debut && j <= fin)
+        .reduce((t, [, n]) => t + Number(n), 0),
       actions: joursHeatmap
         .filter(x => x.jour >= debut && x.jour <= fin)
         .reduce((t, x) => t + x.actions, 0),
@@ -179,7 +190,12 @@ export function calculerStats(db, options = {}) {
   const enAttente = tous(`
     SELECT sent_date FROM tracking
     WHERE sent_date <> '' AND sent_date IS NOT NULL AND status IN ('Envoyé', 'Relancé')`)
-    .map(r => Math.floor((new Date(aujourdhui) - new Date(r.sent_date)) / JOUR_MS))
+    // MIDI LOCAL DES DEUX CÔTÉS. `new Date('2026-08-03')` est lu en UTC,
+    // minuit à Greenwich — donc la veille au soir pour qui vit à l'ouest, et
+    // une heure de travers au passage à l'heure d'été. Le projet calcule ses
+    // dates en heure locale partout ailleurs ; midi met en plus le calcul à
+    // l'abri des 23 h ou 25 h d'un jour de changement d'heure.
+    .map(r => Math.floor((jourLocalMidi(aujourdhui) - jourLocalMidi(r.sent_date)) / JOUR_MS + 0.5))
     .filter(j => Number.isFinite(j) && j >= 0);
 
   const delaiMoyen = enAttente.length
@@ -202,7 +218,8 @@ export function calculerStats(db, options = {}) {
   // montre sur quels axes les offres collectées collent au profil — et donc
   // ce que le marché propose vraiment, pas ce qu'on aimerait qu'il propose.
   const radar = calculerRadar(tous(`
-    SELECT score_detail FROM offers WHERE score_detail IS NOT NULL AND groupe IN (0, 1, 2)`));
+    SELECT score_detail FROM offers WHERE score_detail IS NOT NULL AND groupe IN (0, 1, 2)`),
+  famillesRadar(options.profil));
 
   // ───────────────────────────── Records ────────────────────────────────
 
@@ -283,20 +300,39 @@ const FAMILLES_RADAR = [
   { axe: 'Territoire', motifs: ['concertation|acceptabilite|parties prenantes', 'collectivite|commune|intercommunal', 'qgis|\\bsig\\b|cartographie'] },
 ];
 
-function calculerRadar(lignes) {
-  const totaux = new Map(FAMILLES_RADAR.map(f => [f.axe, 0]));
+/**
+ * Les familles du radar : celles du PROFIL s'il en déclare, sinon les nôtres.
+ *
+ * Les familles codées en dur décrivent UN profil — juriste en énergies
+ * renouvelables. Quiconque change de métier dans l'assistant voyait un radar
+ * d'agrivoltaïsme et de droit public à zéro partout, quelles que soient ses
+ * offres. `profil.scoring.familles` (`[{ axe, motifs: [...] }]`, motifs écrits
+ * comme dans `scoring.positifs`) prend la main dès qu'il est présent et bien
+ * formé ; sinon, rien ne change.
+ */
+export function famillesRadar(profil) {
+  const declarees = profil?.scoring?.familles;
+  if (!Array.isArray(declarees)) return FAMILLES_RADAR;
+  const propres = declarees
+    .filter(f => f && typeof f.axe === 'string' && f.axe.trim() && Array.isArray(f.motifs))
+    .map(f => ({ axe: f.axe.trim(), motifs: f.motifs.filter(m => typeof m === 'string') }));
+  return propres.length ? propres : FAMILLES_RADAR;
+}
+
+function calculerRadar(lignes, familles = FAMILLES_RADAR) {
+  const totaux = new Map(familles.map(f => [f.axe, 0]));
 
   for (const ligne of lignes) {
     let detail;
     try { detail = JSON.parse(ligne.score_detail); } catch { continue; }
     for (const positif of detail?.positifs ?? []) {
-      const famille = FAMILLES_RADAR.find(f => f.motifs.includes(positif.motif));
+      const famille = familles.find(f => f.motifs.includes(positif.motif));
       if (famille) totaux.set(famille.axe, totaux.get(famille.axe) + 1);
     }
   }
 
   const max = Math.max(1, ...totaux.values());
-  return FAMILLES_RADAR.map(f => ({
+  return familles.map(f => ({
     axe: f.axe,
     n: totaux.get(f.axe),
     valeur: Math.round(totaux.get(f.axe) / max * 100),

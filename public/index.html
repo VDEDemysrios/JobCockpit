@@ -1,16 +1,33 @@
 <!DOCTYPE html>
-<!-- Le thème est posé ici AVANT le premier rendu. app.js le remplace ensuite
-     par le choix mémorisé ; l'écrire dans le balisage évite le clignotement
-     d'un écran clair au chargement quand on a choisi un thème sombre. -->
+<!-- Les valeurs écrites ici ne sont qu'un FILET. Le thème choisi était posé
+     par app.js, un module — donc après la première peinture : un éclair clair
+     à chaque ouverture pour qui avait choisi « Nuit ». C'est maintenant
+     theme-boot.js, script classique chargé juste en dessous, qui les remplace
+     AVANT le premier rendu. -->
 <html lang="fr" data-theme="vivid" data-densite="normale" data-anim="on">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
 <!-- Le nom vient du profil, pas du balisage : app.js complète ce titre dès que
      /meta a répondu. Écrit en dur, il partait dans le dépôt public avec le
      nom de la seule personne qui s'en servait. -->
 <title>Job Cockpit</title>
+<!-- Bloquant EXPRÈS, et avant les feuilles de style : c'est lui qui pose le
+     thème, la densité et l'interrupteur des animations sur <html>. -->
+<script src="theme-boot.js"></script>
+<!-- La police est demandée dès l'analyse de l'en-tête plutôt qu'à la
+     découverte de la règle @font-face : le texte change de police une fois,
+     tout de suite, au lieu de sauter une seconde plus tard. -->
+<link rel="preload" href="fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="style.css">
+<!-- Les couches 4.0, APRÈS le socle : elles le complètent et le surchargent
+     sans qu'on ait à rouvrir deux cents kilo-octets de feuille historique.
+     ui.css porte le mobilier commun (toasts, dialogues, palette, squelettes,
+     transitions) ; tableau.css porte le Kanban, les graphiques et le tableau
+     de bord. -->
+<link rel="stylesheet" href="ui.css">
+<link rel="stylesheet" href="tableau.css">
 </head>
 <body>
 <!-- La nappe d'ambiance, derrière tout le reste. Purement décorative, donc
@@ -47,13 +64,16 @@
       <button data-t="dark">Nuit</button>
       <button data-t="cockpit">Cockpit</button>
     </div>
-    <div class="sb-foot">Collecte automatique · données locales.<br>Raccourcis : <span class="kbd">?</span> · Palette : <span class="kbd">Ctrl</span><span class="kbd">K</span></div>
+    <div class="sb-foot">Collecte automatique · données locales.<br>Raccourcis : <span class="kbd">?</span> · Palette : <span class="kbd">Ctrl</span><span class="kbd">K</span> · Focus : <span class="kbd">F</span></div>
     <div class="sb-signature">Conçu par Benjamin&nbsp;Perrin</div>
   </aside>
 
   <div class="main">
     <div class="mobile-nav">
-      <button id="burger" data-ic="colonnes"></button>
+      <!-- Un bouton sans texte ni étiquette s'annonçait « bouton », rien de
+           plus : on ne savait pas qu'il ouvrait la navigation. -->
+      <button id="burger" type="button" aria-label="Ouvrir la navigation" aria-controls="sidebar"
+        aria-expanded="false"><span data-ic="liste" data-ic-taille="18"></span></button>
       <strong>Job Cockpit</strong>
       <span class="mob-serie" id="mobSerie"></span>
     </div>
@@ -65,9 +85,25 @@
         <div class="ch-s" id="salutSous">Chargement…</div>
       </div>
       <div class="cmd-pills" id="cmdPills"></div>
+      <!-- La collecte réduite : son avancement, d'un coup d'œil, sans
+           confisquer l'écran. Un clic rouvre le radar. -->
+      <button type="button" class="cl-pastille" id="collectePastille" hidden
+        title="Suivre la collecte en direct">
+        <svg class="clp-anneau" viewBox="0 0 20 20" aria-hidden="true">
+          <circle cx="10" cy="10" r="8" class="clp-fond"/><circle cx="10" cy="10" r="8" class="clp-arc"/></svg>
+        <span class="clp-texte">Collecte</span>
+      </button>
       <div class="cmd-actions">
         <button class="btn btn-ghost" id="paletteBtn" title="Palette de commandes (Ctrl+K)">
-          <span data-ic="loupe" data-ic-taille="15"></span> Rechercher</button>
+          <span data-ic="loupe" data-ic-taille="15"></span> Rechercher <span class="kbd kbd-discret">Ctrl K</span></button>
+        <button class="btn btn-icone" id="focusBtn" type="button" title="Mode focus (F)" aria-label="Mode focus">
+          <span data-ic="focus" data-ic-taille="16"></span></button>
+        <div class="nc-ancre">
+          <button class="btn btn-icone" id="notifBtn" type="button" aria-label="Rappels"
+            aria-haspopup="true" aria-expanded="false" aria-controls="notifCentre">
+            <span data-ic="cloche" data-ic-taille="16"></span><span class="nc-nb" id="notifNb" hidden></span></button>
+          <div class="nc-centre" id="notifCentre" hidden role="region" aria-label="Rappels"></div>
+        </div>
         <button class="btn btn-ghost" id="lecteurBtn" title="Lecteur flottant (M)">
           <span data-ic="etoile" data-ic-taille="15"></span> Lecteur</button>
         <button class="btn" id="quickAdd"><span data-ic="plume" data-ic-taille="15"></span> Ajouter</button>
@@ -82,6 +118,10 @@
         <div class="vh-sub" id="dashSub"></div></div>
         <div class="vh-side" id="focusRythme"></div></div>
 
+      <!-- Le « héros » du tableau de bord : l'objectif de la semaine, la
+           série, le prochain entretien — rempli par dashboard.js. -->
+      <div id="dashHero"></div>
+
       <!-- LES 3 DU JOUR — avant tout le reste, et c'est le propos.
            La file d'attente dit ce qu'il RESTERAIT à faire ; ce bloc-ci dit
            par quoi commencer. Trois lignes qu'on peut finir valent mieux que
@@ -89,7 +129,12 @@
       <div class="panel-box panel-dujour">
         <h3><span data-ic="cible" data-ic-taille="14"></span> Les 3 du jour
           <span class="h3-side" id="duJourSub"></span></h3>
-        <div id="duJour"></div>
+        <!-- Les SQUELETTES du premier chargement. Écrits dans le balisage, pas
+             par le script : ils s'affichent avant même que les modules soient
+             analysés, et le premier rendu les remplace. Un panneau vide
+             pendant une seconde se lit comme une panne ; une forme qui
+             respire se lit comme « ça arrive ». -->
+        <div id="duJour"><div class="skel skel-ligne"></div><div class="skel skel-ligne"></div><div class="skel skel-ligne"></div></div>
       </div>
 
       <div class="veille-banner" id="veilleBanner">
@@ -103,10 +148,10 @@
       <div class="panel-box">
         <h3><span data-ic="eclair" data-ic-taille="14"></span> À faire maintenant
           <span class="h3-side" id="focusSub"></span></h3>
-        <div id="focusList"></div>
+        <div id="focusList"><div class="skel skel-court"></div><div class="skel skel-court"></div></div>
       </div>
 
-      <div class="stats" id="stats"></div>
+      <div class="stats" id="stats"><div class="skel skel-tuile"></div><div class="skel skel-tuile"></div><div class="skel skel-tuile"></div><div class="skel skel-tuile"></div></div>
 
       <div class="grille-2">
         <div class="panel-box">
@@ -140,7 +185,7 @@
           <span data-ic="graphique" data-ic-taille="15"></span>
           <span class="pl-t">Analyse détaillée</span>
           <span class="pl-s">assiduité, villes, sources, thèmes, contrats, journal</span>
-          <span class="pl-fl">▾</span>
+          <span class="pl-fl" data-ic="chevron" data-ic-taille="14"></span>
         </summary>
 
         <div class="panel-box">
@@ -245,10 +290,12 @@
           <button data-g="0" title="À vérifier"><i class="pt pt0"></i> <b id="c-0">0</b></button>
           <button data-g="3" title="À écarter"><i class="pt pt3"></i> <b id="c-3">0</b></button>
         </span>
-        <span class="chips" id="chips">
-          <span class="chip" data-f="pin"><span data-ic="etoile" data-ic-taille="13"></span> Épinglées</span>
-          <span class="chip" data-f="lettre"><span data-ic="plume" data-ic-taille="13"></span> Avec lettre</span>
-          <span class="chip" data-f="frais"><span data-ic="eclair" data-ic-taille="13"></span> Fraîches</span>
+        <!-- De vrais boutons à bascule : les `<span>` cliquables d'avant
+             n'étaient ni atteignables au clavier ni annoncés comme actifs. -->
+        <span class="chips" id="chips" role="group" aria-label="Filtres">
+          <button type="button" class="chip" data-f="pin" aria-pressed="false"><span data-ic="epingle" data-ic-taille="13"></span> Épinglées</button>
+          <button type="button" class="chip" data-f="lettre" aria-pressed="false"><span data-ic="plume" data-ic-taille="13"></span> Avec lettre</button>
+          <button type="button" class="chip" data-f="frais" aria-pressed="false"><span data-ic="eclair" data-ic-taille="13"></span> Fraîches</button>
         </span>
       </div>
 
@@ -264,7 +311,7 @@
           <div class="frow"><div><label>Contrat</label><input id="f-contrat" placeholder="CDI"></div><div><label>Groupe</label><select id="f-groupe"><option value="1">Prioritaire</option><option value="2">Possible</option><option value="3">À écarter</option><option value="0">À vérifier</option></select></div></div>
           <div style="margin-bottom:var(--e3)"><label>Lien</label><input id="f-lien" placeholder="https://…"></div>
           <div style="margin-bottom:var(--e4)"><label>Note / verdict</label><textarea id="f-verdict" rows="3"></textarea></div>
-          <button class="btn btn-primary" id="saveOffer">Enregistrer <span class="gain">+5 pt</span></button>
+          <button class="btn btn-primary" id="saveOffer">Enregistrer</button>
           <button class="btn" id="cancelOffer">Annuler</button>
         </div>
 
@@ -272,14 +319,14 @@
           <label>Colle le texte complet d'une annonce trouvée n'importe où (LinkedIn, APEC, site carrière…). Elle sera analysée et classée comme les offres collectées automatiquement.</label>
           <textarea class="paste-area" id="pasteArea" placeholder="Colle l'annonce ici…"></textarea>
           <div style="margin-top:var(--e3)">
-            <button class="btn btn-primary" id="savePaste">Analyser et ajouter <span class="gain">+5 pt</span></button>
+            <button class="btn btn-primary" id="savePaste">Analyser et ajouter</button>
             <button class="btn" id="cancelPaste">Annuler</button>
           </div>
         </div>
       </div>
 
-      <div class="count" id="count"></div>
-      <div class="grid" id="grid"></div>
+      <div class="count" id="count" aria-live="polite"></div>
+      <div class="grid" id="grid"><div class="skel skel-carte"></div><div class="skel skel-carte"></div><div class="skel skel-carte"></div><div class="skel skel-carte"></div></div>
       <button class="btn plus-offres" id="plusOffres" style="display:none"></button>
       <div class="empty" id="empty" style="display:none;">Aucune offre ne correspond à ce filtre.</div>
     </div>
@@ -319,7 +366,10 @@
     <div class="view" id="view-chill" style="display:none">
       <div class="view-head"><div><h2><span data-ic="etoile" data-ic-taille="17"></span> Chill</h2>
         <div class="vh-sub">Parler d'autre chose, avec du son.</div></div></div>
-      <div id="chillZone"></div>
+      <!-- `data-depot-propre` : cette zone reçoit ses propres fichiers (pièces
+           jointes du chat). Le dépôt de CV ne doit pas s'y déclencher —
+           un .docx joint à la conversation remplaçait le CV. -->
+      <div id="chillZone" data-depot-propre></div>
     </div>
 
     <div class="view" id="view-entretiens" style="display:none">
@@ -362,8 +412,8 @@
           <select id="optDensite" aria-label="Densité d'affichage"><option value="compacte">Compacte</option><option value="normale">Normale</option><option value="large">Large</option></select>
         </div>
         <div class="opt-row">
-          <div><div class="t">Thème</div><div class="d">Raccourci clavier : <span class="kbd">T</span></div></div>
-          <select id="optTheme" aria-label="Thème de l'interface"><option value="vivid">Clair</option><option value="enr">EnR</option><option value="dark">Nuit</option><option value="cockpit">Cockpit</option></select>
+          <div><div class="t">Thème</div><div class="d">« Système » suit le réglage clair / sombre de l'ordinateur, et bascule avec lui le soir venu. Raccourci clavier : <span class="kbd">T</span></div></div>
+          <select id="optTheme" aria-label="Thème de l'interface"><option value="systeme">Système</option><option value="vivid">Clair</option><option value="enr">EnR</option><option value="dark">Nuit</option><option value="cockpit">Cockpit</option></select>
         </div>
         <div class="opt-row">
           <div><div class="t">Animations</div><div class="d">Coupe tous les mouvements de l'interface si tu les trouves distrayants — l'ouverture comprise.</div></div>
@@ -378,7 +428,7 @@
           <label class="switch"><input type="checkbox" id="optSons" checked><span class="track"></span></label>
         </div>
         <div class="opt-row">
-          <div><div class="t">Visite guidée</div><div class="d">Six étapes qui montrent l'application en désignant les vrais éléments. Elle se lance seule à la première ouverture.</div></div>
+          <div><div class="t">Visite guidée</div><div class="d">Huit étapes qui montrent l'application en désignant les vrais éléments. Elle se lance seule à la première ouverture.</div></div>
           <button class="btn" id="optTutoriel">Refaire la visite</button>
         </div>
       </div>
@@ -411,6 +461,27 @@
         <div class="opt-row">
           <div><div class="t">Masquer les offres à écarter</div><div class="d">Cache d'office le groupe rouge dans la liste des offres.</div></div>
           <label class="switch"><input type="checkbox" id="optMasquer"><span class="track"></span></label>
+        </div>
+        <div class="opt-row">
+          <div><div class="t">Notifications du bureau</div><div class="d">Un rappel du système pour une relance due ou un entretien du lendemain — une fois par échéance et par jour. <span id="optNotifEtat"></span></div></div>
+          <button class="btn" id="optNotif" type="button"><span data-ic="cloche" data-ic-taille="15"></span> Autoriser</button>
+        </div>
+      </div>
+
+      <!-- L'agenda et les sauvegardes : deux façons de faire sortir ses
+           données de l'application — vers son agenda, vers un fichier. -->
+      <div class="panel-box">
+        <h3><span data-ic="calendrier" data-ic-taille="14"></span> Agenda et sauvegardes</h3>
+        <div class="opt-row">
+          <div><div class="t">Exporter l'agenda (.ics)</div><div class="d">Tes relances planifiées et tes entretiens, à importer dans Outlook, Google Agenda ou Calendrier — avec un rappel la veille de chaque entretien.</div></div>
+          <a class="btn" id="optIcs" href="/api/agenda.ics" download="job-cockpit.ics"><span data-ic="telecharger" data-ic-taille="15"></span> Télécharger</a>
+        </div>
+        <div class="opt-row opt-col">
+          <div class="opt-ligne">
+            <div><div class="t">Sauvegardes de la base</div><div class="d" id="optSauvDossier">Une copie de <code>data.db</code> est faite à la fin de chaque collecte.</div></div>
+            <button class="btn" id="optSauver" type="button"><span data-ic="disque" data-ic-taille="15"></span> Sauvegarder maintenant</button>
+          </div>
+          <ul class="sauv-liste" id="optSauvListe"></ul>
         </div>
       </div>
 
@@ -460,30 +531,61 @@
 
 <div class="overlay" id="palette">
   <div class="palette-box">
-    <input id="paletteInput" placeholder="Aller à une offre, une vue, une action…" autocomplete="off">
-    <div class="palette-res" id="paletteRes"></div>
-    <div class="palette-pied"><span class="kbd">↑</span><span class="kbd">↓</span> naviguer · <span class="kbd">Entrée</span> ouvrir · <span class="kbd">Échap</span> fermer</div>
+    <div class="palette-saisie">
+      <span data-ic="loupe" data-ic-taille="17"></span>
+      <input id="paletteInput" placeholder="Aller à une offre, une vue, une action…" autocomplete="off"
+        spellcheck="false" role="combobox" aria-expanded="true" aria-controls="paletteRes"
+        aria-autocomplete="list" aria-label="Rechercher une offre, une vue, une action">
+    </div>
+    <div class="palette-corps">
+      <div class="palette-res" id="paletteRes" role="listbox" aria-label="Résultats"></div>
+      <aside class="palette-apercu" id="paletteApercu" aria-live="polite"></aside>
+    </div>
+    <div class="palette-pied"><span class="kbd">↑</span><span class="kbd">↓</span> naviguer · <span class="kbd">Entrée</span> ouvrir · <span class="kbd">→</span> actions de l'offre · <span class="kbd">&gt;</span> commandes seules · <span class="kbd">Échap</span> fermer</div>
   </div>
 </div>
 
+<!-- L'AIDE NE MENT PLUS. Elle annonçait « G F » (focus du jour) et « G S »
+     (statistiques), deux raccourcis qui n'existaient pas — et taisait les
+     entretiens et le Chill, qui n'en avaient pas. Chaque ligne ci-dessous
+     correspond à une touche réellement branchée dans clavier.js. -->
 <div class="overlay" id="aideClavier">
-  <div class="overlay-box">
+  <div class="overlay-box aide-box">
     <h3>Raccourcis clavier</h3>
-    <div class="kbd-row"><span>Palette de commandes</span><span><span class="kbd">Ctrl</span> <span class="kbd">K</span></span></div>
-    <div class="kbd-row"><span>Focus du jour</span><span><span class="kbd">G</span> <span class="kbd">F</span></span></div>
-    <div class="kbd-row"><span>Tableau de bord</span><span><span class="kbd">G</span> <span class="kbd">D</span></span></div>
-    <div class="kbd-row"><span>Statistiques</span><span><span class="kbd">G</span> <span class="kbd">S</span></span></div>
-    <div class="kbd-row"><span>Mon CV</span><span><span class="kbd">G</span> <span class="kbd">V</span></span></div>
-    <div class="kbd-row"><span>Offres</span><span><span class="kbd">G</span> <span class="kbd">O</span></span></div>
-    <div class="kbd-row"><span>Kanban</span><span><span class="kbd">G</span> <span class="kbd">K</span></span></div>
-    <div class="kbd-row"><span>Agenda</span><span><span class="kbd">G</span> <span class="kbd">A</span></span></div>
-    <div class="kbd-row"><span>Options</span><span><span class="kbd">G</span> <span class="kbd">R</span></span></div>
-    <div class="kbd-row"><span>Rechercher</span><span><span class="kbd">/</span></span></div>
-    <div class="kbd-row"><span>Lancer une collecte</span><span><span class="kbd">R</span></span></div>
-    <div class="kbd-row"><span>Ajouter une offre</span><span><span class="kbd">N</span></span></div>
-    <div class="kbd-row"><span>Changer de thème</span><span><span class="kbd">T</span></span></div>
-    <div class="kbd-row"><span>Lecteur flottant</span><span><span class="kbd">M</span></span></div>
-    <div class="kbd-row"><span>Fermer / annuler</span><span><span class="kbd">Échap</span></span></div>
+    <div class="aide-colonnes">
+      <div>
+        <div class="aide-titre">Aller à</div>
+        <div class="kbd-row"><span>Tableau de bord</span><span><span class="kbd">G</span> <span class="kbd">D</span></span></div>
+        <div class="kbd-row"><span>Offres</span><span><span class="kbd">G</span> <span class="kbd">O</span></span></div>
+        <div class="kbd-row"><span>Kanban</span><span><span class="kbd">G</span> <span class="kbd">K</span></span></div>
+        <div class="kbd-row"><span>Agenda</span><span><span class="kbd">G</span> <span class="kbd">A</span></span></div>
+        <div class="kbd-row"><span>Entretiens</span><span><span class="kbd">G</span> <span class="kbd">E</span></span></div>
+        <div class="kbd-row"><span>Chill</span><span><span class="kbd">G</span> <span class="kbd">C</span></span></div>
+        <div class="kbd-row"><span>Mon CV</span><span><span class="kbd">G</span> <span class="kbd">V</span></span></div>
+        <div class="kbd-row"><span>Options</span><span><span class="kbd">G</span> <span class="kbd">R</span></span></div>
+        <div class="kbd-row"><span>Vue précédente / suivante</span><span><span class="kbd">Alt</span> <span class="kbd">←</span> <span class="kbd">→</span></span></div>
+        <div class="aide-titre">Partout</div>
+        <div class="kbd-row"><span>Palette de commandes</span><span><span class="kbd">Ctrl</span> <span class="kbd">K</span></span></div>
+        <div class="kbd-row"><span>Rechercher une offre</span><span><span class="kbd">/</span></span></div>
+        <div class="kbd-row"><span>Lancer une collecte</span><span><span class="kbd">R</span></span></div>
+        <div class="kbd-row"><span>Ajouter une offre</span><span><span class="kbd">N</span></span></div>
+      </div>
+      <div>
+        <div class="aide-titre">Dans la liste des offres</div>
+        <div class="kbd-row"><span>Offre suivante / précédente</span><span><span class="kbd">J</span> <span class="kbd">K</span></span></div>
+        <div class="kbd-row"><span>Déplier / replier</span><span><span class="kbd">Entrée</span></span></div>
+        <div class="kbd-row"><span>Épingler</span><span><span class="kbd">P</span></span></div>
+        <div class="kbd-row"><span>Marquer envoyée</span><span><span class="kbd">E</span></span></div>
+        <div class="kbd-row"><span>Rédiger la lettre</span><span><span class="kbd">L</span></span></div>
+        <div class="kbd-row"><span>Écarter</span><span><span class="kbd">X</span></span></div>
+        <div class="aide-titre">Confort</div>
+        <div class="kbd-row"><span>Mode focus</span><span><span class="kbd">F</span></span></div>
+        <div class="kbd-row"><span>Changer de thème</span><span><span class="kbd">T</span></span></div>
+        <div class="kbd-row"><span>Lecteur flottant</span><span><span class="kbd">M</span></span></div>
+        <div class="kbd-row"><span>Cette aide</span><span><span class="kbd">?</span></span></div>
+        <div class="kbd-row"><span>Fermer / annuler</span><span><span class="kbd">Échap</span></span></div>
+      </div>
+    </div>
     <div style="margin-top:var(--e5);text-align:right">
       <button class="btn btn-primary" id="fermerAide">Compris</button>
     </div>

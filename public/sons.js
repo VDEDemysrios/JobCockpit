@@ -20,8 +20,12 @@ const CLE = 'bp_sons';
 let ctx = null;
 let maitre = null;
 
-export const sonsActifs = () => localStorage.getItem(CLE) !== '0';
-export function reglerSons(actif) { localStorage.setItem(CLE, actif ? '1' : '0'); }
+export const sonsActifs = () => {
+  try { return localStorage.getItem(CLE) !== '0'; } catch { return false; }
+};
+export function reglerSons(actif) {
+  try { localStorage.setItem(CLE, actif ? '1' : '0'); } catch { /* navigation privée */ }
+}
 
 /** L'AudioContext partagé, créé et réveillé à la demande. Null si indisponible. */
 function contexte() {
@@ -71,6 +75,30 @@ export function sonClic() { note(760, { duree: 0.05, gain: 0.045, type: 'triangl
 export function sonNav() {
   note(523.25, { duree: 0.11, gain: 0.06 });
   note(783.99, { duree: 0.15, gain: 0.05, retard: 0.055 });
+}
+
+/**
+ * Une réussite qui compte — candidature envoyée, collecte qui ramène du neuf.
+ * Une quinte qui monte, plus claire que la navigation : on doit pouvoir les
+ * distinguer les yeux fermés.
+ */
+export function sonSucces() {
+  note(659.25, { duree: 0.16, gain: 0.06 });
+  note(987.77, { duree: 0.28, gain: 0.05, retard: 0.07 });
+}
+
+/**
+ * La fin d'une séance de concentration : trois coups de cloche descendants,
+ * assez présents pour être entendus depuis une autre fenêtre, jamais criards.
+ */
+export function sonFin() {
+  [880, 659.25, 523.25].forEach((f, i) =>
+    note(f, { duree: 0.9, gain: 0.09, type: 'sine', retard: i * 0.32 }));
+}
+
+/** Un rappel qui arrive : une seule note feutrée, qui glisse vers le bas. */
+export function sonNotif() {
+  note(1046.5, { duree: 0.22, gain: 0.05, glissVers: 784 });
 }
 
 /**

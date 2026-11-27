@@ -3,13 +3,15 @@ import assert from 'node:assert/strict';
 import { ouvrirBase } from '../src/db.js';
 import {
   noterAppel, fermerAnalyse, appelsDuJour, peutAnalyser, peutRediger,
-  etatQuota, reglages, ANALYSE, LETTRE,
+  etatQuota, reglages, peutDiscuter, ANALYSE, LETTRE, ENTRETIEN, CHAT,
 } from '../src/quota.js';
 
-const PROFIL = { gemini: { quotaJournalier: 100, reserveLettres: 20 } };
+// reserveChat à 0 : ces tests-ci portent sur la réserve des LETTRES seule.
+// La réserve du chat a les siens, plus bas.
+const PROFIL = { gemini: { quotaJournalier: 100, reserveLettres: 20, reserveChat: 0 } };
 
 test('les réglages sont bornés pour rester cohérents', () => {
-  assert.deepEqual(reglages({}), { quotaJournalier: 200, reserveLettres: 40 },
+  assert.deepEqual(reglages({}), { quotaJournalier: 200, reserveLettres: 40, reserveChat: 20 },
     'valeurs par défaut');
 
   // Une réserve plus grande que le quota interdirait toute analyse.
@@ -99,4 +101,55 @@ test('le compteur repart à zéro le lendemain', () => {
 
   assert.equal(appelsDuJour(db).total, 0, 'aujourd\'hui est vierge');
   assert.equal(peutAnalyser(db, PROFIL).ok, true, 'et l\'analyse rouvre');
+});
+
+// ─────────────────── Chantier 4.0 : tout ce qui part chez Google ───────────────────
+
+// Régression : le total ne comptait que l'analyse et les lettres. Quinze
+// questions d'entretien et cinquante messages de chat passaient sous le radar,
+// et la lettre du soir tombait sur un 429 alors que la réserve la disait sûre.
+test('le total compte aussi l\'entretien et le chat', () => {
+  const db = ouvrirBase(':memory:');
+  noterAppel(db, ANALYSE);
+  noterAppel(db, LETTRE);
+  for (let i = 0; i < 3; i++) noterAppel(db, ENTRETIEN);
+  for (let i = 0; i < 5; i++) noterAppel(db, CHAT);
+
+  const a = appelsDuJour(db);
+  assert.equal(a.entretien, 3);
+  assert.equal(a.chat, 5);
+  assert.equal(a.total, 10, 'analyse + lettre + entretien + chat');
+
+  const e = etatQuota(db, PROFIL);
+  assert.equal(e.entretiens, 3);
+  assert.equal(e.chat, 5);
+  assert.equal(e.total, 10);
+  assert.equal(e.restantLettres, 90);
+});
+
+test('un chat bavard réduit bien ce qui reste aux lettres', () => {
+  const db = ouvrirBase(':memory:');
+  for (let i = 0; i < 100; i++) noterAppel(db, CHAT);
+  assert.equal(peutRediger(db, PROFIL).ok, false,
+    'cent messages de chat ont vidé le quota : la lettre doit le savoir');
+});
+
+test('la réserve du chat est bornée et retenue sur l\'analyse', () => {
+  assert.equal(reglages({ gemini: { quotaJournalier: 100, reserveLettres: 40, reserveChat: 50 } }).reserveChat, 10,
+    'les deux réserves réunies ne dépassent pas la moitié du quota');
+  assert.equal(reglages({ gemini: { reserveChat: -3 } }).reserveChat, 0, 'jamais négative');
+
+  const db = ouvrirBase(':memory:');
+  const profil = { gemini: { quotaJournalier: 100, reserveLettres: 20, reserveChat: 10 } };
+  for (let i = 0; i < 70; i++) noterAppel(db, ANALYSE);
+  const bloque = peutAnalyser(db, profil);
+  assert.equal(bloque.ok, false, '100 - 20 - 10 = 70 : l\'analyse s\'arrête là');
+  assert.match(bloque.raison, /chat/);
+
+  // Le chat, lui, dispose encore de sa réserve, et s'arrête au seuil des lettres.
+  assert.equal(peutDiscuter(db, profil).restant, 10);
+  for (let i = 0; i < 10; i++) noterAppel(db, CHAT);
+  assert.equal(peutDiscuter(db, profil).ok, false, 'la réserve des lettres reste intacte');
+  assert.equal(peutRediger(db, profil).restant, 20);
+  assert.equal(etatQuota(db, profil).reserveChat, 10);
 });

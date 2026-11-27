@@ -74,7 +74,7 @@ export async function genererRelance({ offre, coordonnees, jours, statut }) {
   if (!offre?.titre) return null;
   try {
     const texte = await demander(
-      construirePromptRelance({ offre, coordonnees, jours, statut }));
+      construirePromptRelance({ offre, coordonnees, jours, statut }), [], { json: true });
     const data = extraireJson(texte);
     if (!data?.corps || data.corps.length < 60) return null;
     return {

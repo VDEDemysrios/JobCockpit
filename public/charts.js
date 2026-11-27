@@ -20,83 +20,176 @@ const r = (v) => Math.round(v * 100) / 100;
 let compteur = 0;
 const uid = (prefixe) => `${prefixe}-${++compteur}`;
 
+// ══════════════════════════════════════════ COURBE EN AIRE
+//
+// CE QUI NE MARCHAIT PAS
+// ----------------------
+// La courbe était un seul `<svg viewBox="0 0 1000 180"
+// preserveAspectRatio="none">` : c'est ce qui lui faisait épouser toute la
+// largeur du panneau… en étirant TOUT ce qu'il contenait. Sur un écran large,
+// les chiffres de l'axe devenaient des caractères écrasés de 3 px de haut sur
+// 14 de large, les points des ellipses ; sur un téléphone, l'inverse. Et
+// l'info-bulle se réduisait au `<title>` natif, qui met une seconde à venir.
+//
+// LA RÉPARTITION, DÉSORMAIS
+// -------------------------
+// · Le SVG ne porte QUE de la géométrie : surface, tracé, lignes de grille.
+//   Il peut s'étirer sans dommage — `vector-effect="non-scaling-stroke"` garde
+//   au trait son épaisseur réelle, quelle que soit la déformation.
+// · Tout ce qui se LIT est en HTML, posé en pourcentages par-dessus : les
+//   graduations, les dates, le réticule, le point survolé et l'info-bulle.
+//   Le texte reste du texte, net, à sa taille, sélectionnable.
+// · Les données voyagent dans `data-serie` : `activerGraphiques()` (dans
+//   dashboard.js) y lit les valeurs pour l'info-bulle, sans rien recalculer.
+//
+// La fonction reste PURE : elle rend une chaîne et ne touche jamais au DOM.
+
+/** Fraction de la hauteur réservée au-dessus du point le plus haut. */
+export const MARGE_COURBE = 0.1;
+
 /**
- * Courbe en aire, avec dégradé, grille et points survolables.
+ * Les chemins d'une courbe lissée, dans un repère 1000 × 100.
  *
- * @param {{etiquette: string, valeur: number}[]} points
- * @param {object} [options] { hauteur, couleur, couleur2, lisser, unite, graduations }
+ * Exportée parce que le morph entre 30 j / 90 j / semaines redessine la
+ * courbe à chaque image à partir de valeurs intermédiaires : il doit tracer
+ * EXACTEMENT comme `aire()`, sans quoi la dernière image sauterait.
+ *
+ * @param {number[]} norm  valeurs normalisées entre 0 et 1
+ * @returns {{trace: string, surface: string}}
+ */
+export function cheminCourbe(norm, { largeur = 1000, hauteur = 100 } = {}) {
+  const n = norm.length;
+  if (!n) return { trace: '', surface: '' };
+  const x = (i) => (n === 1 ? largeur / 2 : i * largeur / (n - 1));
+  const y = (v) => hauteur - Math.max(0, v) * hauteur * (1 - MARGE_COURBE);
+
+  // Bézier cubiques à tangentes horizontales : une ligne brisée sur 90 points
+  // donne un « sismographe » qui masque la tendance, et ces tangentes-là ne
+  // dépassent jamais sous zéro (un lissage Catmull-Rom, si).
+  let trace = `M ${r(x(0))} ${r(y(norm[0]))}`;
+  for (let i = 1; i < n; i++) {
+    const x0 = x(i - 1), y0 = y(norm[i - 1]);
+    const x1 = x(i), y1 = y(norm[i]);
+    const mx = (x0 + x1) / 2;
+    trace += ` C ${r(mx)} ${r(y0)}, ${r(mx)} ${r(y1)}, ${r(x1)} ${r(y1)}`;
+  }
+  const surface = `${trace} L ${r(x(n - 1))} ${hauteur} L ${r(x(0))} ${hauteur} Z`;
+  return { trace, surface };
+}
+
+/**
+ * Rééchantillonne une série sur `n` points, par interpolation linéaire.
+ *
+ * C'est ce qui permet de MORPHER une courbe de 30 points en une de 90 : on
+ * redistribue l'ancienne forme sur la grille de la nouvelle, puis on
+ * interpole point à point. La courbe se déforme au lieu de clignoter.
+ */
+export function reechantillonner(valeurs, n) {
+  if (!valeurs.length || n <= 0) return Array.from({ length: Math.max(0, n) }, () => 0);
+  if (valeurs.length === 1) return Array.from({ length: n }, () => valeurs[0]);
+  return Array.from({ length: n }, (_, j) => {
+    const pos = n === 1 ? 0 : j / (n - 1) * (valeurs.length - 1);
+    const i = Math.floor(pos);
+    const t = pos - i;
+    const a = valeurs[i];
+    const b = valeurs[Math.min(valeurs.length - 1, i + 1)];
+    return a + (b - a) * t;
+  });
+}
+
+/**
+ * Plafond « rond » d'un axe : 1, 2, 5 × 10^k, divisible par le nombre de
+ * graduations. Un axe qui monte à 7 avec quatre graduations affichait
+ * 7 / 5 / 4 / 2 / 0 — arrondis faux, lignes qui ne tombent sur rien.
+ */
+export function plafondRond(max, graduations = 4) {
+  if (!(max > 0)) return graduations;
+  const brut = max / graduations;
+  const puissance = 10 ** Math.floor(Math.log10(brut));
+  const pas = [1, 2, 2.5, 5, 10].map(m => m * puissance).find(p => p >= brut) ?? 10 * puissance;
+  // Les valeurs sont des comptes : un pas fractionnaire n'aurait pas de sens.
+  return Math.max(graduations, Math.ceil(pas) * graduations);
+}
+
+/**
+ * Courbe en aire, avec dégradé, grille, réticule et info-bulle.
+ *
+ * @param {{etiquette: string, court?: string, valeur: number}[]} points
+ * @param {object} [options] { hauteur, couleur, couleur2, unite, graduations, marqueurs }
  */
 export function aire(points, options = {}) {
   const {
-    hauteur = 180, largeur = 1000, couleur = 'var(--accent)', couleur2 = 'var(--accent2)',
-    unite = '', graduations = 4, remplir = true,
+    hauteur = 180, couleur = 'var(--accent)', couleur2 = 'var(--accent2)',
+    unite = '', graduations = 4, remplir = true, marqueurs = false, libelle = 'Courbe',
   } = options;
 
   if (!points.length) return vide('Pas encore de données');
 
-  const max = Math.max(1, ...points.map(p => p.valeur));
-  const padH = 26, padB = 22, padG = 34, padD = 8;
-  const l = largeur - padG - padD;
-  const h = hauteur - padH - padB;
-
-  const x = (i) => padG + (points.length === 1 ? l / 2 : i * l / (points.length - 1));
-  const y = (v) => padH + h - (v / max) * h;
-
-  // Courbe lissée par des Bézier cubiques : une ligne brisée sur 90 points
-  // donne un effet « sismographe » qui masque la tendance.
-  let chemin = `M ${r(x(0))} ${r(y(points[0].valeur))}`;
-  for (let i = 1; i < points.length; i++) {
-    const x0 = x(i - 1), y0 = y(points[i - 1].valeur);
-    const x1 = x(i), y1 = y(points[i].valeur);
-    const mx = (x0 + x1) / 2;
-    chemin += ` C ${r(mx)} ${r(y0)}, ${r(mx)} ${r(y1)}, ${r(x1)} ${r(y1)}`;
-  }
-
+  const valeurs = points.map(p => Number(p.valeur) || 0);
+  const max = plafondRond(Math.max(1, ...valeurs), graduations);
+  const norm = valeurs.map(v => v / max);
+  const { trace, surface } = cheminCourbe(norm);
   const idDegrade = uid('aire');
-  // La surface pousse depuis la ligne de base pendant que le tracé se dessine.
-  const surface = remplir
-    ? `<path class="surface" d="${chemin} L ${r(x(points.length - 1))} ${r(padH + h)} L ${r(x(0))} ${r(padH + h)} Z"
-         fill="url(#${idDegrade})"/>`
-    : '';
+  const n = points.length;
+  const xPct = (i) => (n === 1 ? 50 : i / (n - 1) * 100);
+  const yPct = (v) => 100 - (v / max) * 100 * (1 - MARGE_COURBE);
 
-  const lignes = Array.from({ length: graduations + 1 }, (_, i) => {
-    const valeur = max * (1 - i / graduations);
-    const py = padH + (i / graduations) * h;
-    return `<line x1="${padG}" y1="${r(py)}" x2="${largeur - padD}" y2="${r(py)}"
-              stroke="var(--line)" stroke-width="1" stroke-dasharray="${i === graduations ? '0' : '3 4'}"/>
-            <text x="${padG - 7}" y="${r(py + 3.5)}" text-anchor="end" class="ax">${Math.round(valeur)}</text>`;
+  // Lignes de grille dans le SVG (elles peuvent s'étirer), chiffres en HTML.
+  const grille = Array.from({ length: graduations + 1 }, (_, i) => {
+    const v = max * (1 - i / graduations);
+    const py = r(yPct(v));
+    return `<line x1="0" y1="${py}" x2="1000" y2="${py}" class="${i === graduations ? 'base' : ''}"
+      vector-effect="non-scaling-stroke"/>`;
+  }).join('');
+  const axeY = Array.from({ length: graduations + 1 }, (_, i) => {
+    const v = max * (1 - i / graduations);
+    return `<span style="top:${r(yPct(v))}%">${Math.round(v)}</span>`;
   }).join('');
 
-  const reperes = points.map((p, i) => `
-    <g class="pt" style="animation-delay:${600 + i * 8}ms">
-      <circle cx="${r(x(i))}" cy="${r(y(p.valeur))}" r="9" fill="transparent"/>
-      <circle cx="${r(x(i))}" cy="${r(y(p.valeur))}" r="3" class="dot" fill="${couleur}"/>
-      <title>${echapper(p.etiquette)} — ${p.valeur}${unite}</title>
-    </g>`).join('');
+  // Six étiquettes au plus : au-delà, l'axe devient illisible.
+  const pas = Math.max(1, Math.ceil(n / 6));
+  const axeX = points.map((p, i) => {
+    if (!(i % pas === 0 || i === n - 1)) return '';
+    // Une étiquette trop proche de la dernière se tait plutôt que de la
+    // chevaucher.
+    if (i !== n - 1 && n - 1 - i < pas * 0.6) return '';
+    const bord = i === 0 ? ' debut' : i === n - 1 ? ' fin' : '';
+    return `<span class="${bord.trim()}" style="left:${r(xPct(i))}%">${echapper(p.court ?? p.etiquette)}</span>`;
+  }).join('');
 
-  // Une étiquette sur cinq au maximum, sinon l'axe devient illisible.
-  const pas = Math.max(1, Math.ceil(points.length / 6));
-  const axeX = points.map((p, i) => (i % pas === 0 || i === points.length - 1)
-    ? `<text x="${r(x(i))}" y="${hauteur - 5}" text-anchor="middle" class="ax">${echapper(p.court ?? p.etiquette)}</text>`
-    : '').join('');
+  // Les marqueurs sont pour les séries courtes (les semaines) : sur 90 jours,
+  // 90 points ne seraient qu'un trait plus épais.
+  const points_ = marqueurs
+    ? points.map((p, i) => `<i class="gr-aire-pt" style="left:${r(xPct(i))}%;top:${r(yPct(valeurs[i]))}%;
+        animation-delay:${400 + i * 30}ms"></i>`).join('')
+    : '';
 
-  // Une lueur parcourt la courbe une fois qu'elle est tracée, puis s'éteint.
-  // `offset-path` fait suivre exactement le même chemin que le trait.
-  // `color` est posé explicitement : le halo de la lueur s'appuie dessus
-  // (drop-shadow ne sait pas lire `fill`).
-  const comete = `<circle class="comete" r="4" fill="${couleur}"
-      style="offset-path:path('${chemin}');color:${couleur}"/>`;
+  const total = valeurs.reduce((t, v) => t + v, 0);
+  const serie = points.map((p, i) => ({ e: p.etiquette, v: valeurs[i] }));
 
-  return `<svg class="gr" viewBox="0 0 ${largeur} ${hauteur}" preserveAspectRatio="none" role="img">
-    <defs><linearGradient id="${idDegrade}" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="${couleur}" stop-opacity=".34"/>
-      <stop offset="100%" stop-color="${couleur2}" stop-opacity="0"/>
-    </linearGradient></defs>
-    ${lignes}${surface}
-    <path d="${chemin}" fill="none" stroke="${couleur}" stroke-width="2.25"
-          stroke-linecap="round" stroke-linejoin="round" class="trace"/>
-    ${comete}${reperes}${axeX}
-  </svg>`;
+  return `<div class="gr-aire" data-gr="aire" tabindex="0" role="img"
+      aria-label="${echapper(`${libelle} : ${total}${unite} sur ${n} points. Flèches pour parcourir.`)}"
+      style="--h:${hauteur}px;--c:${couleur}" data-max="${max}" data-unite="${echapper(unite)}"
+      data-serie="${echapper(JSON.stringify(serie))}">
+    <div class="gr-aire-y" aria-hidden="true">${axeY}</div>
+    <div class="gr-aire-plot">
+      <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
+        <defs><linearGradient id="${idDegrade}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${couleur}" stop-opacity=".32"/>
+          <stop offset="100%" stop-color="${couleur2}" stop-opacity="0"/>
+        </linearGradient></defs>
+        <g class="gr-aire-grille">${grille}</g>
+        ${remplir ? `<path class="surface" d="${surface}" fill="url(#${idDegrade})"/>` : ''}
+        <path class="trace" d="${trace}" fill="none" stroke="${couleur}" stroke-width="2.25"
+          stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+      </svg>
+      ${points_}
+      <span class="gr-aire-ligne" aria-hidden="true"></span>
+      <span class="gr-aire-curseur" aria-hidden="true"></span>
+      <div class="gr-bulle" aria-hidden="true"></div>
+    </div>
+    <div class="gr-aire-x" aria-hidden="true">${axeX}</div>
+  </div>`;
 }
 
 /**
@@ -193,9 +286,6 @@ export function jauge(pourcentage, options = {}) {
   const cx = largeur / 2, cy = hauteur - 6;
   const pct = Math.max(0, Math.min(100, pourcentage));
 
-  const angle = Math.PI * (1 - pct / 100);
-  const px = cx + rayon * Math.cos(angle);
-  const py = cy - rayon * Math.sin(angle);
   const id = uid('jauge');
 
   return `<div class="gr-jauge" style="width:${largeur}px">
@@ -211,7 +301,13 @@ export function jauge(pourcentage, options = {}) {
             stroke-dasharray="${r(Math.PI * rayon)}"
             stroke-dashoffset="${r(Math.PI * rayon * (1 - pct / 100))}"
             style="--vide:${r(Math.PI * rayon)}" class="arc"/>
-      <circle cx="${r(px)}" cy="${r(py)}" r="6" fill="var(--panel)" stroke="${couleur}" stroke-width="3"/>
+      <!-- Le bouton de la jauge TOURNE autour du centre au lieu d'être posé à
+           ses coordonnées finales : il suit ainsi l'arc pendant que celui-ci
+           se déroule, et une mise à jour le fait glisser d'une valeur à
+           l'autre (une rotation s'anime, un couple cx/cy ne sait que sauter). -->
+      <g class="aiguille" style="transform-origin:${r(cx)}px ${r(cy)}px;transform:rotate(${r(pct * 1.8)}deg);--angle:${r(pct * 1.8)}deg">
+        <circle cx="${r(cx - rayon)}" cy="${r(cy)}" r="6" fill="var(--panel)" stroke="${couleur}" stroke-width="3"/>
+      </g>
     </svg>
     <div class="gr-jauge-mid">
       <b data-roule="${Math.round(pct)}" data-suffixe="%">${valeur ?? Math.round(pct) + '%'}</b>
@@ -221,10 +317,18 @@ export function jauge(pourcentage, options = {}) {
 
 /**
  * Anneau sectorisé (donut). Chaque part porte son info-bulle.
- * @param {{etiquette: string, valeur: number, couleur: string}[]} parts
+ *
+ * Une part qui porte une `cle` devient CLIQUABLE, elle et sa ligne de
+ * légende : `activerGraphiques()` émet alors `jc:filtre` avec cette clé. La
+ * légende n'était qu'un rappel des couleurs ; elle répond désormais à la
+ * question qu'on se pose en la lisant — « montre-moi celles-là ».
+ *
+ * @param {{etiquette: string, valeur: number, couleur: string, cle?: string}[]} parts
+ * @param {object} [options] { taille, epaisseur, centre, sousCentre, filtre }
+ *   `filtre` nomme le champ de `detail` de l'événement (« source » par défaut).
  */
 export function donut(parts, options = {}) {
-  const { taille = 168, epaisseur = 26, centre = '', sousCentre = '' } = options;
+  const { taille = 168, epaisseur = 26, centre = '', sousCentre = '', filtre = 'source' } = options;
   const utiles = parts.filter(p => p.valeur > 0);
   if (!utiles.length) return vide('Pas encore de données');
 
@@ -241,26 +345,35 @@ export function donut(parts, options = {}) {
     const longueur = Math.max(0.5, part * circonference - 2);
     // Chaque secteur se déroule depuis une longueur nulle : `--plein` porte sa
     // longueur d'arrivée, l'image-clé part de zéro.
+    const cle = p.cle !== undefined ? ` data-cle="${echapper(p.cle)}"` : '';
     const arc = `<circle cx="${taille / 2}" cy="${taille / 2}" r="${rayon}" fill="none"
         stroke="${p.couleur}" stroke-width="${epaisseur}"
         stroke-dasharray="${r(longueur)} ${r(circonference)}"
         stroke-dashoffset="${r(-parcouru * circonference)}"
-        transform="rotate(-90 ${taille / 2} ${taille / 2})" class="part"
+        transform="rotate(-90 ${taille / 2} ${taille / 2})" class="part"${cle}
         style="--plein:${r(longueur)};--tour:${r(circonference)};animation-delay:${i * 110}ms">
         <title>${echapper(p.etiquette)} — ${p.valeur} (${Math.round(part * 100)} %)</title></circle>`;
     parcouru += part;
     return arc;
   }).join('');
 
-  return `<div class="gr-donut-wrap">
+  const cliquable = utiles.some(p => p.cle !== undefined);
+
+  return `<div class="gr-donut-wrap${cliquable ? ' cliquable' : ''}" data-gr="donut" data-filtre="${echapper(filtre)}">
     <div class="gr-donut" style="width:${taille}px;height:${taille}px">
       <svg viewBox="0 0 ${taille} ${taille}">${arcs}</svg>
       <div class="gr-donut-mid"><b>${echapper(String(centre || total))}</b>
         ${sousCentre ? `<span>${echapper(sousCentre)}</span>` : ''}</div>
     </div>
     <ul class="gr-legende">
-      ${utiles.map(p => `<li><i style="background:${p.couleur}"></i>
-        <span>${echapper(p.etiquette)}</span><b>${p.valeur}</b></li>`).join('')}
+      ${utiles.map(p => {
+        const pct = Math.round(p.valeur / total * 100);
+        const attributs = p.cle !== undefined
+          ? ` data-cle="${echapper(p.cle)}" role="button" tabindex="0"
+              title="Voir les offres : ${echapper(p.etiquette)}"` : '';
+        return `<li${attributs}><i style="background:${p.couleur}"></i>
+        <span>${echapper(p.etiquette)}</span><em>${pct} %</em><b>${p.valeur}</b></li>`;
+      }).join('')}
     </ul>
   </div>`;
 }
@@ -405,16 +518,24 @@ export function sparkline(valeurs, options = {}) {
   const pas = valeurs.length === 1 ? largeur : largeur / (valeurs.length - 1);
   const points = valeurs.map((v, i) => `${r(i * pas)},${r(hauteur - (v / max) * (hauteur - 4) - 2)}`);
   const id = uid('spark');
+  const dernier = valeurs[valeurs.length - 1];
 
-  return `<svg class="gr-spark" viewBox="0 0 ${largeur} ${hauteur}" preserveAspectRatio="none">
+  // `non-scaling-stroke` : la micro-courbe s'étire sur la largeur de la tuile,
+  // et sans lui son trait s'épaississait à l'horizontale et s'affinait à la
+  // verticale — un trait « baveux », le contraire d'un chiffre net. Le point
+  // final est en HTML pour la même raison : un cercle étiré devient un ovale.
+  return `<span class="gr-spark-wrap">
+  <svg class="gr-spark" viewBox="0 0 ${largeur} ${hauteur}" preserveAspectRatio="none" aria-hidden="true">
     <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="${couleur}" stop-opacity=".38"/>
+      <stop offset="0%" stop-color="${couleur}" stop-opacity=".34"/>
       <stop offset="100%" stop-color="${couleur}" stop-opacity="0"/>
     </linearGradient></defs>
     <polygon class="surface" points="0,${hauteur} ${points.join(' ')} ${largeur},${hauteur}" fill="url(#${id})"/>
     <polyline class="trace" points="${points.join(' ')}" fill="none" stroke="${couleur}"
-              stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>`;
+              stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+  </svg>
+  <i class="gr-spark-fin" style="top:${r((hauteur - (dernier / max) * (hauteur - 4) - 2) / hauteur * 100)}%;background:${couleur}"></i>
+  </span>`;
 }
 
 /** Barre segmentée : une seule ligne pour montrer une répartition. */

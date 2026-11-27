@@ -18,10 +18,82 @@
 
 const CHIFFRES = '0123456789';
 
-/** L'utilisateur a demandé moins de mouvement, ou les a coupées dans Options. */
-function mouvementCoupe() {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+/**
+ * L'utilisateur a demandé moins de mouvement, ou les a coupées dans Options.
+ *
+ * EXPORTÉE, PARCE QUE LE CSS NE SUFFIT PLUS. La règle `[data-anim="off"] *`
+ * coupe les animations et transitions CSS, mais pas celles qu'on lance en
+ * JavaScript (`element.animate()`, boucles `requestAnimationFrame`) : le
+ * Kanban, le morph des courbes et les confettis passaient au travers et
+ * l'interrupteur des Options mentait. Tout mouvement scripté demande donc ici.
+ *
+ * Sous Node (tests), il n'y a ni fenêtre ni mouvement : on répond « coupé ».
+ */
+export function mouvementCoupe() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return true;
+  return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
     || document.documentElement.dataset.anim === 'off';
+}
+
+/**
+ * FLIP — First, Last, Invert, Play.
+ *
+ * Fait GLISSER des éléments vers la place que `muter()` leur donne, au lieu de
+ * les y téléporter. C'est ce qui rend lisible un réordonnancement : l'œil suit
+ * la carte qui descend d'un cran au lieu de chercher ce qui a changé.
+ *
+ * POURQUOI CE DÉCOUPAGE EN TROIS PASSES
+ * Lire une position, écrire, relire, réécrire, élément par élément, force le
+ * navigateur à recalculer la mise en page à chaque lecture : sur une colonne
+ * de soixante cartes, c'est soixante calculs par image et un glissement qui
+ * saccade. Ici : TOUTES les lectures, puis la mutation, puis UNE relecture,
+ * puis les écritures. Un seul calcul de mise en page, quelle que soit la taille.
+ *
+ * Seuls les éléments visibles (à une marge près) sont animés : mesurer et
+ * animer neuf cents cartes hors de l'écran ne montrerait rien à personne.
+ *
+ * Les animations passent par `element.animate()` et non par une transition
+ * CSS : elles s'interrompent proprement (un FLIP relancé en plein vol repart
+ * de la position VISUELLE courante, sans saut) et ne laissent aucun style
+ * résiduel sur l'élément.
+ *
+ * @param {Iterable<Element>} elements  ceux qui peuvent bouger
+ * @param {Function} muter              la modification du DOM
+ * @param {{duree?:number, courbe?:string, marge?:number}} [options]
+ */
+export function flip(elements, muter, options = {}) {
+  const { duree = 240, courbe = 'cubic-bezier(.22,1,.36,1)', marge = 160 } = options;
+  if (mouvementCoupe()) { muter(); return; }
+
+  // 1. FIRST — positions visuelles, animations en cours comprises.
+  const hauteur = window.innerHeight;
+  const avant = new Map();
+  for (const el of elements) {
+    const r = el.getBoundingClientRect();
+    if (!r.width || r.bottom < -marge || r.top > hauteur + marge) continue;
+    avant.set(el, r);
+  }
+
+  muter();
+
+  // 2. LAST — les FLIP précédents sont annulés AVANT la mesure : sinon leur
+  //    décalage résiduel fausserait l'arrivée et la carte « reculerait ».
+  for (const el of avant.keys()) el._flip?.cancel();
+  const deplacements = [];
+  for (const [el, r0] of avant) {
+    if (!el.isConnected) continue;
+    const r1 = el.getBoundingClientRect();
+    const dx = r0.left - r1.left;
+    const dy = r0.top - r1.top;
+    if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) deplacements.push([el, dx, dy]);
+  }
+
+  // 3. INVERT + PLAY — chaque élément repart de là où l'œil le voyait.
+  for (const [el, dx, dy] of deplacements) {
+    el._flip = el.animate(
+      [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }],
+      { duration: duree, easing: courbe });
+  }
 }
 
 /**

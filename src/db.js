@@ -135,6 +135,36 @@ CREATE TABLE IF NOT EXISTS evenements (
 
 CREATE INDEX IF NOT EXISTS idx_evenements_jour ON evenements(jour);
 CREATE INDEX IF NOT EXISTS idx_evenements_type ON evenements(type);
+
+-- LES INDEX QUI MANQUAIENT (chantier 4.0).
+--
+-- Chaque chargement du tableau de bord filtre le suivi par statut et par date
+-- d'envoi, la purge balaie les offres par date d'apparition et par saisie
+-- manuelle, la frise rattache les événements à leur offre. Sans index, SQLite
+-- parcourait la table entière à chaque fois : invisible à 300 offres, sensible
+-- à 3 000, et la base ne fait que grossir. L'index sur la date d'entretien est
+-- posé APRÈS la migration des colonnes (voir creerIndexTardifs) : sur une base
+-- ancienne, la colonne n'existe pas encore quand ce gabarit s'exécute.
+CREATE INDEX IF NOT EXISTS idx_tracking_status    ON tracking(status);
+CREATE INDEX IF NOT EXISTS idx_tracking_sent      ON tracking(sent_date);
+CREATE INDEX IF NOT EXISTS idx_offers_first_seen  ON offers(first_seen);
+CREATE INDEX IF NOT EXISTS idx_offers_is_manual   ON offers(is_manual);
+CREATE INDEX IF NOT EXISTS idx_evenements_offre   ON evenements(offer_id);
+
+-- Historique des versions d'une lettre.
+--
+-- Régénérer écrasait la lettre précédente, retoucher aussi : une bonne
+-- formulation perdue en un clic ne se retrouvait jamais. Chaque génération et
+-- chaque retouche enregistre désormais une version, numérotée par offre. La
+-- table letters garde la version COURANTE ; celle-ci garde le passé.
+CREATE TABLE IF NOT EXISTS lettres_versions (
+  offer_id TEXT NOT NULL,
+  version  INTEGER NOT NULL,
+  content  TEXT,
+  origine  TEXT,              -- generee | retouche | restauree
+  cree_le  TEXT,
+  PRIMARY KEY (offer_id, version)
+);
 `;
 
 /**
@@ -166,10 +196,60 @@ export function ouvrirBase(chemin = 'data.db') {
   // manque ne se paie pas au même prix qu'un peu de lenteur.
   db.exec('PRAGMA synchronous = FULL');
 
+  // ATTENDRE PLUTÔT QUE TOMBER.
+  //
+  // Deux processus écrivent dans la même base : le serveur, et la tâche
+  // Windows qui lance `scripts/collect.js`. Sans délai d'attente, le second à
+  // vouloir écrire reçoit aussitôt « database is locked » — une case cochée
+  // dans le tableau de bord échouait parce qu'une collecte validait sa
+  // transaction à la même milliseconde. Cinq secondes couvrent largement la
+  // plus longue de nos écritures.
+  db.exec('PRAGMA busy_timeout = 5000');
+
   db.exec('PRAGMA foreign_keys = ON');
   db.exec(SCHEMA);
   ajouterColonnesManquantes(db);
+  creerIndexTardifs(db);
   return db;
+}
+
+/**
+ * Les index portant sur des colonnes ajoutées par migration.
+ * Ils ne peuvent pas vivre dans le gabarit : sur une base ancienne, le
+ * gabarit s'exécute AVANT que la colonne existe, et l'ouverture échouerait.
+ */
+function creerIndexTardifs(db) {
+  db.exec('CREATE INDEX IF NOT EXISTS idx_tracking_entretien ON tracking(entretien_date)');
+}
+
+/**
+ * Ferme la base proprement.
+ *
+ * `PRAGMA optimize` d'abord : SQLite y met à jour les statistiques dont son
+ * planificateur se sert pour choisir un index, mais seulement pour les tables
+ * dont l'usage le justifie. C'est l'appel que la documentation recommande « à
+ * la fermeture de chaque connexion » ; sans lui, les index posés plus haut
+ * peuvent être ignorés faute de statistiques.
+ */
+export function fermerBase(db) {
+  try { db.exec('PRAGMA optimize'); } catch { /* base déjà fermée ou en lecture seule */ }
+  try { db.close(); } catch { /* déjà fermée */ }
+}
+
+/**
+ * Replie le journal WAL dans la base, et le ramène à zéro.
+ *
+ * Une collecte écrit des centaines de lignes ; tant qu'aucun point de contrôle
+ * complet n'a lieu, `data.db-wal` grossit et chaque lecture doit le parcourir.
+ * TRUNCATE ne bloque personne : si un lecteur est en cours, SQLite fait ce
+ * qu'il peut et rend la main — d'où l'absence d'erreur à attendre ici.
+ */
+export function compacterJournal(db) {
+  try {
+    return db.prepare('PRAGMA wal_checkpoint(TRUNCATE)').get() ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -386,19 +466,34 @@ export const SANS_ACTIVITE = new Set(['note', 'epingle', 'collecte']);
  * Deux copies auraient fini par diverger, et la copie oubliée aurait effacé
  * une candidature suivie.
  */
+//
+// L'ENTRETIEN ÉTAIT OUBLIÉ. La date d'entretien et la table `entretiens`
+// sont arrivées après cette condition, et personne ne l'a rouverte : une
+// offre « À postuler » portant une date d'entretien saisie d'avance, ou une
+// séance de préparation de trois jours, partait au premier ménage — avec les
+// cartes de révision qu'on avait payées en quota. Les deux comptent désormais
+// comme une trace, et la jointure TRACE_JOINTURES les rend visibles.
 const SANS_TRACE = `
   o.is_manual = 0
   AND l.offer_id IS NULL
+  AND e.offer_id IS NULL
   AND (
     t.offer_id IS NULL
     OR (
       COALESCE(t.status, 'À postuler') = 'À postuler'
-      AND COALESCE(t.sent_date, '')    = ''
-      AND COALESCE(t.relance_date, '') = ''
-      AND COALESCE(t.notes, '')        = ''
-      AND COALESCE(t.pinned, 0)        = 0
+      AND COALESCE(t.sent_date, '')      = ''
+      AND COALESCE(t.relance_date, '')   = ''
+      AND COALESCE(t.entretien_date, '') = ''
+      AND COALESCE(t.notes, '')          = ''
+      AND COALESCE(t.pinned, 0)          = 0
     )
   )`;
+
+/** Les jointures que SANS_TRACE suppose : une seule copie, comme elle. */
+const TRACE_JOINTURES = `
+    LEFT JOIN tracking   t ON t.offer_id = o.id
+    LEFT JOIN letters    l ON l.offer_id = o.id
+    LEFT JOIN entretiens e ON e.offer_id = o.id`;
 
 /**
  * Supprime les offres désignées, et le suivi vide qui leur reste attaché.
@@ -415,6 +510,8 @@ export function supprimerOffres(db, ids, motif = null) {
     const lireOffre         = db.prepare('SELECT * FROM offers   WHERE id = ?');
     const lireSuivi         = db.prepare('SELECT * FROM tracking WHERE offer_id = ?');
     const lireLettre        = db.prepare('SELECT * FROM letters  WHERE offer_id = ?');
+    const lireEntretien     = db.prepare('SELECT * FROM entretiens WHERE offer_id = ?');
+    const lireVersions      = db.prepare('SELECT * FROM lettres_versions WHERE offer_id = ? ORDER BY version');
     const rejeter           = db.prepare(`INSERT INTO rejetees (offer_id, motif, titre, rejete_le, donnees)
                                           VALUES (?, ?, ?, ?, ?)
                                           ON CONFLICT(offer_id) DO UPDATE SET
@@ -422,6 +519,11 @@ export function supprimerOffres(db, ids, motif = null) {
     const supprimerOffre    = db.prepare('DELETE FROM offers   WHERE id = ?');
     const supprimerTracking = db.prepare('DELETE FROM tracking WHERE offer_id = ?');
     const supprimerLettre   = db.prepare('DELETE FROM letters  WHERE offer_id = ?');
+    // La séance d'entretien et l'historique des lettres partent AVEC l'offre :
+    // laissés derrière, ils restaient en base sans rien pour les rattacher, et
+    // une offre restaurée retrouvait son suivi mais plus ses cartes.
+    const supprimerEntretien = db.prepare('DELETE FROM entretiens WHERE offer_id = ?');
+    const supprimerVersions  = db.prepare('DELETE FROM lettres_versions WHERE offer_id = ?');
     const maintenant = new Date().toISOString();
 
     for (const id of ids) {
@@ -433,11 +535,19 @@ export function supprimerOffres(db, ids, motif = null) {
         // sans jamais servir, personne ne cherchant à annuler un ménage qu'il
         // n'a pas demandé.
         const donnees = motif === 'manuel' && offre
-          ? JSON.stringify({ offre, suivi: lireSuivi.get(id) ?? null, lettre: lireLettre.get(id) ?? null })
+          ? JSON.stringify({
+            offre,
+            suivi: lireSuivi.get(id) ?? null,
+            lettre: lireLettre.get(id) ?? null,
+            entretien: lireEntretien.get(id) ?? null,
+            versions: lireVersions.all(id),
+          })
           : null;
         rejeter.run(id, motif, offre?.titre ?? null, maintenant, donnees);
       }
       supprimerLettre.run(id);
+      supprimerVersions.run(id);
+      supprimerEntretien.run(id);
       supprimerTracking.run(id);
       supprimerOffre.run(id);
     }
@@ -460,24 +570,24 @@ export function restaurerRejet(db, id) {
   const ligne = db.prepare('SELECT donnees FROM rejetees WHERE offer_id = ?').get(id);
   if (!ligne?.donnees) return false;
 
-  const { offre, suivi, lettre } = JSON.parse(ligne.donnees);
+  const { offre, suivi, lettre, entretien, versions } = JSON.parse(ligne.donnees);
   if (!offre) return false;
 
-  return transaction(db, () => {
-    const colonnes = Object.keys(offre);
-    db.prepare(`INSERT OR REPLACE INTO offers (${colonnes.join(', ')})
-                VALUES (${colonnes.map(c => '@' + c).join(', ')})`).run(offre);
+  /** Réinsère une ligne telle qu'elle a été lue, colonne pour colonne. */
+  const reinserer = (table, valeurs) => {
+    const cs = Object.keys(valeurs);
+    db.prepare(`INSERT OR REPLACE INTO ${table} (${cs.join(', ')})
+                VALUES (${cs.map(c => '@' + c).join(', ')})`).run(valeurs);
+  };
 
-    if (suivi) {
-      const cs = Object.keys(suivi);
-      db.prepare(`INSERT OR REPLACE INTO tracking (${cs.join(', ')})
-                  VALUES (${cs.map(c => '@' + c).join(', ')})`).run(suivi);
-    }
-    if (lettre) {
-      const cl = Object.keys(lettre);
-      db.prepare(`INSERT OR REPLACE INTO letters (${cl.join(', ')})
-                  VALUES (${cl.map(c => '@' + c).join(', ')})`).run(lettre);
-    }
+  return transaction(db, () => {
+    reinserer('offers', offre);
+    if (suivi) reinserer('tracking', suivi);
+    if (lettre) reinserer('letters', lettre);
+    // Les rejets d'avant le chantier 4.0 n'ont ni entretien ni versions :
+    // leur absence n'est pas une erreur.
+    if (entretien) reinserer('entretiens', entretien);
+    for (const v of versions ?? []) reinserer('lettres_versions', v);
     db.prepare('DELETE FROM rejetees WHERE offer_id = ?').run(id);
     return true;
   });
@@ -517,8 +627,7 @@ export function purgerSansReponse(db, jours) {
 
   const dormantes = db.prepare(`
     SELECT o.id FROM offers o
-    LEFT JOIN tracking t ON t.offer_id = o.id
-    LEFT JOIN letters  l ON l.offer_id = o.id
+    ${TRACE_JOINTURES}
     WHERE o.first_seen < @limite AND ${SANS_TRACE}
   `).all({ limite }).map(r => r.id);
 
@@ -536,8 +645,7 @@ export function purgerOffresPerimees(db, jours = 30) {
 
   const perimees = db.prepare(`
     SELECT o.id FROM offers o
-    LEFT JOIN tracking t ON t.offer_id = o.id
-    LEFT JOIN letters  l ON l.offer_id = o.id
+    ${TRACE_JOINTURES}
     WHERE o.last_seen < @limite AND ${SANS_TRACE}
   `).all({ limite }).map(r => r.id);
 
@@ -572,8 +680,7 @@ export function offresHorsProfil(db) {
     SELECT o.id, o.titre, o.entreprise, o.ville, o.score, o.groupe,
            o.score_detail, o.analysis_json
     FROM offers o
-    LEFT JOIN tracking t ON t.offer_id = o.id
-    LEFT JOIN letters  l ON l.offer_id = o.id
+    ${TRACE_JOINTURES}
     WHERE ${SANS_TRACE}
     ORDER BY o.groupe DESC, o.score ASC
   `).all();

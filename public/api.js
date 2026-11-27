@@ -35,9 +35,19 @@ async function appeler(url, options = {}) {
   try { donnees = await reponse.json(); } catch { /* réponse non JSON */ }
 
   if (!reponse.ok || donnees?.ok === false) {
-    const erreur = new Error(donnees?.error ?? `Erreur serveur (${reponse.status}).`);
+    // 503 et 502 sans phrase du serveur : Gemini indisponible ou quota du
+    // jour épuisé (discussion comprise). « Erreur serveur (503) » ne dit pas
+    // quoi faire ; ceci le dit.
+    const parDefaut = reponse.status === 503
+      ? 'Quota du jour épuisé ou Gemini indisponible — réessaie plus tard (il se renouvelle demain).'
+      : reponse.status === 502 ? 'Gemini n\'a pas répondu correctement — réessaie dans un instant.'
+        : `Erreur serveur (${reponse.status}).`;
+    const erreur = new Error(donnees?.error ?? parDefaut);
     erreur.statut = reponse.status;
     erreur.besoinConfirmation = donnees?.besoinConfirmation;
+    // Le corps entier suit l'erreur : un 409 « collecte déjà en cours » porte
+    // l'identifiant de celle qui tourne, et c'est à elle qu'on se raccroche.
+    erreur.donnees = donnees;
     throw erreur;
   }
   return donnees;
@@ -191,4 +201,38 @@ export const API = {
   majLettre:     (id, contenu) => appeler(`/api/letter/${id}`, { method: 'PATCH', body: { contenu } }),
   urlDocx:       (id)          => `/api/letter/${id}/docx`,
   urlDossier:    (id)          => `/api/letter/${id}/dossier`,
+
+  // ── 4.0 — contrats du chantier (docs/CHANTIER-4.0.md §3) ────────────────
+
+  // LA COLLECTE EN DIRECT (§3.1). `/api/refresh` reste, synchrone : c'est le
+  // repli quand le serveur ne connaît pas encore `/collecte/demarrer` (404).
+  collecteDemarrer: ()         => appeler('/api/collecte/demarrer', { method: 'POST', body: {} }),
+  collecteEtat:     ()         => appeler('/api/collecte/etat'),
+  /**
+   * Le flux d'événements de la collecte, en SSE.
+   *
+   * Un `EventSource`, pas un `fetch` : il se reconnecte seul après une coupure,
+   * et le serveur REJOUE alors le journal depuis l'événement `debut` — c'est
+   * ce qui permet au radar de repartir de zéro sans doublons. Même origine,
+   * donc le cookie de session part avec : `connect-src 'self'` suffit.
+   * Avec `id`, le flux rejoue aussi une collecte DÉJÀ FINIE — utile quand
+   * elle s'achève entre le 202 et l'ouverture du flux.
+   */
+  collecteFlux:     (id)       => new EventSource('/api/collecte/flux'
+    + (id ? `?id=${encodeURIComponent(id)}` : '')),
+
+  // Relance l'analyse Gemini d'une offre, même déjà analysée (§3.2).
+  analyserOffre:    (id)       => appeler(`/api/offers/${id}/analyser`, { method: 'POST', body: {} }),
+  // Les échéances, triées par urgence (§3.2).
+  rappels:          ()         => appeler('/api/rappels'),
+  // L'agenda au format iCalendar (§3.3) : un lien à télécharger ou à
+  // abonner dans un agenda, pas un appel JSON.
+  urlIcs:           '/api/agenda.ics',
+  // Les sauvegardes de la base (§3.4).
+  sauvegardes:      ()         => appeler('/api/sauvegardes'),
+  creerSauvegarde:  ()         => appeler('/api/sauvegardes', { method: 'POST', body: {} }),
+  // L'historique des versions d'une lettre (§3.5).
+  lettreVersions:   (id)       => appeler(`/api/letter/${id}/versions`),
+  restaurerVersionLettre: (id, v) =>
+    appeler(`/api/letter/${id}/versions/${v}/restaurer`, { method: 'POST', body: {} }),
 };

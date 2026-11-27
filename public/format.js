@@ -54,20 +54,10 @@ export const SOURCE_LABEL = {
   careerjet: 'Careerjet (retiré)',
 };
 
-/** Libellé des types d'événement du journal d'activité. */
-export const EVENEMENT = {
-  candidature: { emoji: '📮', texte: 'Candidature envoyée' },
-  relance:     { emoji: '🔔', texte: 'Relance effectuée' },
-  entretien:   { emoji: '🤝', texte: 'Entretien décroché' },
-  refus:       { emoji: '🙅', texte: 'Refus enregistré' },
-  statut:      { emoji: '🔄', texte: 'Statut modifié' },
-  lettre:      { emoji: '🖋️', texte: 'Lettre rédigée' },
-  retouche:    { emoji: '🎨', texte: 'Lettre retouchée' },
-  note:        { emoji: '🧠', texte: 'Note ajoutée' },
-  ajout:       { emoji: '🔎', texte: 'Offre ajoutée' },
-  epingle:     { emoji: '📌', texte: 'Offre épinglée' },
-  collecte:    { emoji: '📡', texte: 'Collecte lancée' },
-};
+// (`EVENEMENT` et `etiquetteFraicheur` — emoji du journal et des badges de
+// fraîcheur — ont été retirés en 4.0 : dashboard.js et render.js dessinent
+// désormais ces deux mobiliers en icônes SVG. `STATUS_EMOJI` reste : le PDF
+// de suivi (impression.js) s'en sert, et c'est du contenu imprimé.)
 
 export const todayISO = () => {
   const d = new Date();
@@ -84,14 +74,6 @@ export function ageOffre(dateISO) {
   if (!dateISO) return null;
   const t = new Date(dateISO).getTime();
   return Number.isNaN(t) ? null : Math.floor((Date.now() - t) / 86400000);
-}
-
-export function etiquetteFraicheur(age) {
-  if (age === null) return null;
-  if (age <= 1) return ['new', '🔥 Nouveau'];
-  if (age <= 7) return ['ok', '🌿 ' + age + ' j'];
-  if (age <= 14) return ['warn', '🍂 ' + age + ' j'];
-  return ['old', '🥀 ' + age + ' j'];
 }
 
 /**
@@ -151,6 +133,27 @@ export function ilYA(iso) {
 /** Accord du pluriel, sans répéter la même ternaire partout. */
 export const pluriel = (n, singulier, pluriel_ = singulier + 's') =>
   `${n} ${n > 1 ? pluriel_ : singulier}`;
+
+/**
+ * Minuscules, sans accents ni ligatures : la forme qu'on compare.
+ *
+ * « Chargé de mission » doit se trouver en tapant « charge mission », et
+ * « Œuvre » en tapant « oeuvre ». Sert à la recherche floue de la palette et
+ * aux adresses des onglets de ville.
+ */
+export function normaliser(texte) {
+  return String(texte ?? '').toLowerCase()
+    .replace(/œ/g, 'oe').replace(/æ/g, 'ae')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+/** La date locale dans `n` jours, en AAAA-MM-JJ. */
+export function dansNJours(n) {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  const p = (v) => String(v).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
 
 /** Échappe le HTML : les titres et descriptions viennent de sources externes. */
 export function echapper(texte) {

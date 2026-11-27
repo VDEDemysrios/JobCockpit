@@ -5,10 +5,14 @@
 import express from 'express';
 import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, basename } from 'node:path';
 import { normaliser } from './hash.js';
 import { villeDeRattachement } from './zone.js';
-import { peutRediger, noterAppel, etatQuota, LETTRE, ENTRETIEN, CHAT } from './quota.js';
+import { peutRediger, peutDiscuter, noterAppel, etatQuota, ANALYSE, LETTRE, ENTRETIEN, CHAT } from './quota.js';
+import { creerCollecteLive } from './collecte-live.js';
+import { sauvegarder, lister as listerSauvegardes, reglages as reglagesSauvegarde } from './sauvegarde.js';
+import { construireAgenda } from './agenda.js';
+import { calculerRappels } from './rappels.js';
 import { estConfigure, construireProfil, rendreEnv, CLES_ENV } from './configuration.js';
 import { validerVilles, decrireVille, DEPARTEMENTS, VILLES_MAX } from './villes.js';
 import { verifierOffres, aVerifier } from './liens.js';
@@ -67,6 +71,19 @@ const OBJECTIF_DEFAUT = 5;
 const EXTRAIT_MAX = 1400;
 
 /**
+ * « 2026-08-01_21h45 » → « 2026-08-01T21:45:00 », date LOCALE lisible par
+ * `new Date()` côté navigateur. Le nom du dossier EST l'horodatage : relire
+ * la date de modification du disque mentirait après une copie.
+ */
+function dateDeSauvegarde(nom) {
+  const m = /^(\d{4}-\d{2}-\d{2})_(\d{2})h(\d{2})$/.exec(String(nom));
+  return m ? `${m[1]}T${m[2]}:${m[3]}:00` : null;
+}
+
+/** Battement du flux SSE de la collecte (contrat 3.1). */
+const PING_SSE_MS = Number(process.env.JC_PING_SSE_MS) || 20_000;
+
+/**
  * @param {object} o
  * @param {() => boolean} [o.lecteurLocalActif]  le lecteur Spotify intégré est-il
  *   demandé ? C'est lui qui décide de l'ouverture de `script-src` — le serveur
@@ -75,14 +92,28 @@ const EXTRAIT_MAX = 1400;
  *   qu'on vient de basculer l'option, pour qu'il n'ait pas à relire la base.
  */
 export function creerRoutes({ db, collecter, sources, profil,
-  lecteurLocalActif = () => false, majLecteurLocal = null }) {
+  lecteurLocalActif = () => false, majLecteurLocal = null,
+  // Une seule collecte à la fois : deux collectes concurrentes se marcheraient
+  // dessus (quota LLM gaspillé, écritures entrelacées). Le verrou vit dans la
+  // collecte en direct, PARTAGÉE avec le planificateur par server.js — c'était
+  // un simple booléen local, que le planificateur ne voyait pas.
+  live = creerCollecteLive({ db }),
+  // Les appels au modèle, injectables : sans cela, tester une route qui
+  // analyse ou rédige exigerait le réseau et une clé — et dépenserait le quota.
+  ia = {},
+  // Le texte du CV. Injectable pour la même raison : les tests ne doivent pas
+  // dépendre du CV réel posé dans profile/.
+  lireCv = null,
+  racine = RACINE,
+}) {
   const routes = express.Router();
 
-  // Une seule collecte à la fois : deux collectes concurrentes se marcheraient
-  // dessus (quota LLM gaspillé, écritures entrelacées).
-  let collecteEnCours = false;
+  const IA = {
+    analyserOffre, extraireOffreCollee, genererLettre, geminiPret,
+    ...ia,
+  };
 
-  const cv = () => (existsSync(CV_TEXTE) ? readFileSync(CV_TEXTE, 'utf8') : '');
+  const cv = lireCv ?? (() => (existsSync(CV_TEXTE) ? readFileSync(CV_TEXTE, 'utf8') : ''));
 
   /**
    * Le CV d'origine, tel qu'il sera joint à une candidature.
@@ -168,7 +199,7 @@ export function creerRoutes({ db, collecter, sources, profil,
       derniereCollecte: lireMeta(db, 'last_collect_at'),
       statut: lireMeta(db, 'last_collect_status'),
       resume: resume ? JSON.parse(resume) : null,
-      collecteEnCours,
+      collecteEnCours: live.etat().enCours,
       migre: Boolean(lireMeta(db, 'migrated_from_localstorage')),
       // Le profil est nécessaire : la source « flux » se configure dans
       // profile.json, pas dans .env, et se déclarerait inactive sans lui.
@@ -287,6 +318,9 @@ export function creerRoutes({ db, collecter, sources, profil,
     return 'statut';
   }
 
+  /** La liste FERMÉE des statuts : celle du kanban, des compteurs, des stats. */
+  const STATUTS = ['À postuler', 'Envoyé', 'Relancé', 'Entretien', 'Refus'];
+
   routes.patch('/track/:id', (req, res) => {
     const offre = db.prepare('SELECT id FROM offers WHERE id = ?').get(req.params.id);
     if (!offre) return res.status(404).json({ ok: false, error: 'Offre introuvable.' });
@@ -313,22 +347,66 @@ export function creerRoutes({ db, collecter, sources, profil,
       return res.status(400).json({ ok: false, error: 'Aucun champ de suivi valide fourni.' });
     }
 
+    const champs = Object.fromEntries(maj);
+
+    // UN STATUT DE LA LISTE, ET RIEN D'AUTRE.
+    //
+    // N'importe quelle chaîne entrait : « envoye » sans accent, « Envoyé  »
+    // avec une espace, et l'offre disparaissait de toutes les colonnes du
+    // kanban, des compteurs et des statistiques — qui ne connaissent que ces
+    // cinq valeurs. Le front n'en envoie pas d'autre ; refuser le reste
+    // protège de tout ce qui n'est pas le front.
+    if ('status' in champs && !STATUTS.includes(champs.status)) {
+      return res.status(400).json({ ok: false,
+        error: `Statut inconnu : « ${champs.status} ». Attendu : ${STATUTS.join(', ')}.` });
+    }
+
+    // EN TRANSACTION. Une mise à jour de suivi, ce sont jusqu'à huit écritures
+    // (création de la ligne, chaque champ, le nettoyage, le journal). Un
+    // arrêt au milieu laissait un statut « Envoyé » sans sa date d'envoi, ou
+    // l'inverse — exactement l'incohérence que le nettoyage plus bas existe
+    // pour empêcher.
+    transaction(db, () => appliquerSuivi(req.params.id, maj, champs));
+
+    // On renvoie le suivi tel qu'il est RÉELLEMENT en base, pas les champs
+    // demandés : le serveur peut en avoir nettoyé d'autres, et le navigateur
+    // doit refléter l'état réel plutôt que de le deviner. La date d'entretien
+    // en fait partie — elle manquait, et la carte la perdait jusqu'au
+    // rechargement suivant.
+    res.json({ ok: true, suivi: lireSuivi(req.params.id) });
+  });
+
+  /** Le suivi d'une offre, sous la forme exacte qu'en attend le navigateur. */
+  function lireSuivi(id) {
+    const apres = db.prepare(
+      'SELECT status, sent_date, relance_date, entretien_date, notes, pinned FROM tracking WHERE offer_id = ?'
+    ).get(id) ?? {};
+    return {
+      status: apres.status ?? 'À postuler',
+      sent: apres.sent_date ?? '',
+      relance: apres.relance_date ?? '',
+      entretien: apres.entretien_date ?? '',
+      notes: apres.notes ?? '',
+      pinned: Boolean(apres.pinned),
+    };
+  }
+
+  /** Les écritures d'un PATCH /track, à exécuter DANS une transaction. */
+  function appliquerSuivi(id, maj, champs) {
     // La ligne de suivi peut ne pas exister encore.
     db.prepare(`INSERT INTO tracking (offer_id) VALUES (?) ON CONFLICT(offer_id) DO NOTHING`)
-      .run(req.params.id);
+      .run(id);
 
     const avant = db.prepare('SELECT status, notes, pinned FROM tracking WHERE offer_id = ?')
-      .get(req.params.id) ?? {};
+      .get(id) ?? {};
 
     for (const [cle, valeur] of maj) {
       const colonne = CHAMPS_SUIVI[cle];
       // node:sqlite refuse les booléens et undefined.
       const v = cle === 'pinned' ? (valeur ? 1 : 0) : (valeur ?? '');
       db.prepare(`UPDATE tracking SET ${colonne} = ?, updated_at = ? WHERE offer_id = ?`)
-        .run(v, new Date().toISOString(), req.params.id);
+        .run(v, new Date().toISOString(), id);
     }
-
-    const champs = Object.fromEntries(maj);
 
     // Cohérence : « À postuler » signifie « pas encore envoyé ». Une date
     // d'envoi laissée derrière soi ferait mentir l'objectif de la semaine, la
@@ -341,7 +419,7 @@ export function creerRoutes({ db, collecter, sources, profil,
     if (champs.status === 'À postuler') {
       const effacer = (cle, colonne) => {
         if (cle in champs) return;
-        db.prepare(`UPDATE tracking SET ${colonne} = '' WHERE offer_id = ?`).run(req.params.id);
+        db.prepare(`UPDATE tracking SET ${colonne} = '' WHERE offer_id = ?`).run(id);
       };
       effacer('sent', 'sent_date');
       effacer('relance', 'relance_date');
@@ -361,27 +439,9 @@ export function creerRoutes({ db, collecter, sources, profil,
     if ('pinned' in champs && champs.pinned && !avant.pinned) evenements.push('epingle');
 
     for (const type of evenements) {
-      journaliser(db, type, { offerId: req.params.id, sansActivite: SANS_ACTIVITE.has(type) });
+      journaliser(db, type, { offerId: id, sansActivite: SANS_ACTIVITE.has(type) });
     }
-
-    // On renvoie le suivi tel qu'il est RÉELLEMENT en base, pas les champs
-    // demandés : le serveur peut en avoir nettoyé d'autres, et le navigateur
-    // doit refléter l'état réel plutôt que de le deviner.
-    const apres = db.prepare(
-      'SELECT status, sent_date, relance_date, notes, pinned FROM tracking WHERE offer_id = ?'
-    ).get(req.params.id) ?? {};
-
-    res.json({
-      ok: true,
-      suivi: {
-        status: apres.status ?? 'À postuler',
-        sent: apres.sent_date ?? '',
-        relance: apres.relance_date ?? '',
-        notes: apres.notes ?? '',
-        pinned: Boolean(apres.pinned),
-      },
-    });
-  });
+  }
 
   // --- Offres ajoutées à la main -------------------------------------------
 
@@ -1639,6 +1699,19 @@ export function creerRoutes({ db, collecter, sources, profil,
    * discussion informelle n'a pas à laisser de trace dans la base, et ce qu'on
    * dit un soir de découragement n'a pas à être relu six mois plus tard.
    */
+  /**
+   * Le chat et l'entretien s'arrêtent au seuil de la réserve des lettres.
+   * Ils n'étaient pas comptés du tout : une heure de discussion pouvait vider
+   * le quota sous les yeux d'une réserve qui se croyait intacte.
+   * @returns {boolean} vrai si la réponse 503 est déjà partie
+   */
+  function quotaDiscussionEpuise(res) {
+    const feuVert = peutDiscuter(db, profil);
+    if (feuVert.ok) return false;
+    res.status(503).json({ ok: false, error: feuVert.raison });
+    return true;
+  }
+
   routes.post('/chat', async (req, res) => {
     if (!geminiPret()) {
       return res.status(400).json({ ok: false,
@@ -1649,6 +1722,7 @@ export function creerRoutes({ db, collecter, sources, profil,
     if (!messages.length) {
       return res.status(400).json({ ok: false, error: 'Aucun message.' });
     }
+    if (quotaDiscussionEpuise(res)) return;
 
     // L'état réel, en ordres de grandeur. Lui verser deux cents offres
     // coûterait cher à chaque message et le ferait répondre en catalogue.
@@ -1791,6 +1865,7 @@ export function creerRoutes({ db, collecter, sources, profil,
         posees: dejaPosees, terminee: true });
     }
 
+    if (quotaDiscussionEpuise(res)) return;
     let question;
     try {
       question = await demander(promptQuestion(o.offre, o.analyse, cv(), e.echanges));
@@ -1821,6 +1896,7 @@ export function creerRoutes({ db, collecter, sources, profil,
         error: 'Réponds à deux questions au moins : il n\'y a rien à débriefer avant.' });
     }
 
+    if (quotaDiscussionEpuise(res)) return;
     let texte;
     try {
       texte = await demander(promptDebrief(o.offre, o.analyse, cv(), e.echanges));
@@ -1843,6 +1919,7 @@ export function creerRoutes({ db, collecter, sources, profil,
     const o = offrePourEntretien(req.params.id);
     if (!o) return res.status(404).json({ ok: false, error: 'Offre introuvable.' });
 
+    if (quotaDiscussionEpuise(res)) return;
     let texte;
     try {
       texte = await demander(promptFiche(o.offre, o.analyse, cv()));
@@ -1884,6 +1961,7 @@ export function creerRoutes({ db, collecter, sources, profil,
     // ANCRÉ dans une recherche web : sans cela, le modèle produit des numéros
     // d'article plausibles et se déclare sûr de lui. Pour réviser du droit
     // avant un entretien, c'est le pire des cas.
+    if (quotaDiscussionEpuise(res)) return;
     let brut, sources;
     try {
       const r = await demanderAncre(promptNotions(o.offre, o.analyse, deja, type));
@@ -2034,29 +2112,111 @@ export function creerRoutes({ db, collecter, sources, profil,
 
   // --- Collecte à la demande -----------------------------------------------
 
-  routes.post('/refresh', async (req, res) => {
-    if (collecteEnCours) {
-      return res.status(409).json({ ok: false, error: 'Une collecte est déjà en cours.' });
-    }
-    collecteEnCours = true;
-    try {
-      const resume = await collecter({ db, profil, sources, cv: cv(), analyser: true });
+  /**
+   * Lance une collecte sous le verrou partagé, en direct.
+   * Commun au bouton (asynchrone) et à `/refresh` (synchrone) : un seul
+   * chemin, donc un seul verrou et un seul journal d'événements.
+   */
+  function lancerCollecte(origine) {
+    return live.executer(async (progres) => {
+      const resume = await collecter({ db, profil, sources, cv: cv(), analyser: true, progres });
       // Déclencher une collecte est une décision de l'auteur : ça vaut une
       // quête. Mais pas une journée de série — c'est le robot qui travaille.
-      journaliser(db, 'collecte', { sansActivite: true, meta: { nouvelles: resume.nouvelles } });
-      res.json({ ok: true, resume });
-    } catch (erreur) {
-      // Une collecte ratée ne doit jamais casser le dashboard : les offres
-      // déjà en base restent intactes.
-      res.status(500).json({ ok: false, error: `Collecte impossible : ${erreur.message}` });
-    } finally {
-      collecteEnCours = false;
+      journaliser(db, 'collecte', { sansActivite: true, meta: { nouvelles: resume?.nouvelles ?? 0 } });
+      return resume;
+    }, { origine });
+  }
+
+  // Conservé tel quel pour compatibilité : il ATTEND la fin de la collecte.
+  routes.post('/refresh', async (req, res) => {
+    const lance = lancerCollecte('refresh');
+    if (!lance.ok) return res.status(409).json({ ok: false, error: lance.error, id: lance.id });
+    const issue = await lance.promesse;
+    if (issue.ok) return res.json({ ok: true, resume: issue.resume });
+    // Une collecte ratée ne doit jamais casser le dashboard : les offres
+    // déjà en base restent intactes.
+    res.status(500).json({ ok: false, error: `Collecte impossible : ${issue.erreur?.message ?? issue.erreur}` });
+  });
+
+  // --- Collecte en direct (contrat 3.1) ------------------------------------
+
+  /**
+   * Lance une collecte et rend la main AUSSITÔT.
+   *
+   * `/refresh` gardait la requête ouverte pendant toute la collecte — jusqu'à
+   * quarante minutes. Un onglet fermé, un proxy qui coupe à 60 s, et le
+   * résultat était perdu pour l'interface. Ici on répond 202 avec un
+   * identifiant, et la suite arrive par le flux.
+   */
+  routes.post('/collecte/demarrer', (req, res) => {
+    const lance = lancerCollecte('bouton');
+    if (!lance.ok) return res.status(409).json({ ok: false, error: lance.error, id: lance.id });
+    res.status(202).json({ ok: true, id: lance.id });
+  });
+
+  /** L'état et le journal, pour une page qui se raccroche après un rechargement. */
+  routes.get('/collecte/etat', (req, res) => {
+    const e = live.etat();
+    res.json({ ok: true, enCours: e.enCours, id: e.id, debut: e.debut,
+      externe: e.externe, evenements: e.evenements });
+  });
+
+  /**
+   * LE FLUX EN DIRECT, en Server-Sent Events.
+   *
+   * SSE plutôt que WebSocket : un sens unique suffit, c'est du HTTP ordinaire
+   * — donc même origine, `connect-src 'self'` le couvre, l'authentification
+   * par cookie s'applique comme partout — et `EventSource` se reconnecte seul.
+   *
+   * À la connexion, on REJOUE le journal de la collecte en cours : la page
+   * rechargée en plein milieu retrouve les sources déjà interrogées et les
+   * offres déjà tombées, au lieu d'un radar vide qui ne se remplirait qu'à
+   * moitié. Rejouer puis s'abonner se fait dans le même tour de boucle :
+   * aucun événement ne peut tomber entre les deux.
+   */
+  routes.get('/collecte/flux', (req, res) => {
+    res.status(200);
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    // Un proxy qui tamponne (nginx, celui de Fly) retiendrait les événements
+    // jusqu'à la fin de la collecte : le direct deviendrait un différé.
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+
+    const envoyer = (evt) => {
+      if (res.writableEnded) return;
+      res.write(`id: ${evt.seq}\nevent: ${evt.nom}\ndata: ${JSON.stringify(evt.donnees ?? {})}\n\n`);
+    };
+
+    // Délai de reconnexion conseillé au navigateur, puis le journal.
+    res.write('retry: 3000\n\n');
+    // `?id=<id>` rejoue AUSSI une collecte déjà finie, si c'est la dernière :
+    // une collecte éclair (sources non configurées, rien de neuf) peut se
+    // terminer entre la réponse 202 et l'ouverture du flux, et le radar
+    // attendrait alors une fin déjà passée.
+    const e = live.etat();
+    if ((e.enCours && !e.externe) || (req.query.id && req.query.id === e.id)) {
+      for (const evt of e.evenements) envoyer(evt);
     }
+
+    const desabonner = live.ecouter(envoyer);
+
+    // Un commentaire toutes les 20 s : sans trafic, un proxy ou le navigateur
+    // finit par fermer une connexion qu'il croit morte.
+    const ping = setInterval(() => { if (!res.writableEnded) res.write(': ping\n\n'); }, PING_SSE_MS);
+    ping.unref?.();
+
+    // LE CLIENT PART : on lâche tout. Sans cela, chaque onglet fermé laissait
+    // un écouteur et une minuterie derrière lui, pour la vie du serveur.
+    const fermer = () => { clearInterval(ping); desabonner(); };
+    req.on('close', fermer);
+    res.on('close', fermer);
   });
 
   /** Toutes les statistiques du tableau de bord, calculées côté serveur. */
   routes.get('/stats', (req, res) => {
-    res.json({ ok: true, stats: calculerStats(db) });
+    res.json({ ok: true, stats: calculerStats(db, { profil }) });
   });
 
   /** Frise des dernières actions, pour le journal d'activité. */
@@ -2097,26 +2257,143 @@ export function creerRoutes({ db, collecter, sources, profil,
 
   // --- Import d'une offre par collage --------------------------------------
 
+  /**
+   * TROIS DÉFAUTS, CORRIGÉS ENSEMBLE (chantier 4.0).
+   *
+   *  · LE QUOTA. Le collage fait deux appels à Gemini — l'extraction, puis
+   *    l'analyse — et n'en comptait aucun. Il est vérifié avant, compté après.
+   *  · LA PURGE. L'offre était enregistrée `is_manual = 0`, comme une offre
+   *    collectée : aucune source ne la revoyant jamais, son `last_seen` ne
+   *    bougeait plus, et la purge des 30 jours l'effaçait — une annonce
+   *    LinkedIn qu'on avait pris la peine de coller disparaissait un mois
+   *    plus tard. Elle est désormais saisie manuelle, donc protégée.
+   *  · LES REJETS. Coller une offre qu'on avait écartée la remettait en base
+   *    tout en la laissant dans `rejetees` : présente à l'écran, invisible à
+   *    la collecte, et de nouveau « écartable » sans effet. Coller est un
+   *    geste explicite : il lève le rejet, et la réponse le dit.
+   */
   routes.post('/offers/paste', async (req, res) => {
+    const feuVert = peutRediger(db, profil);
+    if (!feuVert.ok) return res.status(503).json({ ok: false, error: feuVert.raison });
+
+    let brute;
     try {
-      const brute = await extraireOffreCollee(req.body?.texte);
+      brute = await IA.extraireOffreCollee(req.body?.texte);
+    } catch (erreur) {
+      return res.status(400).json({ ok: false, error: erreur.message });
+    }
+    // L'extraction est partie chez Google, qu'elle ait abouti ou non à un
+    // intitulé : elle a coûté un appel.
+    noterAppel(db, ANALYSE);
+
+    try {
       const id = offreId(brute.titre, brute.entreprise, brute.ville);
-
       const { groupe, score, detail } = scorer(brute, profil);
-      const analyse = groupe === 3 ? null : await analyserOffre(brute, cv());
 
-      upsertOffre(db, {
-        ...brute,
-        id, source: 'collage', sourcesAll: ['collage'],
-        groupe, score, scoreDetail: detail, analysisJson: analyse,
-        isManual: 0, horsZone: 0, departement: null,
+      let analyse = null;
+      if (groupe !== 3 && peutRediger(db, profil).ok) {
+        analyse = await IA.analyserOffre(brute, cv());
+        if (analyse) noterAppel(db, ANALYSE);
+      }
+
+      const etaitRejetee = Boolean(db.prepare('SELECT 1 FROM rejetees WHERE offer_id = ?').get(id));
+      transaction(db, () => {
+        upsertOffre(db, {
+          ...brute,
+          id, source: 'collage', sourcesAll: ['collage'],
+          groupe, score, scoreDetail: detail, analysisJson: analyse,
+          isManual: 1, horsZone: 0, departement: null,
+        });
+        // `upsertOffre` ne réécrit pas `is_manual` sur une offre existante :
+        // une offre collectée qu'on colle à nouveau doit pourtant passer à
+        // l'abri de la purge.
+        db.prepare('UPDATE offers SET is_manual = 1 WHERE id = ?').run(id);
+        if (etaitRejetee) db.prepare('DELETE FROM rejetees WHERE offer_id = ?').run(id);
+        journaliser(db, 'ajout', { offerId: id });
       });
 
-      journaliser(db, 'ajout', { offerId: id });
-      res.json({ ok: true, id, titre: brute.titre, groupe });
+      res.json({ ok: true, id, titre: brute.titre, groupe, analysee: Boolean(analyse), rejetLeve: etaitRejetee });
     } catch (erreur) {
       res.status(400).json({ ok: false, error: erreur.message });
     }
+  });
+
+  // --- Analyse à la demande (contrat 3.2) ----------------------------------
+
+  /**
+   * Relance l'analyse d'une offre, même déjà analysée.
+   *
+   * La collecte plafonne l'analyse et passe les prioritaires d'abord : une
+   * offre du groupe 2 pouvait attendre des jours son verdict. C'est
+   * l'auteur qui demande, donc la réserve des lettres est accessible
+   * (`peutRediger`) — c'est exactement l'usage qu'elle protège.
+   */
+  routes.post('/offers/:id/analyser', async (req, res) => {
+    const offre = db.prepare('SELECT * FROM offers WHERE id = ?').get(req.params.id);
+    if (!offre) return res.status(404).json({ ok: false, error: 'Offre introuvable.' });
+
+    if (!IA.geminiPret()) {
+      return res.status(400).json({ ok: false, error: 'La clé Gemini est nécessaire pour analyser une offre.' });
+    }
+    const texteCv = cv();
+    if (!texteCv) {
+      return res.status(400).json({ ok: false, error: 'CV absent. Dépose ton CV dans la vue « Mon CV ».' });
+    }
+    const feuVert = peutRediger(db, profil);
+    if (!feuVert.ok) return res.status(503).json({ ok: false, error: feuVert.raison });
+
+    let analyse = null;
+    try { analyse = await IA.analyserOffre(offre, texteCv); } catch { analyse = null; }
+    if (!analyse) {
+      return res.status(503).json({ ok: false,
+        error: 'L\'analyse a échoué (quota Gemini atteint ou service indisponible). Réessaie dans quelques minutes.',
+        quota: etatQuota(db, profil) });
+    }
+    noterAppel(db, ANALYSE);
+    db.prepare('UPDATE offers SET analysis_json = ?, analysis_at = ? WHERE id = ?')
+      .run(JSON.stringify(analyse), new Date().toISOString(), req.params.id);
+
+    res.json({ ok: true, analyse, quota: etatQuota(db, profil) });
+  });
+
+  // --- Rappels (contrat 3.2) -----------------------------------------------
+
+  /** Ce qui demande une action, du plus urgent au moins urgent. */
+  routes.get('/rappels', (req, res) => {
+    res.json({ ok: true, rappels: calculerRappels(db) });
+  });
+
+  // --- Agenda (contrat 3.3) ------------------------------------------------
+
+  /**
+   * Les relances et les entretiens, au format iCalendar.
+   *
+   * Un rappel qui ne vit que dans l'onglet ne sonne pas quand l'onglet est
+   * fermé. Le fichier s'importe dans n'importe quel agenda — et c'est
+   * l'agenda du téléphone qui réveille la veille d'un entretien.
+   */
+  routes.get('/agenda.ics', (req, res) => {
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="jobcockpit.ics"');
+    res.send(construireAgenda(db));
+  });
+
+  // --- Sauvegardes (contrat 3.4) -------------------------------------------
+
+  routes.get('/sauvegardes', (req, res) => {
+    const r = reglagesSauvegarde(profil);
+    let liste = [];
+    try { liste = listerSauvegardes(profil); } catch { liste = []; }
+    res.json({ ok: true, dossier: r.dossier, active: r.active,
+      sauvegardes: liste.map(s => ({ nom: s.nom, date: dateDeSauvegarde(s.nom), tailleOctets: s.octets })) });
+  });
+
+  /** Sauvegarde immédiate — le même mécanisme qu'en fin de collecte. */
+  routes.post('/sauvegardes', (req, res) => {
+    const r = sauvegarder(db, { racine, profil });
+    if (!r.ok) return res.status(503).json({ ok: false, error: `Sauvegarde impossible : ${r.erreur}` });
+    journaliser(db, 'sauvegarde', { sansActivite: true });
+    res.json({ ok: true, nom: basename(r.chemin), tailleOctets: r.octets });
   });
 
   // --- Lettres de motivation -----------------------------------------------
@@ -2174,7 +2451,7 @@ export function creerRoutes({ db, collecter, sources, profil,
     let analyse = offre.analysis_json ? JSON.parse(offre.analysis_json) : null;
     if (!analyse) {
       try {
-        analyse = await analyserOffre(offre, texteCv);
+        analyse = await IA.analyserOffre(offre, texteCv);
         if (analyse) {
           noterAppel(db, LETTRE);
           db.prepare('UPDATE offers SET analysis_json = ?, analysis_at = ? WHERE id = ?')
@@ -2186,7 +2463,7 @@ export function creerRoutes({ db, collecter, sources, profil,
       }
     }
 
-    const contenu = await genererLettre(offre, analyse, texteCv);
+    const contenu = await IA.genererLettre(offre, analyse, texteCv);
     if (contenu) noterAppel(db, LETTRE);
 
     if (!contenu) {
@@ -2196,11 +2473,14 @@ export function creerRoutes({ db, collecter, sources, profil,
       });
     }
 
-    db.prepare(`
-      INSERT INTO letters (offer_id, content, generated_at, edited) VALUES (?, ?, ?, 0)
-      ON CONFLICT(offer_id) DO UPDATE SET content = excluded.content,
-        generated_at = excluded.generated_at, edited = 0
-    `).run(req.params.id, contenu, new Date().toISOString());
+    transaction(db, () => {
+      db.prepare(`
+        INSERT INTO letters (offer_id, content, generated_at, edited) VALUES (?, ?, ?, 0)
+        ON CONFLICT(offer_id) DO UPDATE SET content = excluded.content,
+          generated_at = excluded.generated_at, edited = 0
+      `).run(req.params.id, contenu, new Date().toISOString());
+      enregistrerVersion(req.params.id, contenu, 'generee');
+    });
 
     // Une régénération n'est pas une nouvelle lettre : elle ne doit pas
     // regonfler la quête « rédiger une lettre » à chaque clic.
@@ -2303,16 +2583,96 @@ export function creerRoutes({ db, collecter, sources, profil,
     if (typeof contenu !== 'string') {
       return res.status(400).json({ ok: false, error: 'Contenu de lettre manquant.' });
     }
+    // UNE LETTRE SANS OFFRE N'EXISTE PAS. Sans ce contrôle, n'importe quel
+    // identifiant créait une ligne dans `letters` : invisible à l'écran,
+    // jamais purgée, et comptée dans « lettres rédigées » du tableau de bord.
+    if (!lireOffreComplete(req.params.id)) {
+      return res.status(404).json({ ok: false, error: 'Offre introuvable.' });
+    }
     const avant = db.prepare('SELECT edited FROM letters WHERE offer_id = ?').get(req.params.id);
+
+    transaction(db, () => {
+      db.prepare(`
+        INSERT INTO letters (offer_id, content, generated_at, edited) VALUES (?, ?, ?, 1)
+        ON CONFLICT(offer_id) DO UPDATE SET content = excluded.content, edited = 1
+      `).run(req.params.id, contenu, new Date().toISOString());
+      enregistrerVersion(req.params.id, contenu, 'retouche');
+      if (!avant?.edited) journaliser(db, 'retouche', { offerId: req.params.id });
+    });
+
+    res.json({ ok: true });
+  });
+
+  // --- Historique des versions de lettre (contrat 3.5) ---------------------
+
+  /** Au-delà, les plus anciennes versions d'une offre sont oubliées. */
+  const VERSIONS_MAX = 30;
+  /** Des retouches rapprochées forment UNE version, pas une par frappe. */
+  const FUSION_RETOUCHES_MS = 10 * 60 * 1000;
+
+  /**
+   * Enregistre une version de lettre. À appeler DANS une transaction.
+   *
+   * L'éditeur enregistre au fil de la frappe : une version par appel ferait
+   * trois cents versions d'une même lettre en une soirée, et l'historique
+   * deviendrait illisible. Une retouche qui suit une autre retouche de moins
+   * de dix minutes REMPLACE donc la précédente ; une génération ouvre
+   * toujours une version neuve.
+   */
+  function enregistrerVersion(offerId, contenu, origine) {
+    const derniere = db.prepare(
+      'SELECT version, origine, cree_le FROM lettres_versions WHERE offer_id = ? ORDER BY version DESC LIMIT 1'
+    ).get(offerId);
+    const maintenant = new Date();
+
+    if (origine === 'retouche' && derniere?.origine === 'retouche'
+        && maintenant - new Date(derniere.cree_le) < FUSION_RETOUCHES_MS) {
+      db.prepare('UPDATE lettres_versions SET content = ?, cree_le = ? WHERE offer_id = ? AND version = ?')
+        .run(contenu, maintenant.toISOString(), offerId, derniere.version);
+      return derniere.version;
+    }
+
+    const version = (derniere?.version ?? 0) + 1;
+    db.prepare('INSERT INTO lettres_versions (offer_id, version, content, origine, cree_le) VALUES (?, ?, ?, ?, ?)')
+      .run(offerId, version, contenu, origine, maintenant.toISOString());
+    db.prepare('DELETE FROM lettres_versions WHERE offer_id = ? AND version <= ?')
+      .run(offerId, version - VERSIONS_MAX);
+    return version;
+  }
+
+  routes.get('/letter/:id/versions', (req, res) => {
+    if (!lireOffreComplete(req.params.id)) {
+      return res.status(404).json({ ok: false, error: 'Offre introuvable.' });
+    }
+    const versions = db.prepare(
+      'SELECT version, origine, cree_le, content FROM lettres_versions WHERE offer_id = ? ORDER BY version DESC'
+    ).all(req.params.id).map(v => ({
+      version: v.version,
+      origine: v.origine,
+      creeLe: v.cree_le,
+      apercu: String(v.content ?? '').replace(/\s+/g, ' ').trim().slice(0, 160),
+    }));
+    res.json({ ok: true, versions });
+  });
+
+  /**
+   * Remet une version ancienne comme lettre courante.
+   * La version restaurée compte comme une retouche : c'est un choix de
+   * l'auteur, et régénérer par-dessus doit demander confirmation.
+   */
+  routes.post('/letter/:id/versions/:v/restaurer', (req, res) => {
+    if (!lireOffreComplete(req.params.id)) {
+      return res.status(404).json({ ok: false, error: 'Offre introuvable.' });
+    }
+    const v = db.prepare('SELECT content FROM lettres_versions WHERE offer_id = ? AND version = ?')
+      .get(req.params.id, Number(req.params.v));
+    if (!v) return res.status(404).json({ ok: false, error: 'Version introuvable.' });
 
     db.prepare(`
       INSERT INTO letters (offer_id, content, generated_at, edited) VALUES (?, ?, ?, 1)
       ON CONFLICT(offer_id) DO UPDATE SET content = excluded.content, edited = 1
-    `).run(req.params.id, contenu, new Date().toISOString());
-
-    if (!avant?.edited) journaliser(db, 'retouche', { offerId: req.params.id });
-
-    res.json({ ok: true });
+    `).run(req.params.id, v.content, new Date().toISOString());
+    res.json({ ok: true, contenu: v.content });
   });
 
   routes.get('/letter/:id/docx', async (req, res) => {

@@ -328,7 +328,7 @@ async function aller(destination, { empiler = true } = {}) {
     }
   } catch (e) {
     contenu = {};
-    signaler(e.message, 'erreur');
+    signaler(e.message, 'err');
   }
   contenu.charge = true;
   rendreTwitch();
@@ -513,7 +513,7 @@ export async function ouvrirLienTwitch(url) {
       c.nom.toLowerCase() === d.nom.toLowerCase()) ?? r.categories?.[0];
     if (exacte) aller({ nom: 'categorie', id: exacte.id });
     else aller({ nom: 'recherche', q: d.nom });
-  } catch (e) { signaler(e.message, 'erreur'); }
+  } catch (e) { signaler(e.message, 'err'); }
   return true;
 }
 
@@ -525,7 +525,7 @@ async function rafraichirEtat(toast) {
     etat = { configure: d.configure, connecte: d.connecte, login: d.login ?? '' };
   } catch (e) {
     etat = { ...etat, connecte: false };
-    if (toast) toast(e.message, 'erreur');
+    if (toast) toast(e.message, 'err');
   }
   rendreTwitch();
   if (etat.connecte && !contenu.charge) aller({ nom: 'accueil' }, { empiler: false });
@@ -550,7 +550,7 @@ export async function ouvrirTwitch(toast) {
 async function connecter() {
   let d;
   try { d = await API.twitchConnexion(); }
-  catch (e) { return signaler(e.message, 'erreur'); }
+  catch (e) { return signaler(e.message, 'err'); }
 
   attente = d;
   rendreTwitch();
@@ -566,7 +566,7 @@ async function connecter() {
       clearInterval(guet);
       attente = null;
       rendreTwitch();
-      return signaler('Le code a expiré — recommence.', 'erreur');
+      return signaler('Le code a expiré — recommence.', 'err');
     }
     try {
       const r = await API.twitchVerifier();
@@ -580,7 +580,7 @@ async function connecter() {
       clearInterval(guet);
       attente = null;
       rendreTwitch();
-      signaler(e.message, 'erreur');
+      signaler(e.message, 'err');
     }
   }, d.cadence ?? 5000);
 }
@@ -650,7 +650,7 @@ export function installerTwitch(toast, lancer, montrer) {
     }
     if (b.dataset.tw === 'rafraichir') return aller(vue, { empiler: false });
     if (b.dataset.tw === 'deconnexion') {
-      try { await API.twitchDeconnexion(); } catch (err) { signaler(err.message, 'erreur'); }
+      try { await API.twitchDeconnexion(); } catch (err) { signaler(err.message, 'err'); }
       contenu = { charge: false };
       pile = [];
       return rafraichirEtat(signaler);

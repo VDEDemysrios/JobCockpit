@@ -16,6 +16,7 @@
 // ne regarde. Le suivi de candidatures se scinderait en deux sans prévenir.
 
 import { lireMeta } from './db.js';
+import { creerCollecteLive } from './collecte-live.js';
 
 const SIX_HEURES_MS = 6 * 60 * 60 * 1000;
 
@@ -27,7 +28,8 @@ const SIX_HEURES_MS = 6 * 60 * 60 * 1000;
  * @param {Function} options.collecter
  * @param {object[]} options.sources
  * @param {object} options.profil
- * @param {string} options.cv
+ * @param {string|(() => string)} options.cv  relu à chaque tour si c'est une fonction
+ * @param {object} [options.live]  collecte en direct partagée (src/collecte-live.js)
  * @param {boolean} options.actif
  * @param {number} [options.intervalleMs]
  * @returns {{arreter: Function}|null}
@@ -45,31 +47,46 @@ export function demarrerPlanificateur({
   // console pendant un test le corrompt — « Unable to deserialize cloned
   // data ». Les tests passent donc un journal muet.
   journal = console,
+  // LE VERROU EST CELUI DU BOUTON. `live` est la collecte en direct créée
+  // par server.js et partagée avec l'API : passer par elle, c'est partager
+  // son verrou — et apparaître dans le radar comme n'importe quelle collecte.
+  // Absent (les tests, un usage isolé), on en crée un pour soi.
+  live = creerCollecteLive({ db }),
 }) {
   if (!actif) return null;
 
-  let enCours = false;
+  /**
+   * LE CV EST RELU À CHAQUE TOUR.
+   *
+   * Il était lu une fois au démarrage du serveur, puis figé : déposer un
+   * nouveau CV dans l'application changeait les lettres, mais la collecte
+   * automatique continuait des jours durant d'analyser les offres contre
+   * l'ANCIEN — jusqu'au prochain redémarrage, sans rien qui le dise.
+   * `cv` peut donc être une fonction ; une chaîne reste acceptée.
+   */
+  const lireCv = () => (typeof cv === 'function' ? cv() : cv) ?? '';
 
   async function tour(raison) {
     // Le bouton « Collecter » du tableau de bord peut tomber au même moment :
     // deux collectes concurrentes gaspilleraient le quota et entrelaceraient
-    // leurs écritures.
-    if (enCours) {
-      journal.warn('⏸  Collecte déjà en cours — passage suivant ignoré.');
+    // leurs écritures. Le verrou est partagé : celui qui arrive second renonce.
+    const lance = live.executer(
+      (progres) => collecter({ db, profil, sources, cv: lireCv(), analyser: true, progres }),
+      { origine: 'planificateur' });
+    if (!lance.ok) {
+      journal.warn(`⏸  ${lance.error} Passage suivant ignoré.`);
       return;
     }
-    enCours = true;
-    try {
-      journal.log(`\n⏰ Collecte automatique (${raison})`);
-      const r = await collecter({ db, profil, sources, cv, analyser: true });
+    journal.log(`\n⏰ Collecte automatique (${raison})`);
+    const issue = await lance.promesse;
+    if (issue.ok) {
+      const r = issue.resume ?? {};
       journal.log(`   ${r.nouvelles} nouvelle(s), ${r.analysees} analysée(s), ${r.dureeSecondes} s`);
-    } catch (erreur) {
+    } else {
       // Une collecte ratée ne doit jamais faire tomber le serveur : le
       // tableau de bord doit rester consultable même si les sources sont
       // injoignables.
-      journal.error('   ❌ Collecte automatique en échec :', erreur.message);
-    } finally {
-      enCours = false;
+      journal.error('   ❌ Collecte automatique en échec :', issue.erreur?.message ?? issue.erreur);
     }
   }
 
